@@ -24,6 +24,8 @@
     "@web-analytics/protocol-ts": "workspace:*"
   },
   "devDependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
     "prettier": "^3.9.7",
     "typescript": "^5.7.3",
     "vitest": "^3.0.9"

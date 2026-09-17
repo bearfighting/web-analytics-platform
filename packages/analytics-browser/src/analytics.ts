@@ -43,7 +43,11 @@ export function createAnalytics(options: AnalyticsOptions): Analytics {
 
   const reportError = (error: unknown) => {
     settledErrors.push(error);
-    options.onError?.(error);
+    try {
+      options.onError?.(error);
+    } catch {
+      // Error reporting must not replace the original SDK error.
+    }
   };
 
   const trackSend = (promise: Promise<void>) => {
@@ -121,10 +125,8 @@ export function createAnalytics(options: AnalyticsOptions): Analytics {
     },
 
     async flush() {
-      while (pendingSends.size > 0) {
-        const sends = [...pendingSends];
-        await Promise.allSettled(sends);
-      }
+      const sends = [...pendingSends];
+      await Promise.allSettled(sends);
 
       if (settledErrors.length > 0) {
         throw settledErrors.shift();

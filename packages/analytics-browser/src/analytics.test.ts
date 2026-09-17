@@ -154,7 +154,7 @@ describe("createAnalytics", () => {
     expect(flushed).toBe(true);
   });
 
-  it("waits for sends created while flushing", async () => {
+  it("does not include sends created after flushing starts", async () => {
     const resolvers: Array<() => void> = [];
     const transport: Transport = {
       sendBatch: vi.fn(
@@ -177,12 +177,11 @@ describe("createAnalytics", () => {
 
     observer.emit({ ...navigation, path: "/next" });
     resolvers[0]?.();
-    await Promise.resolve();
-    expect(flushed).toBe(false);
-
-    resolvers[1]?.();
     await flushPromise;
     expect(flushed).toBe(true);
+
+    resolvers[1]?.();
+    await analytics.flush();
   });
 
   it("reports beforeSend errors through onError and flush", async () => {
@@ -204,6 +203,24 @@ describe("createAnalytics", () => {
     await expect(analytics.flush()).rejects.toThrow("beforeSend failed");
     expect(onError).toHaveBeenCalledWith(error);
     expect(transport.batches).toHaveLength(0);
+  });
+
+  it("preserves the original error when onError throws", async () => {
+    const error = new Error("original failure");
+    const analytics = createAnalytics({
+      siteId: "site_example",
+      beforeSend: () => {
+        throw error;
+      },
+      onError: () => {
+        throw new Error("error handler failure");
+      },
+    });
+    const observer = new MemoryNavigationObserver();
+    analytics.observe(observer);
+    observer.emit(navigation);
+
+    await expect(analytics.flush()).rejects.toThrow("original failure");
   });
 
   it("is safe in Node and stops after destroy", async () => {

@@ -187,7 +187,7 @@ export interface AnalyticsOptions {
 - `beforeSend()` 返回 `null` 时丢弃事件。
 - `observe()` 返回的 unsubscribe 只解除本次订阅。
 - `destroy()` 解除订阅并阻止后续事件处理。
-- `flush()` 等待当前 in-flight sends；空 flush 是成功的 no-op。
+- `flush()` 只等待调用时已存在的 in-flight sends；flush 开始后产生的发送由下一次 flush 处理。
 - 同一 SDK 实例只维护自己的订阅、发送状态和生命周期。
 
 ## 6. Page View 语义
@@ -241,7 +241,7 @@ hash-only change   → 不生成 PageViewEvent
 PR3 只通过注入的 Transport 立即发送单事件 batch：
 
 - 不创建 Buffer，不自动聚合，也不实现重试。
-- `flush()` 只等待当前 in-flight sends。
+- `flush()` 只等待调用时已存在的 in-flight sends；flush 开始后产生的发送由下一次 flush 处理。
 - Transport 或 `beforeSend` 失败会通过 `onError` 报告，并使 `flush()` reject。
 - 失败事件不保留，具体 Fetch、Beacon 和批量策略延后到 PR4。
 
