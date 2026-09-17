@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "event_id": "01J00000000000000000000000",
+  "type": "page_view",
+  "site_id": "site_example",
+  "occurred_at": 1760000000000,
+  "path": "/about",
+  "future_field": "allowed"
+}

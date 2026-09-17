@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "events": [
+    {
+      "schema_version": 1,
+      "event_id": "01J00000000000000000000000",
+      "type": "custom",
+      "site_id": "site_example",
+      "occurred_at": 1760000000000,
+      "path": "/about"
+    }
+  ]
+}

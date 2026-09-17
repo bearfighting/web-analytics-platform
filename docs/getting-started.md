@@ -78,6 +78,14 @@ pnpm test
 
 当前还没有业务测试，命令会执行占位测试并正常结束。
 
+`pnpm test` 同时校验 Event Protocol V1 的合法和非法 fixtures。
+
+单独运行 Protocol 校验：
+
+```bash
+pnpm protocol:validate
+```
+
 ## Build
 
 ```bash
@@ -108,5 +116,4 @@ PR2 的 Compose 只运行 Playground，不包含 PostgreSQL 或其他后端服�
 
 - Analytics SDK
 - Router Observer
-- Event Protocol
 - Backend 或数据库

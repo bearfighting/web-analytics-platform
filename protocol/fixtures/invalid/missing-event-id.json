@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "type": "page_view",
+  "site_id": "site_example",
+  "occurred_at": 1760000000000,
+  "path": "/about"
+}

@@ -520,11 +520,11 @@ Checklist：
 
 ### Protocol
 
-- [ ] PageViewEvent Schema 存在。
-- [ ] EventBatch Schema 存在。
-- [ ] 合法和非法 examples / fixtures 存在。
-- [ ] Observation Contract 和 Event Protocol 的边界清楚。
-- [ ] Protocol V1 没有依赖 TypeScript 或 Rust 私有类型。
+- [x] PageViewEvent Schema 存在。
+- [x] EventBatch Schema 存在。
+- [x] 合法和非法 examples / fixtures 存在。
+- [x] Observation Contract 和 Event Protocol 的边界清楚。
+- [x] Protocol V1 没有依赖 TypeScript 或 Rust 私有类型。
 
 ### Docker
 
@@ -535,9 +535,10 @@ Checklist：
 
 ### 自动化
 
-- [ ] `./scripts/check.sh` 成功。
-- [ ] `./scripts/test.sh` 成功。
-- [ ] `./scripts/build.sh` 成功。
+- [x] `./scripts/check.sh` 成功。
+- [x] `./scripts/test.sh` 成功。
+- [x] `./scripts/build.sh` 成功。
+- [x] Protocol fixtures 可以通过自动校验。
 - [ ] 基础 CI 可以复用这些脚本。
 
 ## 7. Phase 0 退出条件

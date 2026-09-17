@@ -14,9 +14,12 @@
     "build": "./scripts/build.sh",
     "format": "./scripts/format.sh",
     "format:check": "./scripts/format-check.sh",
-    "docker:dev": "./scripts/docker-dev.sh"
+    "docker:dev": "./scripts/docker-dev.sh",
+    "protocol:validate": "node ./scripts/validate-protocol.mjs"
   },
   "devDependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
     "prettier": "^3.9.7"
   }
 }
