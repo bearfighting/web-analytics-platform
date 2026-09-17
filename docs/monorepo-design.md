@@ -188,9 +188,10 @@ protocol/schemas/*.json
 protocol
 examples/nextjs-router-playground
 pnpm workspace 基础文件
-Cargo workspace 基础文件
 scripts 基础入口
 ```
+
+Phase 0 不创建 Cargo workspace 基础文件。进入 Backend 阶段后，再根据 Backend 的实际实现需要添加 `Cargo.toml`、`rust-toolchain.toml` 和 `crates/`。
 
 后续模块创建顺序：
 
