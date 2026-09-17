@@ -43,7 +43,7 @@ Rust / Cargo workspace、`rust-toolchain.toml` 和 `crates/` 不属于 Phase 0�
 - `observer-core`
 - `observer-next`
 - 基础 HTTP / Beacon transport
-- Version 1 Event Protocol
+- 使用已在 Phase 0 完成的 Event Protocol V1；不提前创建 Protocol TypeScript package
 - Collector
 - PostgreSQL raw event storage
 - 基础 Processor

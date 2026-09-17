@@ -8,7 +8,7 @@
 
 ## 当前状态
 
-项目目前处于 Phase 0：项目基础设计和工程准备阶段。
+项目已完成 Phase 0：项目基础设计和工程准备阶段，下一阶段从 Client SDK 开始。
 
 当前已具备：
 
@@ -17,7 +17,7 @@
 - Next.js App Router Router Playground
 - Docker / Docker Compose 开发环境
 
-PR3 已加入 Event Protocol V1 的 Schema、examples、fixtures 和自动校验。PR2 的 Next.js App Router Playground 和 Docker 开发方式仍可参考 [Getting Started](docs/getting-started.md)。
+Phase 0 的 Event Protocol、Router Playground、Docker 开发环境和基础工程治理已经完成。可以参考 [Getting Started](docs/getting-started.md) 启动项目。
 
 正式的 Client SDK、Backend、Storage 和 Dashboard 将按照路线图线性实现，不会在项目启动时一次性创建全部模块。
 
@@ -78,8 +78,9 @@ Phase 4  Dashboard
 - [Monorepo Design](docs/monorepo-design.md)
 - [Phase 0 Design](docs/phase-0-design.md)
 - [Event Protocol](docs/event-protocol.md)
+- [Router Playground](docs/router-playground.md)
 
-项目协作规则见 [AGENTS.md](AGENTS.md)。
+项目协作规则见 [AGENTS.md](AGENTS.md)。CI 使用与本地相同的统一脚本，并额外验证 Docker Compose 配置。
 
 ## 技术方向
 

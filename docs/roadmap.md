@@ -10,7 +10,9 @@
 
 详细执行方案见：[phase-0-design.md](phase-0-design.md)。
 
-目标：只建立 Monorepo 的基础骨架，并完成 Event Protocol V1 的初步设计。
+目标：建立 Monorepo、开发环境、Router Playground 和 Event Protocol V1，并完成基础工程治理。
+
+当前状态：Phase 0 已完成，下一阶段从 Phase 1 Client SDK 开始。
 
 交付：
 
@@ -24,6 +26,7 @@
 - Docker / Docker Compose 开发环境
 - `.env.example`、`.dockerignore` 和 Node / pnpm 版本锁定文件
 - 最小的统一脚本入口结构
+- GitHub Actions CI 和 Phase 0 架构决策记录
 
 本阶段不创建或实现 Client SDK、Backend、Storage、Processor、API 或 Dashboard 模块。Router Playground 只是测试目标和行为参考，不包含 Analytics 实现。Compose 只提供基础开发环境，不提前容器化尚未存在的业务服务。
 
@@ -40,7 +43,7 @@ Router Playground 至少覆盖：
 - 动态路由页面
 - 嵌套路由和共享 layout
 
-Rust / Cargo workspace 不属于 Phase 0，等进入 Backend 阶段时再建立。验收：Monorepo 可以通过统一命令启动基础开发环境；Protocol Schema、examples 和 fixture 结构明确；Router Playground 可以独立启动并复现常见导航场景，后续 Client SDK 可以直接接入测试。
+Rust / Cargo workspace 不属于 Phase 0，等进入 Backend 阶段时再建立。PostgreSQL profile 同样延后到 Storage 阶段。验收：Monorepo 可以通过统一命令启动和验证基础开发环境；Protocol Schema、examples 和 fixture 可以自动校验；Router Playground 可以独立启动并复现常见导航场景，后续 Client SDK 可以直接接入测试。
 
 ## Phase 1 — Client SDK
 

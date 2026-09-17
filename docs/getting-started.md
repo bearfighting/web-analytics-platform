@@ -110,6 +110,12 @@ http://localhost:3000
 
 PR2 的 Compose 只运行 Playground，不包含 PostgreSQL 或其他后端服务。
 
+## CI
+
+GitHub Actions 会复用本地检查命令，并额外验证 Docker Compose 配置。CI 不构建或启动 Docker 镜像。
+
+Phase 0 没有必需的环境变量；`.env.example` 仅用于说明未来配置的预留位置。
+
 ## Scope
 
 本阶段不包含：

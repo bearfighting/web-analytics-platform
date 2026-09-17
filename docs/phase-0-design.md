@@ -1,6 +1,6 @@
 # Phase 0 Design — Project Foundation
 
-> Status: Temporary working design
+> Status: Completed
 > Scope: Monorepo foundation, Event Protocol V1, Next.js Router Playground, Docker development environment
 
 ## 1. Phase 0 定义
@@ -101,13 +101,22 @@ web-analytics-platform/
 │   ├── dev.sh
 │   ├── check.sh
 │   ├── test.sh
-│   └── build.sh
+│   ├── build.sh
+│   ├── format.sh
+│   ├── format-check.sh
+│   ├── docker-dev.sh
+│   └── validate-protocol.mjs
 ├── docker/
 │   ├── nextjs-router-playground.Dockerfile
 │   └── README.md
 ├── docs/
 │   ├── decisions/
+│   ├── getting-started.md
+│   ├── event-protocol.md
+│   ├── router-playground.md
 │   └── phase-0-design.md
+├── .github/
+│   └── workflows/ci.yml
 ├── compose.yaml
 ├── .env.example
 ├── .dockerignore
@@ -155,11 +164,11 @@ Docker Compose
 
 Checklist：
 
-- [ ] Node.js 最低版本已确定。
-- [ ] pnpm 版本已确定。
-- [ ] Docker Desktop / Docker Engine 要求已记录。
-- [ ] Compose 命令格式已确认使用 `docker compose`。
-- [ ] 版本要求已写入 README。
+- [x] Node.js 最低版本已确定。
+- [x] pnpm 版本已确定。
+- [x] Docker Desktop / Docker Engine 要求已记录。
+- [x] Compose 命令格式已确认使用 `docker compose`。
+- [x] 版本要求已写入 README。
 
 ## Step 2 — 创建 pnpm Monorepo
 
@@ -189,11 +198,11 @@ packages:
 
 Checklist：
 
-- [ ] 根 `package.json` 已创建。
-- [ ] `pnpm-workspace.yaml` 已创建。
-- [ ] workspace 不包含不存在的目录。
-- [ ] `pnpm install` 可以完成。
-- [ ] Node / pnpm 版本命令可复现。
+- [x] 根 `package.json` 已创建。
+- [x] `pnpm-workspace.yaml` 已创建。
+- [x] workspace 不包含不存在的目录。
+- [x] `pnpm install` 可以完成。
+- [x] Node / pnpm 版本命令可复现。
 
 ## Step 3 — 创建 Next.js Router Playground
 
@@ -247,17 +256,17 @@ observed change
 
 Checklist：
 
-- [ ] 首次打开 `/` 可以正常渲染。
-- [ ] `<Link>` 可以触发客户端导航。
-- [ ] `router.push()` 可以触发客户端导航。
-- [ ] `router.replace()` 可以触发客户端导航。
-- [ ] 浏览器 back / forward 可以工作。
-- [ ] 动态路由可以工作。
-- [ ] pathname 变化可以观察。
-- [ ] search params 变化可以观察。
-- [ ] hash 变化的行为已记录。
-- [ ] 嵌套路由和共享 layout 可以工作。
-- [ ] Playground 可以在 host 和 Docker 环境运行。
+- [x] 首次打开 `/` 可以正常渲染。
+- [x] `<Link>` 可以触发客户端导航。
+- [x] `router.push()` 可以触发客户端导航。
+- [x] `router.replace()` 可以触发客户端导航。
+- [x] 浏览器 back / forward 可以工作。
+- [x] 动态路由可以工作。
+- [x] pathname 变化可以观察。
+- [x] search params 变化可以观察。
+- [x] hash 变化的行为已记录。
+- [x] 嵌套路由和共享 layout 可以工作。
+- [x] Playground 可以在 host 和 Docker 环境运行。
 
 ## Step 4 — 确定 Navigation Observation Contract
 
@@ -311,11 +320,11 @@ route_pattern：可选
 
 Checklist：
 
-- [ ] 接口与 Analytics Core 无关。
-- [ ] 接口不依赖 Next.js 或 React Router 类型。
-- [ ] Playground 中的场景都能映射到接口。
-- [ ] 事件字段的必填性已确定。
-- [ ] hash 行为已有明确决定。
+- [x] 接口与 Analytics Core 无关。
+- [x] 接口不依赖 Next.js 或 React Router 类型。
+- [x] Playground 中的场景都能映射到接口。
+- [x] 事件字段的必填性已确定。
+- [x] hash 行为已有明确决定。
 
 ## Step 5 — 设计 Event Protocol V1
 
@@ -377,13 +386,13 @@ Custom Event 留到后续阶段
 
 Checklist：
 
-- [ ] JSON Schema 已创建。
-- [ ] Page View example 已创建。
-- [ ] EventBatch example 已创建。
-- [ ] 合法 fixture 已创建。
-- [ ] 非法 fixture 已创建。
-- [ ] 字段限制已记录。
-- [ ] V1 兼容规则已记录。
+- [x] JSON Schema 已创建。
+- [x] Page View example 已创建。
+- [x] EventBatch example 已创建。
+- [x] 合法 fixture 已创建。
+- [x] 非法 fixture 已创建。
+- [x] 字段限制已记录。
+- [x] V1 兼容规则已记录。
 
 ## Step 6 — 配置 Docker / Docker Compose
 
@@ -422,14 +431,14 @@ dashboard
 
 Checklist：
 
-- [ ] `docker compose config` 可以通过。
-- [ ] 默认 profile 可以启动 Playground。
-- [ ] `storage` profile 可以按需启动 PostgreSQL。
-- [ ] 端口和环境变量有明确约定。
-- [ ] secrets 不写入镜像或提交文件。
-- [ ] Docker volume 行为已记录。
-- [ ] Playground 支持开发模式 hot reload，或有明确替代方案。
-- [ ] host 启动方式和 Docker 启动方式都已记录。
+- [x] `docker compose config` 可以通过。
+- [x] 默认 profile 可以启动 Playground。
+- [x] `storage` profile 已明确延后到 Storage 阶段。
+- [x] 端口和环境变量有明确约定。
+- [x] secrets 不写入镜像或提交文件。
+- [x] Docker volume 行为已记录。
+- [x] Playground 支持开发模式 hot reload，或有明确替代方案。
+- [x] host 启动方式和 Docker 启动方式都已记录。
 
 ## Step 7 — 建立统一脚本
 
@@ -461,19 +470,19 @@ Markdown / 配置文件基础检查
 
 Checklist：
 
-- [ ] 脚本具有可执行权限。
-- [ ] 脚本失败时返回非零退出码。
-- [ ] 脚本不依赖未创建的后端模块。
-- [ ] 脚本在 host 环境可执行。
-- [ ] 脚本与 Docker 开发方式的职责已区分。
-- [ ] CI 可以复用 `check.sh` 和 `test.sh`。
-- [ ] `pnpm format` 可以格式化项目文件。
-- [ ] `pnpm format:check` 可以检查格式和 trailing newline。
-- [ ] `pnpm check` 包含格式检查、import 排序和空行规则。
+- [x] 脚本具有可执行权限。
+- [x] 脚本失败时返回非零退出码。
+- [x] 脚本不依赖未创建的后端模块。
+- [x] 脚本在 host 环境可执行。
+- [x] 脚本与 Docker 开发方式的职责已区分。
+- [x] CI 可以复用 `check.sh` 和 `test.sh`。
+- [x] `pnpm format` 可以格式化项目文件。
+- [x] `pnpm format:check` 可以检查格式和 trailing newline。
+- [x] `pnpm check` 包含格式检查、import 排序和空行规则。
 
 ## Step 8 — 编写启动文档和决策记录
 
-建议创建：
+已创建：
 
 ```text
 docs/getting-started.md
@@ -495,21 +504,21 @@ docs/decisions/ADR-002-nextjs-app-router-first.md
 
 Checklist：
 
-- [ ] 新开发者无需阅读聊天记录即可启动项目。
-- [ ] Host 和 Docker 两种启动方式都有说明。
-- [ ] Phase 0 的非目标已记录。
-- [ ] 关键架构决策有 ADR。
-- [ ] 后续工作入口已链接到 roadmap。
+- [x] 新开发者无需阅读聊天记录即可启动项目。
+- [x] Host 和 Docker 两种启动方式都有说明。
+- [x] Phase 0 的非目标已记录。
+- [x] 关键架构决策有 ADR。
+- [x] 后续工作入口已链接到 roadmap。
 
 ## 6. Phase 0 验收清单
 
 ### 工程基础
 
-- [ ] 项目可以通过 pnpm 安装。
-- [ ] workspace 只包含实际存在的 TypeScript 项目。
-- [ ] Node / pnpm 版本可复现。
-- [ ] 没有空的 Client、Backend、Storage 或 Dashboard package。
-- [ ] 没有 Cargo workspace 或 Rust 启动依赖。
+- [x] 项目可以通过 pnpm 安装。
+- [x] workspace 只包含实际存在的 TypeScript 项目。
+- [x] Node / pnpm 版本可复现。
+- [x] 没有空的 Client、Backend、Storage 或 Dashboard package。
+- [x] 没有 Cargo workspace 或 Rust 启动依赖。
 
 ### Router Playground
 
@@ -530,8 +539,8 @@ Checklist：
 
 - [x] 默认 Compose 环境可以启动。
 - [x] Router Playground 可以在 Docker 中运行。
-- [ ] PostgreSQL profile 配置已准备或明确延后到 Storage 阶段。
-- [ ] 环境变量模板存在。
+- [x] PostgreSQL profile 已明确延后到 Storage 阶段。
+- [x] 环境变量模板存在。
 
 ### 自动化
 
@@ -539,7 +548,7 @@ Checklist：
 - [x] `./scripts/test.sh` 成功。
 - [x] `./scripts/build.sh` 成功。
 - [x] Protocol fixtures 可以通过自动校验。
-- [ ] 基础 CI 可以复用这些脚本。
+- [x] 基础 CI 可以复用这些脚本。
 
 ## 7. Phase 0 退出条件
 
