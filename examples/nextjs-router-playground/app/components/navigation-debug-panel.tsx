@@ -1,10 +1,14 @@
 "use client";
 
+import { createAnalytics } from "@web-analytics/analytics-browser";
+import { MemoryNavigationObserver } from "@web-analytics/observer-core";
 import { NextNavigationBridge } from "@web-analytics/observer-next";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
+import type { Transport } from "@web-analytics/analytics-core";
 import type { NavigationEvent } from "@web-analytics/observer-core";
+import type { PageViewEvent } from "@web-analytics/protocol-ts";
 
 type NavigationLogEntry = NavigationEvent & {
   timestamp: string;
@@ -13,6 +17,32 @@ type NavigationLogEntry = NavigationEvent & {
 
 const MAX_LOG_ENTRIES = 20;
 
+class PlaygroundMockTransport implements Transport {
+  constructor(private readonly onSend: (events: readonly PageViewEvent[]) => void) {}
+
+  async sendBatch(events: readonly PageViewEvent[]) {
+    this.onSend(events);
+  }
+}
+
+interface WorkflowState {
+  bufferedEvents: number;
+  sentBatches: number;
+  sentEvents: number;
+  lastBatchSize: number | null;
+  lastSentAt: string | null;
+  lastError: string | null;
+}
+
+const initialWorkflowState: WorkflowState = {
+  bufferedEvents: 0,
+  sentBatches: 0,
+  sentEvents: 0,
+  lastBatchSize: null,
+  lastSentAt: null,
+  lastError: null,
+};
+
 export function NavigationDebugPanel() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -20,6 +50,9 @@ export function NavigationDebugPanel() {
   const [documentTitle, setDocumentTitle] = useState("");
   const [currentUrl, setCurrentUrl] = useState("");
   const [logs, setLogs] = useState<NavigationLogEntry[]>([]);
+  const [workflow, setWorkflow] = useState(initialWorkflowState);
+  const [analyticsReady, setAnalyticsReady] = useState(false);
+  const observer = useMemo(() => new MemoryNavigationObserver(), []);
 
   const handleNavigation = useCallback((event: NavigationEvent) => {
     setCurrentUrl(event.url);
@@ -51,9 +84,41 @@ export function NavigationDebugPanel() {
     return () => window.removeEventListener("hashchange", updateHash);
   }, []);
 
+  useEffect(() => {
+    const transport = new PlaygroundMockTransport((events) => {
+      setWorkflow((current) => ({
+        ...current,
+        sentBatches: current.sentBatches + 1,
+        sentEvents: current.sentEvents + events.length,
+        lastBatchSize: events.length,
+        lastSentAt: new Date().toISOString(),
+      }));
+    });
+    const analytics = createAnalytics({
+      siteId: "site_playground",
+      transport,
+      onBufferChange: (bufferedEvents) =>
+        setWorkflow((current) => ({ ...current, bufferedEvents })),
+      onError: (error) =>
+        setWorkflow((current) => ({
+          ...current,
+          lastError: error instanceof Error ? error.message : String(error),
+        })),
+    });
+    const unsubscribe = analytics.observe(observer);
+    setAnalyticsReady(true);
+
+    return () => {
+      unsubscribe();
+      analytics.destroy();
+    };
+  }, [observer]);
+
   return (
     <>
-      <NextNavigationBridge onNavigation={handleNavigation} />
+      {analyticsReady ? (
+        <NextNavigationBridge observer={observer} onNavigation={handleNavigation} />
+      ) : null}
       <section aria-label="Navigation debug panel">
         <h2>Navigation Debug Panel</h2>
         <dl>
@@ -85,6 +150,23 @@ export function NavigationDebugPanel() {
             ))}
           </ol>
         )}
+      </section>
+      <section aria-label="SDK workflow debug panel">
+        <h2>SDK Workflow Debug Panel</h2>
+        <dl>
+          <dt>Buffered events</dt>
+          <dd>{workflow.bufferedEvents}</dd>
+          <dt>Sent batches</dt>
+          <dd>{workflow.sentBatches}</dd>
+          <dt>Sent events</dt>
+          <dd>{workflow.sentEvents}</dd>
+          <dt>Last batch size</dt>
+          <dd>{workflow.lastBatchSize ?? "(none)"}</dd>
+          <dt>Last sent at</dt>
+          <dd>{workflow.lastSentAt ?? "(none)"}</dd>
+          <dt>Last error</dt>
+          <dd>{workflow.lastError ?? "(none)"}</dd>
+        </dl>
       </section>
     </>
   );

@@ -19,6 +19,9 @@ export interface AnalyticsOptions {
   createEventId?: () => string;
   now?: () => number;
   onError?: (error: unknown) => void;
+  onBufferChange?: (bufferSize: number) => void;
+  bufferSize?: number;
+  flushIntervalMs?: number;
 }
 
 export interface Analytics {
@@ -38,8 +41,20 @@ export function createAnalytics(options: AnalyticsOptions): Analytics {
   const now = options.now ?? Date.now;
   const subscriptions = new Set<() => void>();
   const pendingSends = new Set<Promise<void>>();
+  const buffer: PageViewEvent[] = [];
   const settledErrors: unknown[] = [];
+  const bufferSize = normalizePositiveInteger(options.bufferSize, 20);
+  const flushIntervalMs = normalizePositiveInteger(options.flushIntervalMs, 5000);
+  let flushTimer: ReturnType<typeof setInterval> | undefined;
   let destroyed = false;
+
+  const notifyBufferChange = () => {
+    try {
+      options.onBufferChange?.(buffer.length);
+    } catch {
+      // Observability callbacks must not interrupt event processing.
+    }
+  };
 
   const reportError = (error: unknown) => {
     settledErrors.push(error);
@@ -63,6 +78,41 @@ export function createAnalytics(options: AnalyticsOptions): Analytics {
     );
   };
 
+  const sendBatch = (events: PageViewEvent[]) => {
+    try {
+      trackSend(Promise.resolve(transport.sendBatch(events)));
+    } catch (error) {
+      reportError(error);
+    }
+  };
+
+  const flushBuffer = () => {
+    if (buffer.length === 0) {
+      return;
+    }
+
+    const events = buffer.splice(0, buffer.length);
+    notifyBufferChange();
+    sendBatch(events);
+  };
+
+  const ensureFlushTimer = () => {
+    if (flushTimer || typeof window === "undefined") {
+      return;
+    }
+
+    flushTimer = setInterval(flushBuffer, flushIntervalMs);
+  };
+
+  const enqueue = (event: PageViewEvent) => {
+    buffer.push(event);
+    notifyBufferChange();
+
+    if (buffer.length >= bufferSize) {
+      void flushBuffer();
+    }
+  };
+
   const handleNavigation = (navigation: NavigationEvent, occurredAt?: number) => {
     if (destroyed) {
       return;
@@ -83,11 +133,7 @@ export function createAnalytics(options: AnalyticsOptions): Analytics {
         return;
       }
 
-      try {
-        trackSend(Promise.resolve(transport.sendBatch([processed])));
-      } catch (error) {
-        reportError(error);
-      }
+      enqueue(processed);
     } catch (error) {
       reportError(error);
     }
@@ -99,6 +145,7 @@ export function createAnalytics(options: AnalyticsOptions): Analytics {
         return () => {};
       }
 
+      ensureFlushTimer();
       let active = true;
       const unsubscribeObserver = observer.subscribe(handleNavigation);
       const unsubscribe = () => {
@@ -118,6 +165,7 @@ export function createAnalytics(options: AnalyticsOptions): Analytics {
       if (destroyed) {
         return;
       }
+      ensureFlushTimer();
       const navigation = getCurrentNavigation(now);
       if (navigation) {
         handleNavigation(navigation, navigation.occurredAt);
@@ -125,6 +173,7 @@ export function createAnalytics(options: AnalyticsOptions): Analytics {
     },
 
     async flush() {
+      flushBuffer();
       const sends = [...pendingSends];
       await Promise.allSettled(sends);
 
@@ -138,9 +187,19 @@ export function createAnalytics(options: AnalyticsOptions): Analytics {
         return;
       }
       destroyed = true;
+      if (flushTimer) {
+        clearInterval(flushTimer);
+        flushTimer = undefined;
+      }
+      buffer.splice(0, buffer.length);
+      notifyBufferChange();
       for (const unsubscribe of [...subscriptions]) {
         unsubscribe();
       }
     },
   };
+}
+
+function normalizePositiveInteger(value: number | undefined, fallback: number): number {
+  return value !== undefined && Number.isInteger(value) && value > 0 ? value : fallback;
 }

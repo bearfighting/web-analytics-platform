@@ -5,7 +5,7 @@
 - Node.js 22 LTS
 - pnpm 11
 
-Phase 0 不需要 Rust、Cargo、PostgreSQL 或其他后端依赖。Docker 是可选的 Playground 开发方式。
+Phase 0 和 Phase 1 不需要 Rust、Cargo、PostgreSQL 或其他后端依赖。Docker 是可选的 Playground 开发方式。
 
 ## Install
 
@@ -108,7 +108,7 @@ pnpm docker:dev
 http://localhost:3000
 ```
 
-PR2 的 Compose 只运行 Playground，不包含 PostgreSQL 或其他后端服务。
+当前 Compose 只运行 Playground，不包含 PostgreSQL 或其他后端服务；页面内的 SDK workflow 使用本地 MockTransport，不发起真实 API request。
 
 ## CI
 
@@ -124,9 +124,10 @@ Phase 0 没有必需的环境变量；`.env.example` 仅用于说明未来配置
 - `observer-next` 的 Next.js App Router Adapter
 - `analytics-core` 的基础事件管线
 - `analytics-browser` 的 Browser SDK runtime 和 Context provider
+- Browser SDK 的本地 Mock Buffer workflow
 - Next.js Router Playground
 
 当前仍不包含：
 
-- 真实 Transport、Buffer 和网络发送
+- 真实 Transport、API request、Buffer 持久化和网络发送
 - Backend、Storage、数据库或 Dashboard

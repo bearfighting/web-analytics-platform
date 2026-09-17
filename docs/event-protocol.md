@@ -1,6 +1,6 @@
 # Event Protocol V1
 
-Event Protocol V1 是 Client SDK 和 Backend 之间的跨语言契约。PR3 只定义和验证 Page View 事件，不实现事件采集、发送或服务端处理。
+Event Protocol V1 是 Client SDK 和 Backend 之间的跨语言契约。Phase 0 的 Protocol PR3 只定义和验证 Page View 事件，不实现事件采集、发送或服务端处理；Client SDK 的运行时实现见 Phase 1 文档。
 
 ## PageViewEvent
 

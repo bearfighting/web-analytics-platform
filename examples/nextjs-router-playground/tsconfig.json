@@ -19,7 +19,12 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@web-analytics/analytics-browser": ["../../packages/analytics-browser/src/index.ts"],
+      "@web-analytics/analytics-core": ["../../packages/analytics-core/src/index.ts"],
+      "@web-analytics/observer-core": ["../../packages/observer-core/src/index.ts"],
+      "@web-analytics/observer-next": ["../../packages/observer-next/src/index.ts"],
+      "@web-analytics/protocol-ts": ["../../packages/protocol-ts/src/index.ts"]
     }
   },
   "include": [

@@ -67,7 +67,7 @@ services/
 
 ### `packages/analytics-core`
 
-Framework-agnostic 的 SDK 核心，负责 Event 构造、生命周期、Buffer、去重和 Transport 调用。
+Framework-agnostic 的 SDK 核心，负责 Event 构造、`beforeSend`、去重和 Transport contract。运行时 Buffer 属于 `analytics-browser`。
 
 不得依赖 React、Next.js 或具体 Router。
 
@@ -81,7 +81,7 @@ Framework-agnostic 的 SDK 核心，负责 Event 构造、生命周期、Buffer�
 
 ### `packages/analytics-browser`
 
-浏览器上下文采集，例如 URL、title、referrer、UTM、language、timezone、viewport 和基础 User-Agent 信息。
+浏览器上下文采集，以及有界内存 Buffer、flush 生命周期和可注入 Transport 的浏览器运行时。例如 URL、title、referrer、UTM、language、timezone、viewport 和基础 User-Agent 信息。
 
 ### `packages/transport`
 
@@ -202,7 +202,7 @@ packages/observer-next/
 packages/analytics-browser/
 ```
 
-后续的 `transport` 只在对应 PR 开始时添加，避免长期保留空模块。
+后续的 `transport` 只在 Backend API 契约确定后添加，避免长期保留空模块。当前 Buffer 属于 `analytics-browser`，不创建空的 `transport` package。
 
 Phase 1 的 package 创建顺序是：`protocol-ts`、`observer-core`、`analytics-core`、`observer-next`、`analytics-browser`，具体 Transport 实现延后到后续 PR。
 

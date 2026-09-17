@@ -12,7 +12,7 @@
 
 目标：建立 Monorepo、开发环境、Router Playground 和 Event Protocol V1，并完成基础工程治理。
 
-当前状态：Phase 0 已完成，下一阶段从 Phase 1 Client SDK 开始。
+当前状态：Phase 0 已完成。
 
 交付：
 
@@ -51,6 +51,8 @@ Rust / Cargo workspace 不属于 Phase 0，等进入 Backend 阶段时再建立�
 
 目标：实现第一个可使用的浏览器端 SDK，并建立可扩展的 Router Adapter 机制。
 
+当前状态：Phase 1 已完成，下一阶段进入 Phase 2 Backend Collector。SDK 已支持 Next.js App Router、Browser Context、有界内存 Buffer、flush 和本地 MockTransport workflow。
+
 交付：
 
 - `NavigationObserver` 接口
@@ -61,11 +63,14 @@ Rust / Cargo workspace 不属于 Phase 0，等进入 Backend 阶段时再建立�
 - `pageview()`
 - `observe()`
 - 基础 `beforeSend()` 扩展点
-- 基础事件 ID、Buffer 和 flush
+- 基础事件 ID、有界内存 Buffer 和 flush
 - `observer-next`，只支持 Next.js App Router
 - 基础 Browser Context 采集
+- 本地 MockTransport workflow
 
 不实现 React Router、TanStack Router 或其他 Adapter。其他 Router 只通过接口设计保留扩展空间。
+
+真实 Fetch/Beacon Transport、API endpoint 和 Backend 契约留待 Phase 2 确定后实现。
 
 ## Phase 2 — Backend Collector
 

@@ -1,7 +1,7 @@
 # Phase 1 Design — Client SDK
 
-> Status: Working design
-> Scope: Framework-agnostic Client SDK, NavigationObserver, Next.js App Router Adapter, Browser Context and basic Transport
+> Status: Complete
+> Scope: Framework-agnostic Client SDK, NavigationObserver, Next.js App Router Adapter, Browser Context, bounded Buffer and local Mock workflow
 
 ## 1. Phase 1 定义
 
@@ -15,7 +15,8 @@ Next.js App Router
   → analytics-core
   → PageViewEvent
   → Browser Context
-  → injected Transport
+  → bounded Buffer
+  → local MockTransport
 ```
 
 Phase 1 不依赖 Backend、数据库或 Dashboard。发送能力使用可替换的 Transport 和 Mock Transport 验证，真实 Collector 在 Phase 2 实现。
@@ -32,8 +33,8 @@ Phase 1 不依赖 Backend、数据库或 Dashboard。发送能力使用可替换
 - 支持手动 `pageview()` 和自动导航观察。
 - 支持基础 Browser Context 采集。
 - 提供可替换的 Transport 接口。
-- 提供 Transport contract、立即单事件发送和 `beforeSend()` 扩展点；Buffer 和批量 flush 延后。
-- 通过 Mock Transport 验证 SDK workflow；完整 Playground SDK workflow 延后到 Transport PR。
+- 提供 Transport contract、`beforeSend()` 扩展点、有界内存 Buffer 和 flush。
+- 通过本地 Mock Transport 验证完整 SDK workflow；真实 HTTP Transport 延后到 Backend API 契约确定后。
 
 ### 2.2 不属于本阶段
 
@@ -59,7 +60,7 @@ Protocol TypeScript types
   → Next.js Adapter
   → Browser Context
   → Browser SDK runtime
-  → Transport / Buffer (later)
+  → bounded Buffer / local MockTransport
 ```
 
 ### 3.2 JSON Schema 是协议事实来源
@@ -82,7 +83,7 @@ SDK package 可以被 SSR 应用导入。`window`、`document`、`navigator` 等
 
 ## 4. Phase 1 目标目录
 
-完成 Phase 1 后，实际创建：
+Phase 1 已创建并验证：
 
 ```text
 packages/
@@ -91,8 +92,9 @@ packages/
 ├── observer-next/
 ├── analytics-core/
 ├── analytics-browser/
-└── transport/
 ```
+
+`transport/` 是后续目标目录，当前不创建；真实 HTTP Transport 等 Backend API 契约确定后再加入。
 
 Package 都加入 pnpm workspace，并包含自己的 `package.json`、`src/` 和测试。
 
@@ -143,7 +145,7 @@ export interface NavigationObserver {
 
 ### 5.2 Transport
 
-定义在 `transport` 或 SDK 公共类型中：
+定义在 `analytics-core`，由 SDK 和未来的 Transport 实现使用：
 
 ```ts
 export interface Transport {
@@ -151,11 +153,10 @@ export interface Transport {
 }
 ```
 
-实现：
+当前实现：
 
-- `MockTransport`：测试和 Playground 使用。
-- `FetchTransport`：向配置的 endpoint 发送 JSON batch。
-- `BeaconTransport`：页面卸载等场景使用 `navigator.sendBeacon`。
+- 本地 MockTransport：测试和 Playground 使用。
+- 真实 HTTP Transport（Fetch、Beacon 等）延后到 Backend API 契约确定后。
 
 Transport 不负责 Schema 业务决策、Site 校验、鉴权或重试策略。Collector 的安全和请求校验在 Phase 2 实现。
 
@@ -179,6 +180,8 @@ export interface AnalyticsOptions {
   siteId: string;
   transport?: Transport;
   beforeSend?: (event: PageViewEvent) => PageViewEvent | null;
+  bufferSize?: number;
+  flushIntervalMs?: number;
 }
 ```
 
@@ -236,14 +239,16 @@ hash-only change   → 不生成 PageViewEvent
 - 不将 Context provider 与 Next.js 类型绑定。
 - Browser Context 与 NavigationEvent 的基础 URL 信息合并时，当前导航事件值优先。
 
-## 8. PR3 运行时发送边界
+## 8. Buffer 和发送边界
 
-PR3 只通过注入的 Transport 立即发送单事件 batch：
+Phase 1 使用 `analytics-browser` 内部的有界内存 Buffer：
 
-- 不创建 Buffer，不自动聚合，也不实现重试。
-- `flush()` 只等待调用时已存在的 in-flight sends；flush 开始后产生的发送由下一次 flush 处理。
-- Transport 或 `beforeSend` 失败会通过 `onError` 报告，并使 `flush()` reject。
-- 失败事件不保留，具体 Fetch、Beacon 和批量策略延后到 PR4。
+- 默认最多缓存 20 条事件，达到上限后异步 flush。
+- 默认每 5 秒检查一次；Buffer 为空时不调用 Transport。
+- `flush()` 只等待调用时已存在的 Buffer 和 in-flight sends。
+- flush 开始后产生的事件由下一次 flush 处理。
+- Transport 或 `beforeSend` 失败会通过 `onError` 报告；失败事件丢弃，不自动重试。
+- 不使用持久化存储，不实现 Fetch、Beacon 或真实网络发送。
 
 ## 9. PR 划分
 
@@ -269,11 +274,11 @@ PR2 的接入组件为 `NextNavigationBridge`：它在 Client Component 中接�
 
 创建 `analytics-browser`，实现 `createAnalytics()`、手动 `pageview()`、Observer 订阅、Browser Context 和 SSR 安全。不连接真实 Backend，使用 fake observer 和 mock transport 测试。
 
-### PR4 — Transport, Buffer and workflow
+### PR4 — Browser Buffer and local Mock workflow
 
-分支：`phase-1/pr4-transport-and-flush`
+分支：`phase-1/pr4-browser-buffer-workflow`
 
-创建 `transport`，实现 Mock、Fetch、Beacon、Buffer、自动批量 flush 和主动 flush。完成 Playground 中的 SDK workflow 验证，并确认生成事件符合 Event Protocol V1。
+在 `analytics-browser` 内实现有界内存 Buffer、定时 flush、主动 flush 和本地 MockTransport，完成 Playground 中的 SDK workflow 验证。PR4 不实现 HTTP request、Fetch、Beacon 或真实 Backend。
 
 ## 10. 测试策略
 
@@ -290,8 +295,8 @@ Phase 1 引入 Vitest，优先使用单元测试和可控 fake 实现，不提�
 - 浏览器 Context 缺少单项 API 时仍可生成事件。
 - `pageview()` 和 Observer 自动事件共用同一管线。
 - Buffer 达到 20 条自动 flush。
-- 手动 flush、空 flush 和 flush 失败保留事件。
-- Mock、Fetch、Beacon Transport 可以替换。
+- 定时 flush、手动 flush、空 flush 和 flush 失败行为符合约定。
+- 注入的 MockTransport 可以替换。
 - destroy 后不会继续处理导航事件。
 
 Playground 继续使用 Phase 0 的人工导航矩阵；必要时在 Phase 1 后续再增加 Playwright。
@@ -329,8 +334,8 @@ Phase 1 仍复用 Phase 0 的 Docker Compose Playground，不加入 Backend、�
 
 - [x] Browser Context 可以安全采集。
 - [x] SSR 导入不会崩溃。
-- [ ] Mock、Fetch、Beacon Transport 可以替换。
-- [ ] Buffer 和 flush 行为符合约定。
+- [ ] Fetch、Beacon Transport（延后到 Backend API 契约确定后）。
+- [x] Buffer 和 flush 行为符合 PR4 约定。
 - [x] 生成事件结构与 Event Protocol V1 对齐。
 
 ### 工程
@@ -342,22 +347,22 @@ Phase 1 仍复用 Phase 0 的 Docker Compose Playground，不加入 Backend、�
 
 ## 13. Phase 1 退出条件
 
-满足以下条件后进入 Phase 2：
+以下条件已满足，Phase 1 可以结束并进入 Phase 2：
 
 ```text
 Next.js App Router
   → observer-next
   → Client SDK
   → PageViewEvent
-  → Buffer
-  → Mock / Fetch / Beacon Transport
+  → bounded Buffer
+  → local MockTransport
 ```
 
 并且：
 
 - 生成事件全部符合 Event Protocol V1。
 - SDK 可以在没有 Backend 的情况下通过 Mock Transport 完整测试。
-- Transport endpoint 可配置，后续 Collector 可以直接接入。
+- Transport contract 已稳定；真实 endpoint 和 HTTP Transport 待 Backend API 契约确定后实现。
 - Analytics Core 不依赖 Next.js、React 或浏览器 API。
 - 其他 Router 只需实现 NavigationObserver 即可接入。
 - 测试、文档和 CI 均完成。

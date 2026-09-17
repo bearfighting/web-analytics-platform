@@ -180,8 +180,138 @@ describe("createAnalytics", () => {
     await flushPromise;
     expect(flushed).toBe(true);
 
+    const secondFlush = analytics.flush();
     resolvers[1]?.();
+    await secondFlush;
+  });
+
+  it("flushes non-empty buffers on the interval and skips empty buffers", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("window", {});
+    const transport = new MockTransport();
+    const analytics = createAnalytics({
+      siteId: "site_example",
+      transport,
+      flushIntervalMs: 5000,
+      contextProvider: { getContext: () => ({}) },
+    });
+    const observer = new MemoryNavigationObserver();
+    analytics.observe(observer);
+
+    vi.advanceTimersByTime(5000);
+    expect(transport.batches).toHaveLength(0);
+
+    observer.emit(navigation);
+    vi.advanceTimersByTime(4999);
+    expect(transport.batches).toHaveLength(0);
+
+    vi.advanceTimersByTime(1);
+    expect(transport.batches).toHaveLength(1);
     await analytics.flush();
+    analytics.destroy();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("flushes automatically when the buffer reaches its limit", async () => {
+    const transport = new MockTransport();
+    const analytics = createAnalytics({
+      siteId: "site_example",
+      transport,
+      bufferSize: 2,
+      contextProvider: { getContext: () => ({}) },
+    });
+    const observer = new MemoryNavigationObserver();
+    analytics.observe(observer);
+
+    observer.emit(navigation);
+    expect(transport.batches).toHaveLength(0);
+    observer.emit({ ...navigation, path: "/next" });
+    await analytics.flush();
+
+    expect(transport.batches).toHaveLength(1);
+    expect(transport.batches[0]).toHaveLength(2);
+  });
+
+  it("isolates buffers and transports between analytics instances", async () => {
+    const firstTransport = new MockTransport();
+    const secondTransport = new MockTransport();
+    const firstAnalytics = createAnalytics({
+      siteId: "site_first",
+      transport: firstTransport,
+      contextProvider: { getContext: () => ({}) },
+    });
+    const secondAnalytics = createAnalytics({
+      siteId: "site_second",
+      transport: secondTransport,
+      contextProvider: { getContext: () => ({}) },
+    });
+    const firstObserver = new MemoryNavigationObserver();
+    const secondObserver = new MemoryNavigationObserver();
+
+    firstAnalytics.observe(firstObserver);
+    secondAnalytics.observe(secondObserver);
+    firstObserver.emit(navigation);
+
+    await firstAnalytics.flush();
+    await secondAnalytics.flush();
+
+    expect(firstTransport.batches).toHaveLength(1);
+    expect(secondTransport.batches).toHaveLength(0);
+    expect(firstTransport.batches[0]?.[0].site_id).toBe("site_first");
+
+    firstAnalytics.destroy();
+    secondAnalytics.destroy();
+  });
+
+  it("reports buffer changes and clears the timer and buffer on destroy", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("window", {});
+    const transport = new MockTransport();
+    const onBufferChange = vi.fn();
+    const analytics = createAnalytics({
+      siteId: "site_example",
+      transport,
+      onBufferChange,
+      contextProvider: { getContext: () => ({}) },
+    });
+    const observer = new MemoryNavigationObserver();
+
+    analytics.observe(observer);
+    observer.emit(navigation);
+    analytics.destroy();
+    vi.advanceTimersByTime(5000);
+    await analytics.flush();
+
+    expect(onBufferChange.mock.calls.map(([size]) => size)).toEqual([1, 0]);
+    expect(transport.batches).toHaveLength(0);
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("does not retry a failed batch on later timer ticks", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("window", {});
+    const error = new Error("transport failed");
+    const transport: Transport = {
+      sendBatch: vi.fn(async () => Promise.reject(error)),
+    };
+    const analytics = createAnalytics({
+      siteId: "site_example",
+      transport,
+      contextProvider: { getContext: () => ({}) },
+    });
+    const observer = new MemoryNavigationObserver();
+
+    analytics.observe(observer);
+    observer.emit(navigation);
+    await expect(analytics.flush()).rejects.toThrow("transport failed");
+    vi.advanceTimersByTime(10000);
+
+    expect(transport.sendBatch).toHaveBeenCalledOnce();
+    analytics.destroy();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it("reports beforeSend errors through onError and flush", async () => {
