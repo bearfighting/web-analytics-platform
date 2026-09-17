@@ -47,6 +47,8 @@ Rust / Cargo workspace 不属于 Phase 0，等进入 Backend 阶段时再建立�
 
 ## Phase 1 — Client SDK
 
+详细实施方案见：[phase-1-design.md](phase-1-design.md)。
+
 目标：实现第一个可使用的浏览器端 SDK，并建立可扩展的 Router Adapter 机制。
 
 交付：

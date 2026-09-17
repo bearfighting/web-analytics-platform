@@ -79,6 +79,7 @@ Phase 4  Dashboard
 - [Phase 0 Design](docs/phase-0-design.md)
 - [Event Protocol](docs/event-protocol.md)
 - [Router Playground](docs/router-playground.md)
+- [Phase 1 Design](docs/phase-1-design.md)
 
 项目协作规则见 [AGENTS.md](AGENTS.md)。CI 使用与本地相同的统一脚本，并额外验证 Docker Compose 配置。
 

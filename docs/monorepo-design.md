@@ -182,7 +182,7 @@ protocol/schemas/*.json
 
 目录结构描述的是最终目标，不代表项目启动时要一次性创建全部目录和 package。整个项目线性推进，每进入一个模块阶段才创建对应的实际代码。
 
-项目启动阶段只创建：
+Phase 0 项目启动阶段只创建：
 
 ```text
 protocol
@@ -190,6 +190,16 @@ examples/nextjs-router-playground
 pnpm workspace 基础文件
 scripts 基础入口
 ```
+
+进入 Phase 1 后，按照实际实施的 PR 线性创建 `packages/` 下的 package。当前已创建：
+
+```text
+packages/protocol-ts/
+packages/observer-core/
+packages/analytics-core/
+```
+
+后续的 `observer-next`、`analytics-browser` 和 `transport` 只在对应 PR 开始时添加，避免长期保留空模块。
 
 Phase 0 不创建 Cargo workspace 基础文件。进入 Backend 阶段后，再根据 Backend 的实际实现需要添加 `Cargo.toml`、`rust-toolchain.toml` 和 `crates/`。
 

@@ -563,14 +563,20 @@ Protocol fixture 可以自动验证
 没有提前创建空业务模块
 ```
 
-Phase 1 的第一项工作是创建：
+Phase 1 的第一项工作是创建基础 Client SDK packages：
 
 ```text
-packages/analytics-core/
-packages/analytics-browser/
+packages/protocol-ts/
 packages/observer-core/
-packages/observer-next/
-packages/transport/
+packages/analytics-core/
+```
+
+其余 package 按 Phase 1 的后续 PR 线性创建：
+
+```text
+observer-next
+  → analytics-browser
+  → transport
 ```
 
 并将 Router Playground 接入真实的 `observer-next` 测试流程。

@@ -8,6 +8,7 @@
 - [Phase 0 Design](phase-0-design.md)：项目启动阶段的详细步骤、Checklist 和验收标准。
 - [Event Protocol](event-protocol.md)：Event Protocol V1 的 Schema、字段和版本策略。
 - [Router Playground](router-playground.md)：Next.js App Router 实验场和导航场景。
+- [Phase 1 Design](phase-1-design.md)：Client SDK、Observer 和 Transport 的实施计划。
 
 `AGENTS.md` 位于仓库根目录，作为整个项目的协作和开发规则入口。
 
@@ -35,6 +36,7 @@ docs/
 ├── phase-0-design.md
 ├── event-protocol.md
 ├── router-playground.md
+├── phase-1-design.md
 ├── metrics-semantics.md
 ├── client-sdk.md
 ├── observers.md
