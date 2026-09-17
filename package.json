@@ -16,7 +16,7 @@
     "format:check": "./scripts/format-check.sh",
     "docker:dev": "./scripts/docker-dev.sh",
     "protocol:validate": "node ./scripts/validate-protocol.mjs",
-    "build:packages": "pnpm --filter @web-analytics/protocol-ts --filter @web-analytics/observer-core --filter @web-analytics/analytics-core build"
+    "build:packages": "pnpm --filter @web-analytics/protocol-ts --filter @web-analytics/observer-core --filter @web-analytics/observer-next --filter @web-analytics/analytics-core build"
   },
   "devDependencies": {
     "@eslint/js": "^9.20.0",

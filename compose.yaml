@@ -4,17 +4,15 @@ services:
       context: .
       dockerfile: docker/nextjs-router-playground.Dockerfile
     command:
-      - pnpm
-      - --filter
-      - '@web-analytics/nextjs-router-playground'
-      - dev
-      - --hostname
-      - 0.0.0.0
+      - sh
+      - -c
+      - pnpm install --frozen-lockfile && pnpm --filter @web-analytics/observer-next build && exec pnpm --filter @web-analytics/nextjs-router-playground dev --hostname 0.0.0.0
     environment:
       HOSTNAME: 0.0.0.0
       PORT: 3000
+      CI: "true"
     ports:
-      - '3000:3000'
+      - "3000:3000"
     volumes:
       - .:/workspace
       - root_node_modules:/workspace/node_modules

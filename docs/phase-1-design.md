@@ -115,12 +115,7 @@ analytics-api
 定义在 `observer-core`：
 
 ```ts
-export type NavigationType =
-  | "initial"
-  | "push"
-  | "replace"
-  | "pop"
-  | "unknown";
+export type NavigationType = "initial" | "push" | "replace" | "pop" | "unknown";
 
 export interface NavigationEvent {
   url: string;
@@ -272,6 +267,8 @@ Phase 1 按以下顺序线性实施。
 
 创建 `observer-next`，实现 App Router initial、pathname、query、push、replace、back / forward 观察，并将 Observer 输出接入 Playground 的调试区域。不实现 Transport、Buffer 或统计逻辑。
 
+PR2 的接入组件为 `NextNavigationBridge`：它在 Client Component 中接收 `onNavigation` 回调，输出标准 `NavigationEvent`。Adapter 使用 App Router hooks 获取路由状态，使用 History API 和 `popstate` 辅助识别导航来源。hash-only 变化只保留在 Playground 的原始 Router 观察中，不输出标准导航事件。
+
 ### PR3 — Browser SDK runtime and context
 
 分支：`phase-1/pr3-browser-sdk-runtime`
@@ -329,10 +326,10 @@ Phase 1 仍复用 Phase 0 的 Docker Compose Playground，不加入 Backend、�
 
 ### Next.js Adapter
 
-- [ ] Next.js App Router initial 可以观察。
-- [ ] pathname、query、push、replace、back / forward 可以观察。
-- [ ] hash-only 变化不会生成 Page View。
-- [ ] Playground 可以显示 SDK 观察结果。
+- [x] Next.js App Router initial 可以观察。
+- [x] pathname、query、push、replace、back / forward 可以观察。
+- [x] hash-only 变化不会生成标准 NavigationEvent。
+- [x] Playground 可以显示 Adapter 观察结果。
 
 ### Browser 与 Transport
 

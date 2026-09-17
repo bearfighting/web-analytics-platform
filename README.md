@@ -8,13 +8,14 @@
 
 ## 当前状态
 
-项目已完成 Phase 0：项目基础设计和工程准备阶段，下一阶段从 Client SDK 开始。
+项目已完成 Phase 0，Phase 1 已开始实现 Client SDK 的基础契约和 Next.js App Router Adapter。
 
 当前已具备：
 
 - Monorepo 基础结构
 - Event Protocol V1 Schema、examples、fixtures 和自动校验
 - Next.js App Router Router Playground
+- `observer-core`、`observer-next` 和 `analytics-core` 的基础实现
 - Docker / Docker Compose 开发环境
 
 Phase 0 的 Event Protocol、Router Playground、Docker 开发环境和基础工程治理已经完成。可以参考 [Getting Started](docs/getting-started.md) 启动项目。

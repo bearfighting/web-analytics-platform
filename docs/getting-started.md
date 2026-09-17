@@ -92,7 +92,7 @@ pnpm protocol:validate
 pnpm build
 ```
 
-构建 Next.js Playground 的生产版本。
+构建当前所有 TypeScript packages，再构建 Next.js Playground 的生产版本。
 
 ## Docker Development
 
@@ -116,10 +116,17 @@ GitHub Actions 会复用本地检查命令，并额外验证 Docker Compose 配�
 
 Phase 0 没有必需的环境变量；`.env.example` 仅用于说明未来配置的预留位置。
 
-## Scope
+## 当前范围
 
-本阶段不包含：
+当前已包含：
 
-- Analytics SDK
-- Router Observer
-- Backend 或数据库
+- `observer-core` 的通用导航契约
+- `observer-next` 的 Next.js App Router Adapter
+- `analytics-core` 的基础事件管线
+- Next.js Router Playground
+
+当前仍不包含：
+
+- Browser SDK runtime 和 Browser Context
+- Transport、Buffer 和网络发送
+- Backend、Storage、数据库或 Dashboard

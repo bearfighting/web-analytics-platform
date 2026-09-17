@@ -197,6 +197,7 @@ scripts 基础入口
 packages/protocol-ts/
 packages/observer-core/
 packages/analytics-core/
+packages/observer-next/
 ```
 
 后续的 `observer-next`、`analytics-browser` 和 `transport` 只在对应 PR 开始时添加，避免长期保留空模块。

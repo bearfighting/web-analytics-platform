@@ -1,6 +1,6 @@
 # Next.js Router Playground
 
-Router Playground 是 Phase 0 的行为实验场，只用于观察 Next.js App Router 导航，不生成正式 Analytics Event，也不实现 SDK、Observer、Session 或统计逻辑。
+Router Playground 是 Phase 0 的行为实验场，并在 Phase 1 PR2 中接入 `observer-next`，用于观察 Next.js App Router 导航。它不生成正式 Analytics Event，也不实现 Session 或统计逻辑。
 
 ## 启动
 
@@ -49,10 +49,10 @@ Debug Panel 显示：
 - `document.title`
 - 当前页面生命周期内的导航日志
 
-日志包含 timestamp、previous URL、current URL 和 detected change。可观察的变化包括 initial、pathname、search params、push、replace、back / forward 和 hash。
+日志包含 timestamp、previous URL、current URL、navigation type 和 path。标准 NavigationEvent 可观察 initial、pathname、search params、push、replace、back / forward；hash 仍由 Playground 单独显示。
 
-Hash 变化在 Phase 0 只作为 Router 行为记录，不决定是否计为未来的 Page View。
+Hash 变化只作为原始 Router 行为记录，不进入 `observer-next` 的标准 NavigationEvent，也不决定是否计为未来的 Page View。
 
 ## 扩展场景
 
-新增场景时只修改 Playground 页面和导航控件，并同步更新本文件的场景表。正式 NavigationObserver 接口和 Client SDK 在 Phase 1 创建，不应在 Playground 中提前实现。
+新增场景时只修改 Playground 页面和导航控件，并同步更新本文件的场景表。正式导航契约位于 `observer-core`，Next.js 集成位于 `observer-next`；Playground 不承担 Analytics 事件生成或发送职责。
