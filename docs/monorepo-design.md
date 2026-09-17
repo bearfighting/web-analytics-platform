@@ -117,6 +117,7 @@ Page View、Visitor、Session 等统计语义和领域模型。
 observer-next     → observer-core
 analytics-browser → analytics-core
 analytics-browser → observer-core
+analytics-browser → protocol-ts
 transport         → analytics-core
 collector         → protocol
 processor         → analytics-domain + analytics-protocol + analytics-storage
@@ -198,9 +199,12 @@ packages/protocol-ts/
 packages/observer-core/
 packages/analytics-core/
 packages/observer-next/
+packages/analytics-browser/
 ```
 
-后续的 `observer-next`、`analytics-browser` 和 `transport` 只在对应 PR 开始时添加，避免长期保留空模块。
+后续的 `transport` 只在对应 PR 开始时添加，避免长期保留空模块。
+
+Phase 1 的 package 创建顺序是：`protocol-ts`、`observer-core`、`analytics-core`、`observer-next`、`analytics-browser`，具体 Transport 实现延后到后续 PR。
 
 Phase 0 不创建 Cargo workspace 基础文件。进入 Backend 阶段后，再根据 Backend 的实际实现需要添加 `Cargo.toml`、`rust-toolchain.toml` 和 `crates/`。
 

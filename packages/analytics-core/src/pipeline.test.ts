@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createPageViewEvent } from "./event-factory";
-import { isSameNavigation, processNavigation } from "./pipeline";
+import { isSameNavigation, processNavigation, processPageViewEvent } from "./pipeline";
 
 import type { NavigationEvent } from "@web-analytics/observer-core";
 
@@ -81,6 +81,33 @@ describe("processNavigation", () => {
         beforeSend: () => {
           throw new Error("blocked");
         },
+      }),
+    ).toThrow("blocked");
+  });
+});
+
+describe("processPageViewEvent", () => {
+  it("applies beforeSend to an already constructed event", () => {
+    const event = createPageViewEvent(navigation, factoryOptions);
+
+    expect(processPageViewEvent(event, (pageView) => ({ ...pageView, title: "Updated" }))).toEqual({
+      ...event,
+      title: "Updated",
+    });
+  });
+
+  it("drops an already constructed event when beforeSend returns null", () => {
+    const event = createPageViewEvent(navigation, factoryOptions);
+
+    expect(processPageViewEvent(event, () => null)).toBeNull();
+  });
+
+  it("propagates beforeSend errors", () => {
+    const event = createPageViewEvent(navigation, factoryOptions);
+
+    expect(() =>
+      processPageViewEvent(event, () => {
+        throw new Error("blocked");
       }),
     ).toThrow("blocked");
   });

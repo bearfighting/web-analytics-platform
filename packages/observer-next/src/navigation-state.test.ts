@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { createRouteIdentity, isHashOnlyChange, resolveNavigationType } from "./navigation-state";
+import {
+  createRouteIdentity,
+  isHashOnlyChange,
+  isHashOnlyUrlChange,
+  resolveNavigationType,
+} from "./navigation-state";
 
 describe("navigation state", () => {
   it("creates an identity from pathname and search params", () => {
@@ -20,5 +25,11 @@ describe("navigation state", () => {
     expect(resolveNavigationType(true, "replace")).toBe("replace");
     expect(resolveNavigationType(true, "pop")).toBe("pop");
     expect(resolveNavigationType(true, "unknown")).toBe("unknown");
+  });
+
+  it("identifies URL changes that only modify the hash", () => {
+    expect(isHashOnlyUrlChange("https://example.test/about?q=1#old", "/about?q=1#new")).toBe(true);
+    expect(isHashOnlyUrlChange("https://example.test/about?q=1", "/about?q=2")).toBe(false);
+    expect(isHashOnlyUrlChange("https://example.test/about", null)).toBe(true);
   });
 });

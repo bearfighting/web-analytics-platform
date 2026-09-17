@@ -15,8 +15,7 @@ Next.js App Router
   → analytics-core
   → PageViewEvent
   → Browser Context
-  → Buffer
-  → Transport
+  → injected Transport
 ```
 
 Phase 1 不依赖 Backend、数据库或 Dashboard。发送能力使用可替换的 Transport 和 Mock Transport 验证，真实 Collector 在 Phase 2 实现。
@@ -33,8 +32,8 @@ Phase 1 不依赖 Backend、数据库或 Dashboard。发送能力使用可替换
 - 支持手动 `pageview()` 和自动导航观察。
 - 支持基础 Browser Context 采集。
 - 提供可替换的 Transport 接口。
-- 实现内存 Buffer、批量 flush 和 `beforeSend()` 扩展点。
-- 将 SDK 接入 Router Playground，形成可观察的纵向 workflow。
+- 提供 Transport contract、立即单事件发送和 `beforeSend()` 扩展点；Buffer 和批量 flush 延后。
+- 通过 Mock Transport 验证 SDK workflow；完整 Playground SDK workflow 延后到 Transport PR。
 
 ### 2.2 不属于本阶段
 
@@ -59,7 +58,8 @@ Protocol TypeScript types
   → Analytics Core
   → Next.js Adapter
   → Browser Context
-  → Transport / Buffer
+  → Browser SDK runtime
+  → Transport / Buffer (later)
 ```
 
 ### 3.2 JSON Schema 是协议事实来源
@@ -186,9 +186,9 @@ export interface AnalyticsOptions {
 
 - `beforeSend()` 返回 `null` 时丢弃事件。
 - `observe()` 返回的 unsubscribe 只解除本次订阅。
-- `destroy()` 解除订阅并阻止后续事件进入 Buffer。
-- `flush()` 发送当前 Buffer；空 Buffer 是成功的 no-op。
-- 同一 SDK 实例只维护自己的 Buffer 和生命周期。
+- `destroy()` 解除订阅并阻止后续事件处理。
+- `flush()` 等待当前 in-flight sends；空 flush 是成功的 no-op。
+- 同一 SDK 实例只维护自己的订阅、发送状态和生命周期。
 
 ## 6. Page View 语义
 
@@ -236,20 +236,14 @@ hash-only change   → 不生成 PageViewEvent
 - 不将 Context provider 与 Next.js 类型绑定。
 - Browser Context 与 NavigationEvent 的基础 URL 信息合并时，当前导航事件值优先。
 
-## 8. Buffer 和 flush
+## 8. PR3 运行时发送边界
 
-首期使用内存 Buffer：
+PR3 只通过注入的 Transport 立即发送单事件 batch：
 
-- 默认单批最多 20 条事件。
-- 达到 20 条时自动 flush。
-- `flush()` 可主动发送不足一批的事件。
-- flush 过程中继续产生的事件进入下一批。
-- 空 Buffer flush 成功返回。
-- Transport 失败时保留未成功发送的事件，并返回错误。
-- 不使用 localStorage、IndexedDB 或 Service Worker 持久化。
-- 不实现复杂重试和指数退避。
-
-单批上限低于 Protocol V1 的 100 条限制，避免浏览器端请求过大；Backend 仍以 Protocol Schema 和自身请求限制为准。
+- 不创建 Buffer，不自动聚合，也不实现重试。
+- `flush()` 只等待当前 in-flight sends。
+- Transport 或 `beforeSend` 失败会通过 `onError` 报告，并使 `flush()` reject。
+- 失败事件不保留，具体 Fetch、Beacon 和批量策略延后到 PR4。
 
 ## 9. PR 划分
 
@@ -321,7 +315,7 @@ Phase 1 仍复用 Phase 0 的 Docker Compose Playground，不加入 Backend、�
 - [x] `protocol-ts` 与 Protocol V1 一致。
 - [x] `observer-core` 不依赖具体 Router。
 - [x] `analytics-core` 不依赖 React、Next.js 或浏览器 API。
-- [ ] `createAnalytics()`、`pageview()`、`observe()`、`flush()`、`destroy()` 可用。
+- [x] `createAnalytics()`、`pageview()`、`observe()`、`flush()`、`destroy()` 可用。
 - [x] `beforeSend()` 可以修改或丢弃事件。
 
 ### Next.js Adapter
@@ -333,11 +327,11 @@ Phase 1 仍复用 Phase 0 的 Docker Compose Playground，不加入 Backend、�
 
 ### Browser 与 Transport
 
-- [ ] Browser Context 可以安全采集。
-- [ ] SSR 导入不会崩溃。
+- [x] Browser Context 可以安全采集。
+- [x] SSR 导入不会崩溃。
 - [ ] Mock、Fetch、Beacon Transport 可以替换。
 - [ ] Buffer 和 flush 行为符合约定。
-- [ ] 生成事件通过 Event Protocol V1 校验。
+- [x] 生成事件结构与 Event Protocol V1 对齐。
 
 ### 工程
 

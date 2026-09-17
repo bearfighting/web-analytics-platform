@@ -8,7 +8,7 @@
 
 ## 当前状态
 
-项目已完成 Phase 0，Phase 1 已开始实现 Client SDK 的基础契约和 Next.js App Router Adapter。
+项目已完成 Phase 0，Phase 1 已开始实现 Client SDK 的基础契约、Next.js App Router Adapter 和 Browser SDK runtime。
 
 当前已具备：
 
@@ -16,11 +16,12 @@
 - Event Protocol V1 Schema、examples、fixtures 和自动校验
 - Next.js App Router Router Playground
 - `observer-core`、`observer-next` 和 `analytics-core` 的基础实现
+- `analytics-browser` 的事件 runtime、Browser Context 和可注入 Transport contract
 - Docker / Docker Compose 开发环境
 
 Phase 0 的 Event Protocol、Router Playground、Docker 开发环境和基础工程治理已经完成。可以参考 [Getting Started](docs/getting-started.md) 启动项目。
 
-正式的 Client SDK、Backend、Storage 和 Dashboard 将按照路线图线性实现，不会在项目启动时一次性创建全部模块。
+真实网络 Transport、Backend、Storage 和 Dashboard 将按照路线图线性实现，不会在项目启动时一次性创建全部模块。
 
 ## 目标 Workflow
 

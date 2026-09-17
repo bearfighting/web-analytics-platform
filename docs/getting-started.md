@@ -76,7 +76,7 @@ Import 顺序由 ESLint `import/order` 检查，代码边界的空行由 ESLint 
 pnpm test
 ```
 
-当前还没有业务测试，命令会执行占位测试并正常结束。
+命令会执行 Protocol 校验以及所有已创建 package 的单元测试。
 
 `pnpm test` 同时校验 Event Protocol V1 的合法和非法 fixtures。
 
@@ -123,10 +123,10 @@ Phase 0 没有必需的环境变量；`.env.example` 仅用于说明未来配置
 - `observer-core` 的通用导航契约
 - `observer-next` 的 Next.js App Router Adapter
 - `analytics-core` 的基础事件管线
+- `analytics-browser` 的 Browser SDK runtime 和 Context provider
 - Next.js Router Playground
 
 当前仍不包含：
 
-- Browser SDK runtime 和 Browser Context
-- Transport、Buffer 和网络发送
+- 真实 Transport、Buffer 和网络发送
 - Backend、Storage、数据库或 Dashboard

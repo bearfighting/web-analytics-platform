@@ -1,6 +1,6 @@
-import type { NavigationEvent, NavigationObserver } from "./types";
+import type { NavigationEvent, NavigationEventSink, NavigationObserver } from "./types";
 
-export class MemoryNavigationObserver implements NavigationObserver {
+export class MemoryNavigationObserver implements NavigationEventSink, NavigationObserver {
   private readonly listeners = new Set<(event: NavigationEvent) => void>();
 
   subscribe(listener: (event: NavigationEvent) => void) {

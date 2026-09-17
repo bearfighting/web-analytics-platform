@@ -12,3 +12,7 @@ export interface NavigationEvent {
 export interface NavigationObserver {
   subscribe(listener: (event: NavigationEvent) => void): () => void;
 }
+
+export interface NavigationEventSink {
+  emit(event: NavigationEvent): void;
+}
