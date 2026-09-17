@@ -1,0 +1,27 @@
+services:
+  router-playground:
+    build:
+      context: .
+      dockerfile: docker/nextjs-router-playground.Dockerfile
+    command:
+      - pnpm
+      - --filter
+      - '@web-analytics/nextjs-router-playground'
+      - dev
+      - --hostname
+      - 0.0.0.0
+    environment:
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+    ports:
+      - '3000:3000'
+    volumes:
+      - .:/workspace
+      - root_node_modules:/workspace/node_modules
+      - playground_node_modules:/workspace/examples/nextjs-router-playground/node_modules
+      - playground_next:/workspace/examples/nextjs-router-playground/.next
+
+volumes:
+  root_node_modules:
+  playground_node_modules:
+  playground_next:

@@ -17,7 +17,7 @@
 - Next.js App Router Router Playground
 - Docker / Docker Compose 开发环境
 
-PR1 正在建立 pnpm Monorepo 和最小 Next.js App Router Playground。当前可以参考 [Getting Started](docs/getting-started.md) 启动 Playground。
+PR2 已加入 Next.js App Router 导航 Playground 和 Docker 开发方式。可以参考 [Getting Started](docs/getting-started.md) 启动 Playground。
 
 正式的 Client SDK、Backend、Storage 和 Dashboard 将按照路线图线性实现，不会在项目启动时一次性创建全部模块。
 

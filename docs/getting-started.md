@@ -5,7 +5,7 @@
 - Node.js 22 LTS
 - pnpm 11
 
-Phase 0 不需要 Rust、Cargo、Docker、PostgreSQL 或其他后端依赖。
+Phase 0 不需要 Rust、Cargo、PostgreSQL 或其他后端依赖。Docker 是可选的 Playground 开发方式。
 
 ## Install
 
@@ -27,7 +27,30 @@ pnpm dev
 http://localhost:3000
 ```
 
-当前 Playground 只提供最小 Next.js App Router 页面。导航场景将在后续 PR 中加入。
+当前 Playground 提供常见 Next.js App Router 导航场景和 Navigation Debug Panel。
+
+可测试页面：
+
+```text
+/
+/about
+/products/example
+/search?q=test
+/nested
+/nested/child
+```
+
+可测试操作：
+
+```text
+<Link>
+router.push()
+router.replace()
+router.back()
+router.forward()
+search params
+hash
+```
 
 ## Check
 
@@ -63,6 +86,22 @@ pnpm build
 
 构建 Next.js Playground 的生产版本。
 
+## Docker Development
+
+需要 Docker 和 Docker Compose v2：
+
+```bash
+pnpm docker:dev
+```
+
+该命令会构建并启动 Router Playground，访问地址仍为：
+
+```text
+http://localhost:3000
+```
+
+PR2 的 Compose 只运行 Playground，不包含 PostgreSQL 或其他后端服务。
+
 ## Scope
 
 本阶段不包含：
@@ -70,5 +109,4 @@ pnpm build
 - Analytics SDK
 - Router Observer
 - Event Protocol
-- Docker Compose
 - Backend 或数据库

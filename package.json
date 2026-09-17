@@ -13,7 +13,8 @@
     "test": "./scripts/test.sh",
     "build": "./scripts/build.sh",
     "format": "./scripts/format.sh",
-    "format:check": "./scripts/format-check.sh"
+    "format:check": "./scripts/format-check.sh",
+    "docker:dev": "./scripts/docker-dev.sh"
   },
   "devDependencies": {
     "prettier": "^3.9.7"

@@ -513,10 +513,10 @@ Checklist：
 
 ### Router Playground
 
-- [ ] Next.js App Router 可以启动。
-- [ ] 常见导航操作可以复现。
-- [ ] 动态路由、嵌套路由和 query 场景可以复现。
-- [ ] 导航行为和预期结果有记录。
+- [x] Next.js App Router 可以启动。
+- [x] 常见导航操作可以复现。
+- [x] 动态路由、嵌套路由和 query 场景可以复现。
+- [x] 导航行为和预期结果有记录。
 
 ### Protocol
 
@@ -528,8 +528,8 @@ Checklist：
 
 ### Docker
 
-- [ ] 默认 Compose 环境可以启动。
-- [ ] Router Playground 可以在 Docker 中运行。
+- [x] 默认 Compose 环境可以启动。
+- [x] Router Playground 可以在 Docker 中运行。
 - [ ] PostgreSQL profile 配置已准备或明确延后到 Storage 阶段。
 - [ ] 环境变量模板存在。
 

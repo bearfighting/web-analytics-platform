@@ -1,3 +1,8 @@
+import { Suspense } from "react";
+
+import { NavigationControls } from "./components/navigation-controls";
+import { NavigationDebugPanel } from "./components/navigation-debug-panel";
+
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -12,7 +17,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <Suspense fallback={<p>Loading navigation playground...</p>}>
+          <NavigationControls />
+          <NavigationDebugPanel />
+        </Suspense>
+      </body>
     </html>
   );
 }
