@@ -467,6 +467,9 @@ Checklist：
 - [ ] 脚本在 host 环境可执行。
 - [ ] 脚本与 Docker 开发方式的职责已区分。
 - [ ] CI 可以复用 `check.sh` 和 `test.sh`。
+- [ ] `pnpm format` 可以格式化项目文件。
+- [ ] `pnpm format:check` 可以检查格式和 trailing newline。
+- [ ] `pnpm check` 包含格式检查、import 排序和空行规则。
 
 ## Step 8 — 编写启动文档和决策记录
 

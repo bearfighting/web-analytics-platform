@@ -1,0 +1,21 @@
+{
+  "name": "web-analytics-platform",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.5.2",
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=11 <12"
+  },
+  "scripts": {
+    "dev": "./scripts/dev.sh",
+    "check": "./scripts/check.sh",
+    "test": "./scripts/test.sh",
+    "build": "./scripts/build.sh",
+    "format": "./scripts/format.sh",
+    "format:check": "./scripts/format-check.sh"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.7"
+  }
+}
