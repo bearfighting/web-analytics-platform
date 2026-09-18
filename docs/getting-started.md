@@ -76,6 +76,14 @@ Import 顺序由 ESLint `import/order` 检查，代码边界的空行由 ESLint 
 pnpm test
 ```
 
+验证 Phase 2 HTTP contract fixtures：
+
+```bash
+pnpm http:validate
+```
+
+该命令检查 request/response fixture 的结构、状态码、header 格式、scenario ID、配置引用、边界 payload、CORS response 和 setup 状态，不启动 Collector。
+
 命令会执行 Protocol 校验以及所有已创建 package 的单元测试。
 
 `pnpm test` 同时校验 Event Protocol V1 的合法和非法 fixtures。

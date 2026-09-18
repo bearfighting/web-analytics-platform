@@ -1,0 +1,25 @@
+{
+  "id": "invalid-json",
+  "setup": {
+    "config": "../config/collector.example.toml"
+  },
+  "request": {
+    "method": "POST",
+    "path": "/v1/events",
+    "headers": {
+      "content-type": "application/json",
+      "origin": "https://www.example.com",
+      "x-ingest-key": "public-key-production-example"
+    },
+    "body": "{"
+  },
+  "expected": {
+    "status": 400,
+    "headers": {
+      "content-type": "application/json",
+      "access-control-allow-origin": "https://www.example.com",
+      "vary": "Origin"
+    },
+    "body": "{\"error\":{\"code\":\"invalid_json\",\"message\":\"Request body is not valid JSON\"}}"
+  }
+}

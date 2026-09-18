@@ -9,6 +9,8 @@
 - [Event Protocol](event-protocol.md)：Event Protocol V1 的 Schema、字段和版本策略。
 - [Router Playground](router-playground.md)：Next.js App Router 实验场和导航场景。
 - [Phase 1 Design](phase-1-design.md)：Client SDK、Observer 和 Transport 的实施计划。
+- [Phase 2 Design](phase-2-design.md)：Backend Collector、HTTP 契约和基础安全控制的实施计划。
+- [Ingest Key Guide](ingest-key.md)：Ingest Key 的生成、配置、Website 使用、Origin 关联和轮换流程。
 
 `AGENTS.md` 位于仓库根目录，作为整个项目的协作和开发规则入口。
 

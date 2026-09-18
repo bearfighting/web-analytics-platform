@@ -1,0 +1,22 @@
+# Phase 2 HTTP contract example. Runtime parsing starts in PR2.
+
+[[sites]]
+site_id = "site_example"
+environment = "development"
+enabled = true
+allowed_origins = ["http://localhost:3000"]
+ingest_keys = ["public-key-example"]
+
+[[sites]]
+site_id = "site_example"
+environment = "production"
+enabled = true
+allowed_origins = ["https://www.example.com"]
+ingest_keys = ["public-key-production-example"]
+
+[[sites]]
+site_id = "site_disabled"
+environment = "production"
+enabled = false
+allowed_origins = ["https://www.example.com"]
+ingest_keys = ["public-key-disabled-example"]

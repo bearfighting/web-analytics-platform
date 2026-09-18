@@ -1,0 +1,155 @@
+# Ingest Key Guide
+
+## 1. 目的和边界
+
+`X-Ingest-Key` 是 Browser SDK 发送事件时携带的公开接入标识。它用于将请求绑定到指定的 `site_id + environment`，并降低简单误用风险。
+
+Ingest Key 会被发送到浏览器，因此不是 secret，也不能作为唯一的安全边界。Collector 仍然必须执行 Origin allowlist 和基础 rate limiting。
+
+设计原则：
+
+- Backend 负责生成和验证 key。
+- Website 负责公开使用 key。
+- Origin allowlist 负责 Website 与 site 的关联。
+- Key 不从 URL、`site_id`、时间戳或其他公开字段推导。
+- Phase 2 不提供在线 key 管理 API。
+
+## 2. 配置模型
+
+Collector 为每个 `site_id + environment` 保存独立配置：
+
+```toml
+[[sites]]
+site_id = "site_example"
+environment = "production"
+enabled = true
+allowed_origins = ["https://www.example.com"]
+ingest_keys = ["generated-public-key"]
+```
+
+`ingest_keys` 使用数组，以便轮换时短暂允许旧 key 和新 key 同时有效。
+生产配置至少包含一个 key；Collector 不支持无 key 的生产降级模式。
+
+完整的 Phase 2 TOML 配置示例见 [`collector.example.toml`](../protocol/http/config/collector.example.toml)。
+
+Origin 是完整的 `scheme + host + port`：
+
+```text
+https://www.example.com
+http://localhost:3000
+```
+
+页面 path 不属于 Origin。因此 `https://www.example.com/about` 不应单独配置；它与 `https://www.example.com` 属于同一个 Origin。
+
+以下值是不同 Origin：
+
+```text
+http://localhost:3000
+https://localhost:3000
+http://localhost:4000
+https://www.example.com
+https://app.example.com
+```
+
+## 3. 生成 key
+
+Key 必须由 Backend CLI 或部署工具使用密码学安全随机数生成。建议生成 32 字节并编码为 Base64URL：
+
+```ts
+import { randomBytes } from "node:crypto";
+
+const ingestKey = randomBytes(32).toString("base64url");
+console.log(ingestKey);
+```
+
+计划中的 CLI 形式：
+
+```bash
+collector key generate \
+  --site site_example \
+  --environment production
+```
+
+不要使用以下方式生成 key：
+
+- `hash(site_id + url)`
+- site ID 拼接字符串
+- 时间戳或递增数字
+- 人工编写的短字符串
+- 在浏览器端动态生成
+
+生成结果应写入 Collector 配置，并通过部署配置传给 Website。日志不得打印完整 key。
+
+## 4. Website 使用 key
+
+Website 通过公开环境变量或等价的构建配置使用 key：
+
+```env
+NEXT_PUBLIC_ANALYTICS_SITE_ID=site_example
+NEXT_PUBLIC_ANALYTICS_INGEST_KEY=generated-public-key
+NEXT_PUBLIC_ANALYTICS_ENDPOINT=https://analytics.example.com/v1/events
+```
+
+FetchTransport 将其发送为：
+
+```http
+X-Ingest-Key: generated-public-key
+```
+
+因为该值会进入浏览器 bundle，不能把它当作数据库密码、管理员 token 或其他 secret 使用。
+
+## 5. Collector 校验流程
+
+EventBatch V1 不携带 `environment` 字段。Collector 不能从请求 body 读取或信任 environment；environment 由匹配到的服务端 site 配置确定。
+
+请求处理逻辑应遵循以下顺序：
+
+```text
+读取 batch.site_id
+  → 查找对应的 site 配置
+  → 检查 site 是否 enabled
+  → 检查 Origin 是否在 allowlist
+  → 检查 X-Ingest-Key 是否匹配某个 site/environment 配置
+  → 确定唯一的 site/environment
+  → 校验 EventBatch V1
+  → 写入 EventSink
+```
+
+Key 不能绕过 Origin allowlist。缺失或错误的 key 返回 `401 invalid_ingest_key`；不允许的 Origin 返回 `403 origin_not_allowed`。
+
+合法请求的 body 最大为 64 KiB，batch 最大为 100 个事件；请求必须使用 `application/json`（可带 charset 参数），否则返回 `415 unsupported_media_type`。
+
+Preflight 请求不携带实际的 `X-Ingest-Key` 值，因此 OPTIONS 只执行 Origin、路由和 CORS 相关检查；真正的 POST 必须执行完整 key 校验。
+
+## 6. 本地开发
+
+本地开发需要显式配置 localhost Origin：
+
+```toml
+allowed_origins = ["http://localhost:3000"]
+```
+
+Website 和 Collector 必须使用同一组 `site_id`、environment 对应的 key。不要为了方便将 Origin allowlist 放宽为 `*`。
+
+## 7. 手动轮换
+
+Phase 2 不提供自动轮换和在线管理 API，但配置支持多个有效 key，允许部署者执行手动轮换。推荐流程：
+
+```text
+生成新 key
+  → 将新旧 key 同时加入 Collector 配置
+  → 发布使用新 key 的 Website 版本
+  → 等待旧 Website bundle 过期
+  → 从 Collector 配置删除旧 key
+```
+
+如果 key 泄露，应立即从 Collector 配置删除，并重新生成和部署新 key。由于 key 是公开值，轮换不能替代 Origin allowlist 和 rate limiting。
+
+## 8. 排查清单
+
+- 检查 Website 使用的 endpoint 是否包含 `/v1/events`。
+- 检查 `site_id` 是否与 Collector 配置完全一致。
+- 检查 Origin 的 scheme、host 和 port 是否完全匹配。
+- 检查 Collector 是否启用了对应 site/environment。
+- 检查 Website bundle 是否仍在使用旧 key。
+- 检查 Collector 日志中的脱敏 key 标识，不要打印或复制完整 key。

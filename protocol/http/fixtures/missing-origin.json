@@ -1,0 +1,22 @@
+{
+  "id": "missing-origin",
+  "setup": {
+    "config": "../config/collector.example.toml"
+  },
+  "request": {
+    "method": "POST",
+    "path": "/v1/events",
+    "headers": {
+      "content-type": "application/json",
+      "x-ingest-key": "public-key-production-example"
+    },
+    "body": "{\"schema_version\":1,\"events\":[{\"schema_version\":1,\"event_id\":\"01J00000000000000000000000\",\"type\":\"page_view\",\"site_id\":\"site_example\",\"occurred_at\":1760000000000,\"path\":\"/about\"}]}"
+  },
+  "expected": {
+    "status": 403,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"error\":{\"code\":\"origin_not_allowed\",\"message\":\"Origin is not allowed\"}}"
+  }
+}

@@ -74,6 +74,8 @@ Rust / Cargo workspace 不属于 Phase 0，等进入 Backend 阶段时再建立�
 
 ## Phase 2 — Backend Collector
 
+详细实施方案见：[phase-2-design.md](phase-2-design.md)。
+
 目标：创建 Backend 模块，接收 Client SDK 发送的 Event Protocol V1 事件。
 
 交付：

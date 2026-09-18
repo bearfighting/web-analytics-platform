@@ -1,0 +1,27 @@
+{
+  "id": "preflight-success",
+  "setup": {
+    "config": "../config/collector.example.toml"
+  },
+  "request": {
+    "method": "OPTIONS",
+    "path": "/v1/events",
+    "headers": {
+      "origin": "https://www.example.com",
+      "access-control-request-method": "POST",
+      "access-control-request-headers": "content-type, x-ingest-key"
+    },
+    "body": ""
+  },
+  "expected": {
+    "status": 204,
+    "headers": {
+      "access-control-allow-origin": "https://www.example.com",
+      "access-control-allow-methods": "POST",
+      "access-control-allow-headers": "Content-Type, X-Ingest-Key",
+      "access-control-max-age": "600",
+      "vary": "Origin"
+    },
+    "body": ""
+  }
+}

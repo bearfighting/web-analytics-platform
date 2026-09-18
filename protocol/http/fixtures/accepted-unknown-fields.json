@@ -1,0 +1,25 @@
+{
+  "id": "accepted-unknown-fields",
+  "setup": {
+    "config": "../config/collector.example.toml"
+  },
+  "request": {
+    "method": "POST",
+    "path": "/v1/events",
+    "headers": {
+      "content-type": "application/json",
+      "origin": "https://www.example.com",
+      "x-ingest-key": "public-key-production-example"
+    },
+    "body": "{\"schema_version\":1,\"events\":[{\"schema_version\":1,\"event_id\":\"01J00000000000000000000000\",\"type\":\"page_view\",\"site_id\":\"site_example\",\"occurred_at\":1760000000000,\"path\":\"/about\"}],\"future_field\":true}"
+  },
+  "expected": {
+    "status": 202,
+    "headers": {
+      "content-type": "application/json",
+      "access-control-allow-origin": "https://www.example.com",
+      "vary": "Origin"
+    },
+    "body": "{\"accepted\":1}"
+  }
+}

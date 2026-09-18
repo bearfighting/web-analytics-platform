@@ -1,0 +1,16 @@
+{
+  "id": "health-success",
+  "request": {
+    "method": "GET",
+    "path": "/health",
+    "headers": {},
+    "body": ""
+  },
+  "expected": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"status\":\"ok\"}"
+  }
+}
