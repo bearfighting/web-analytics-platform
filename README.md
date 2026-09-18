@@ -20,11 +20,11 @@
 - `analytics-browser` 的有界内存 Buffer、定时 flush 和本地 Mock workflow
 - Docker / Docker Compose 开发环境
 - Rust Collector foundation、TOML 配置加载和 `/health` 健康检查
-- `POST /v1/events`、Event Protocol V1 校验、Public Ingest Key 校验和 InMemory Sink
+- `POST /v1/events`、Event Protocol V1 校验、Origin/CORS、Public Ingest Key、单进程限流和 InMemory Sink
 
 Phase 0 的 Event Protocol、Router Playground、Docker 开发环境和基础工程治理已经完成。可以参考 [Getting Started](docs/getting-started.md) 启动项目。
 
-真实网络 Transport、Collector 的 Origin/CORS/限流控制、Storage 和 Dashboard 将按照路线图线性实现，不会在项目启动时一次性创建全部模块。当前 SDK 仍不发起 API request。
+真实网络 Transport、Storage 和 Dashboard 将按照路线图线性实现，不会在项目启动时一次性创建全部模块。当前 SDK 仍不发起 API request。
 
 ## 目标 Workflow
 

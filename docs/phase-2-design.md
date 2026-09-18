@@ -205,7 +205,7 @@ Collector 需要支持浏览器 Fetch：
 
 HTTP fixture 使用统一的 scenario JSON 结构，放在 `protocol/http/fixtures/`。每个 fixture 包含唯一 `id`、原始 request（包括字符串形式的 body）和 expected response；POST fixture 还包含 `setup.config`，需要特殊服务状态的 fixture 可以声明 `setup.rate_limit` 或 `setup.sink`。这样可以同时表达合法 JSON、非法 JSON、边界 payload 和可重放的安全/错误场景。`pnpm http:validate` 校验 fixture 结构和关键语义，不启动 Collector。
 
-最终请求错误优先级固定为：Content-Type 检查 → body 大小检查 → JSON 解析 → batch/site 一致性检查 → site 配置检查 → Origin 检查 → Ingest Key 检查 → 完整 Event Protocol Schema 校验 → EventSink。PR4 当前实现 JSON 解析后的 site lookup、enabled 和 Ingest Key 检查，Origin 检查及其 CORS response headers 在 PR5 接入；错误优先级和 CORS 行为由对应 fixtures 覆盖。
+最终请求错误优先级固定为：Content-Type 检查 → body 大小检查 → JSON 解析 → batch/site 一致性检查 → site 配置检查 → Origin 检查 → Ingest Key 检查 → rate limit → 完整 Event Protocol Schema 校验 → EventSink。PR5 完成 Origin、CORS 和单进程限流；错误优先级和 CORS 行为由对应 fixtures 覆盖。
 
 ## 6. Site 与 Environment 配置
 
@@ -243,6 +243,7 @@ site_id + environment
 - 每个 `site_id + environment` 必须至少有一个 key。
 - 同一个 key 不能绑定多个 site/environment。
 - 同一个 `site_id + Origin` 不能匹配多个 environment。
+- 因此，同一 site 的不同 environment 必须使用互不重叠的 Origin；Collector 不支持通过共享 Origin 再由 key 在多个 environment 之间选择。
 - 配置存在上述歧义时，Collector 必须在启动阶段失败。
 - 配置错误应在启动阶段尽早失败，避免服务以不安全配置运行。
 
@@ -446,6 +447,8 @@ PR4 的 key policy 在 Schema 校验前执行 site lookup、enabled 检查和恒
 - 实现单进程内存限流。
 - 添加 Origin、CORS 和限流测试。
 
+PR5 使用规范化后的 `scheme://host[:port]` 精确匹配 Origin；固定 `OPTIONS /v1/events` 成功响应为 `204`，CORS max-age 为 `600`。限流采用单进程 fixed window，按 `site_id + Origin` 每分钟 600 个请求计数，超限返回 `429` 和 `Retry-After: 60`。
+
 ### PR6 — FetchTransport and End-to-end Workflow
 
 分支：`phase-2/pr6-fetch-transport-e2e`
@@ -574,15 +577,15 @@ docker compose --profile backend up --build
 - [x] 非法事件不会进入 Sink。
 - [x] 不依赖 PostgreSQL。
 
-PR3 已完成 HTTP ingestion、Protocol V1 Schema 校验和 InMemory Sink。PR4 在其基础上完成 Site/Environment、Public Ingest Key 生成与校验；Origin、CORS 和 rate limit 仍留给 PR5。
+PR3 已完成 HTTP ingestion、Protocol V1 Schema 校验和 InMemory Sink。PR4 完成 Site/Environment、Public Ingest Key 生成与校验；PR5 在其基础上完成 Origin、CORS 和单进程限流。
 
 ### Security
 
 - [x] Site / environment 和 ingest key 配置校验完成。
-- [ ] Origin allowlist 完成。
-- [ ] CORS preflight 完成。
+- [x] Origin allowlist 完成。
+- [x] CORS preflight 完成。
 - [x] Public Ingest Key 生成、脱敏日志和请求校验完成。
-- [ ] 基础内存限流完成。
+- [x] 基础内存限流完成。
 - [x] 安全日志不泄露完整 Key。
 
 ### Client Integration

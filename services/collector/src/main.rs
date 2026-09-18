@@ -6,6 +6,7 @@ use tracing::info;
 use collector::cli::{Cli, Commands, KeyCommands, ServeArgs};
 use collector::config::CollectorConfig;
 use collector::error::CollectorError;
+use collector::rate_limit::RateLimiter;
 use collector::sink::InMemorySink;
 use collector::validation::Validator;
 
@@ -50,7 +51,7 @@ async fn serve(args: ServeArgs) -> Result<(), CollectorError> {
     let validator = Validator::new().map_err(CollectorError::ValidationSetup)?;
     let sink = InMemorySink::new();
     let policy = collector::security::KeyPolicy::new(registry);
-    let app = collector::http::router(validator, sink, policy);
+    let app = collector::http::router(validator, sink, policy, RateLimiter::new());
 
     let listener = tokio::net::TcpListener::bind(address).await?;
 

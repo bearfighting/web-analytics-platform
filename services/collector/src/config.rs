@@ -5,6 +5,7 @@ use std::{
 
 use serde::Deserialize;
 use thiserror::Error;
+use url::Url;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct CollectorConfig {
@@ -79,6 +80,17 @@ pub enum ConfigError {
         second_site_id: String,
         second_environment: String,
     },
+    #[error(
+        "site '{site_id}' environment '{environment}' has invalid allowed origin '{origin}': {reason}"
+    )]
+    InvalidOrigin {
+        site_id: String,
+        environment: String,
+        origin: String,
+        reason: String,
+    },
+    #[error("site '{site_id}' origin '{origin}' is assigned to multiple environments")]
+    DuplicateSiteOrigin { site_id: String, origin: String },
 }
 
 impl CollectorConfig {
@@ -124,6 +136,7 @@ impl SiteRegistry {
         let mut sites_by_id: HashMap<String, Vec<SiteConfig>> = HashMap::new();
         let mut identities = HashMap::new();
         let mut keys = HashMap::new();
+        let mut origins = HashMap::new();
 
         for site in sites {
             if site.site_id.trim().is_empty() || site.environment.trim().is_empty() {
@@ -136,6 +149,26 @@ impl SiteRegistry {
                     site_id: site.site_id,
                     environment: site.environment,
                 });
+            }
+
+            for raw_origin in &site.allowed_origins {
+                let origin =
+                    normalize_origin(raw_origin).map_err(|reason| ConfigError::InvalidOrigin {
+                        site_id: site.site_id.clone(),
+                        environment: site.environment.clone(),
+                        origin: raw_origin.clone(),
+                        reason,
+                    })?;
+                if let Some(previous_environment) = origins.insert(
+                    (site.site_id.clone(), origin.clone()),
+                    site.environment.clone(),
+                ) && previous_environment != site.environment
+                {
+                    return Err(ConfigError::DuplicateSiteOrigin {
+                        site_id: site.site_id.clone(),
+                        origin,
+                    });
+                }
             }
 
             for (index, key) in site.ingest_keys.iter().enumerate() {
@@ -179,6 +212,45 @@ impl SiteRegistry {
     pub fn sites(&self, site_id: &str) -> Option<&[SiteConfig]> {
         self.sites_by_id.get(site_id).map(Vec::as_slice)
     }
+
+    pub fn site_allows_origin(&self, site: &SiteConfig, origin: &str) -> bool {
+        site.allowed_origins
+            .iter()
+            .filter_map(|configured| normalize_origin(configured).ok())
+            .any(|configured| configured == origin)
+    }
+
+    pub fn origin_allowed_anywhere(&self, origin: &str) -> bool {
+        self.sites_by_id
+            .values()
+            .flatten()
+            .any(|site| site.enabled && self.site_allows_origin(site, origin))
+    }
+}
+
+pub fn normalize_origin(raw: &str) -> Result<String, String> {
+    if raw == "*" {
+        return Err("wildcard origins are not allowed".to_owned());
+    }
+
+    let url = Url::parse(raw).map_err(|error| error.to_string())?;
+    if !matches!(url.scheme(), "http" | "https") {
+        return Err("scheme must be http or https".to_owned());
+    }
+    if url.host_str().is_none() {
+        return Err("origin must include a host".to_owned());
+    }
+    if !url.username().is_empty() || url.password().is_some() {
+        return Err("user information is not allowed".to_owned());
+    }
+    if url.path() != "" && url.path() != "/" {
+        return Err("path is not allowed".to_owned());
+    }
+    if url.query().is_some() || url.fragment().is_some() {
+        return Err("query and fragment are not allowed".to_owned());
+    }
+
+    Ok(url.origin().ascii_serialization())
 }
 
 #[cfg(test)]
@@ -187,7 +259,7 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    use super::{CollectorConfig, ConfigError, SiteRegistry};
+    use super::{CollectorConfig, ConfigError, SiteRegistry, normalize_origin};
 
     static NEXT_FILE: AtomicUsize = AtomicUsize::new(0);
 
@@ -321,5 +393,33 @@ mod tests {
         let result =
             SiteRegistry::from_sites(vec![super::SiteConfig::new(" ", "production", true, "key")]);
         assert!(matches!(result, Err(ConfigError::EmptyIdentity)));
+    }
+
+    #[test]
+    fn normalizes_and_validates_origins() {
+        assert_eq!(
+            normalize_origin("https://EXAMPLE.com/").unwrap(),
+            "https://example.com"
+        );
+        assert_eq!(
+            normalize_origin("http://localhost:3000").unwrap(),
+            "http://localhost:3000"
+        );
+        assert!(normalize_origin("*").is_err());
+        assert!(normalize_origin("https://example.com/path").is_err());
+        assert!(normalize_origin("ftp://example.com").is_err());
+    }
+
+    #[test]
+    fn rejects_duplicate_site_origin_across_environments() {
+        let mut first = super::SiteConfig::new("site_example", "development", true, "key-one");
+        first.allowed_origins = vec!["https://example.com".into()];
+        let mut second = super::SiteConfig::new("site_example", "production", true, "key-two");
+        second.allowed_origins = vec!["https://example.com/".into()];
+
+        assert!(matches!(
+            SiteRegistry::from_sites(vec![first, second]),
+            Err(ConfigError::DuplicateSiteOrigin { .. })
+        ));
     }
 }

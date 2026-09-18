@@ -16,7 +16,8 @@
   "expected": {
     "status": 403,
     "headers": {
-      "content-type": "application/json"
+      "content-type": "application/json",
+      "vary": "Origin"
     },
     "body": "{\"error\":{\"code\":\"site_not_allowed\",\"message\":\"Site is not allowed\"}}"
   }

@@ -2,22 +2,29 @@ use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
 use thiserror::Error;
 
-use crate::config::{SiteConfig, SiteRegistry};
+use crate::config::{SiteConfig, SiteRegistry, normalize_origin};
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum AccessError {
     #[error("site is not allowed")]
     SiteNotAllowed,
+    #[error("origin is not allowed")]
+    OriginNotAllowed,
     #[error("ingest key is invalid")]
-    InvalidIngestKey,
+    InvalidIngestKey { origin: String },
 }
 
 #[derive(Clone)]
-pub struct KeyPolicy {
+pub struct SecurityPolicy {
     registry: SiteRegistry,
 }
 
-impl KeyPolicy {
+pub struct AuthorizedSite<'a> {
+    pub site: &'a SiteConfig,
+    pub origin: String,
+}
+
+impl SecurityPolicy {
     pub fn new(registry: SiteRegistry) -> Self {
         Self { registry }
     }
@@ -25,8 +32,9 @@ impl KeyPolicy {
     pub fn authorize(
         &self,
         site_id: &str,
+        request_origin: Option<&str>,
         ingest_key: Option<&str>,
-    ) -> Result<&SiteConfig, AccessError> {
+    ) -> Result<AuthorizedSite<'_>, AccessError> {
         let sites = self
             .registry
             .sites(site_id)
@@ -37,17 +45,34 @@ impl KeyPolicy {
             return Err(AccessError::SiteNotAllowed);
         }
 
+        let Some(request_origin) = request_origin else {
+            log_rejected(site_id, ingest_key, "missing origin");
+            return Err(AccessError::OriginNotAllowed);
+        };
+        let origin = normalize_origin(request_origin).map_err(|_| {
+            log_rejected(site_id, ingest_key, "invalid origin");
+            AccessError::OriginNotAllowed
+        })?;
+
+        let origin_sites: Vec<&SiteConfig> = sites
+            .iter()
+            .filter(|site| site.enabled && self.registry.site_allows_origin(site, &origin))
+            .collect();
+
+        if origin_sites.is_empty() {
+            log_rejected(site_id, ingest_key, "origin is not allowed");
+            return Err(AccessError::OriginNotAllowed);
+        }
+
         let Some(ingest_key) = ingest_key else {
             log_rejected(site_id, None, "missing ingest key");
-            return Err(AccessError::InvalidIngestKey);
+            return Err(AccessError::InvalidIngestKey { origin });
         };
 
-        let matched = sites.iter().find(|site| {
-            site.enabled
-                && site
-                    .ingest_keys
-                    .iter()
-                    .any(|configured| configured.as_bytes().ct_eq(ingest_key.as_bytes()).into())
+        let matched = origin_sites.into_iter().find(|site| {
+            site.ingest_keys
+                .iter()
+                .any(|configured| configured.as_bytes().ct_eq(ingest_key.as_bytes()).into())
         });
 
         match matched {
@@ -56,17 +81,27 @@ impl KeyPolicy {
                     site_id = %site.site_id,
                     environment = %site.environment,
                     key_sha256 = %key_fingerprint(ingest_key),
-                    "ingest key accepted"
+                    origin = %origin,
+                    "ingest key and origin accepted"
                 );
-                Ok(site)
+                Ok(AuthorizedSite { site, origin })
             }
             None => {
                 log_rejected(site_id, Some(ingest_key), "invalid ingest key");
-                Err(AccessError::InvalidIngestKey)
+                Err(AccessError::InvalidIngestKey { origin })
             }
         }
     }
+
+    pub fn preflight_origin_allowed(&self, request_origin: &str) -> Option<String> {
+        let origin = normalize_origin(request_origin).ok()?;
+        self.registry
+            .origin_allowed_anywhere(&origin)
+            .then_some(origin)
+    }
 }
+
+pub use SecurityPolicy as KeyPolicy;
 
 pub fn key_fingerprint(key: &str) -> String {
     let digest = Sha256::digest(key.as_bytes());
@@ -82,9 +117,9 @@ fn log_rejected(site_id: &str, key: Option<&str>, reason: &str) {
             site_id,
             key_sha256 = %key_fingerprint(key),
             reason,
-            "ingest key rejected"
+            "security policy rejected request"
         ),
-        None => tracing::warn!(site_id, reason, "ingest key rejected"),
+        None => tracing::warn!(site_id, reason, "security policy rejected request"),
     }
 }
 
@@ -94,10 +129,16 @@ mod tests {
     use crate::config::{SiteConfig, SiteRegistry};
 
     fn policy() -> KeyPolicy {
+        let mut development =
+            SiteConfig::new("site_example", "development", true, "development-key");
+        development.allowed_origins = vec!["http://localhost:3000".into()];
+        let mut production = SiteConfig::new("site_example", "production", true, "production-key");
+        production.allowed_origins = vec!["https://example.com".into()];
+
         KeyPolicy::new(
             SiteRegistry::from_sites(vec![
-                SiteConfig::new("site_example", "development", true, "development-key"),
-                SiteConfig::new("site_example", "production", true, "production-key"),
+                development,
+                production,
                 SiteConfig::new("site_disabled", "production", false, "disabled-key"),
             ])
             .expect("test registry should be valid"),
@@ -105,36 +146,89 @@ mod tests {
     }
 
     #[test]
-    fn selects_environment_by_key() {
+    fn selects_environment_by_matching_origin_and_key() {
         let policy = policy();
         let site = policy
-            .authorize("site_example", Some("production-key"))
-            .expect("key should be accepted");
-        assert_eq!(site.environment, "production");
+            .authorize(
+                "site_example",
+                Some("https://example.com/"),
+                Some("production-key"),
+            )
+            .expect("origin and key should be accepted");
+        assert_eq!(site.site.environment, "production");
+        assert_eq!(site.origin, "https://example.com");
     }
 
     #[test]
-    fn rejects_missing_or_invalid_key() {
+    fn rejects_missing_or_invalid_key_after_origin_match() {
         assert!(matches!(
-            policy().authorize("site_example", None),
-            Err(AccessError::InvalidIngestKey)
+            policy().authorize("site_example", Some("https://example.com"), None),
+            Err(AccessError::InvalidIngestKey { .. })
         ));
         assert!(matches!(
-            policy().authorize("site_example", Some("wrong-key")),
-            Err(AccessError::InvalidIngestKey)
+            policy().authorize(
+                "site_example",
+                Some("https://example.com"),
+                Some("wrong-key")
+            ),
+            Err(AccessError::InvalidIngestKey { .. })
         ));
     }
 
     #[test]
-    fn rejects_unknown_and_disabled_sites() {
+    fn rejects_unknown_disabled_and_disallowed_origins() {
         assert!(matches!(
-            policy().authorize("site_unknown", Some("production-key")),
+            policy().authorize(
+                "site_unknown",
+                Some("https://example.com"),
+                Some("production-key")
+            ),
             Err(AccessError::SiteNotAllowed)
         ));
         assert!(matches!(
-            policy().authorize("site_disabled", Some("disabled-key")),
+            policy().authorize(
+                "site_disabled",
+                Some("https://example.com"),
+                Some("disabled-key")
+            ),
             Err(AccessError::SiteNotAllowed)
         ));
+        assert!(matches!(
+            policy().authorize(
+                "site_example",
+                Some("https://evil.example"),
+                Some("production-key")
+            ),
+            Err(AccessError::OriginNotAllowed)
+        ));
+        assert!(matches!(
+            policy().authorize("site_example", None, Some("production-key")),
+            Err(AccessError::OriginNotAllowed)
+        ));
+    }
+
+    #[test]
+    fn key_cannot_cross_environment_origin() {
+        assert!(matches!(
+            policy().authorize(
+                "site_example",
+                Some("https://example.com"),
+                Some("development-key")
+            ),
+            Err(AccessError::InvalidIngestKey { .. })
+        ));
+    }
+
+    #[test]
+    fn preflight_accepts_any_enabled_allowlisted_origin() {
+        assert_eq!(
+            policy().preflight_origin_allowed("https://EXAMPLE.com/"),
+            Some("https://example.com".into())
+        );
+        assert_eq!(
+            policy().preflight_origin_allowed("https://evil.example"),
+            None
+        );
     }
 
     #[test]

@@ -30,6 +30,11 @@ const requiredFixtureIds = new Set([
   "invalid-ingest-key",
   "preflight-success",
   "preflight-disallowed-origin",
+  "preflight-invalid-method",
+  "preflight-invalid-header",
+  "origin-wrong-scheme",
+  "origin-wrong-host",
+  "origin-wrong-port",
   "rate-limited",
   "collector-error",
 ]);
@@ -256,7 +261,22 @@ function validateResponseSemantics(fixture, fixtureName) {
     }
   }
 
+  if (request.method === "OPTIONS" && typeof request.headers?.origin === "string") {
+    if (expected.headers?.vary !== "Origin") {
+      errors.push(`${fixtureName}: preflight response must include Vary: Origin.`);
+    }
+    if (
+      expected.status !== 204 &&
+      expected.headers?.["access-control-allow-origin"] !== undefined
+    ) {
+      errors.push(`${fixtureName}: rejected preflight must not allow an Origin.`);
+    }
+  }
+
   if (request.method === "POST" && typeof request.headers?.origin === "string") {
+    if (expected.headers?.vary !== "Origin") {
+      errors.push(`${fixtureName}: POST response must include Vary: Origin.`);
+    }
     let errorCode;
     try {
       errorCode = JSON.parse(expected.body)?.error?.code;
@@ -268,9 +288,12 @@ function validateResponseSemantics(fixture, fixtureName) {
       if (expected.headers?.["access-control-allow-origin"] !== request.headers.origin) {
         errors.push(`${fixtureName}: POST response must echo the allowlisted Origin.`);
       }
-      if (expected.headers?.vary !== "Origin") {
-        errors.push(`${fixtureName}: POST response must include Vary: Origin.`);
-      }
+    }
+  }
+
+  if (fixture.id === "rate-limited") {
+    if (expected.status !== 429 || expected.headers?.["retry-after"] !== "60") {
+      errors.push(`${fixtureName}: rate-limited must return 429 with Retry-After: 60.`);
     }
   }
 }

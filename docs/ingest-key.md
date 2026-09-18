@@ -111,25 +111,27 @@ X-Ingest-Key: generated-public-key
 
 EventBatch V1 不携带 `environment` 字段。Collector 不能从请求 body 读取或信任 environment；environment 由匹配到的服务端 site 配置确定。
 
-PR4 已实现的请求处理逻辑遵循以下顺序：
+PR5 已实现的请求处理逻辑遵循以下顺序：
 
 ```text
 读取 batch.site_id
   → 查找对应的 site 配置
   → 检查 site 是否 enabled
+  → 检查 Origin 是否匹配该 site/environment
   → 检查 X-Ingest-Key 是否匹配某个 site/environment 配置
   → 确定唯一的 site/environment
+  → 检查 site_id + Origin 限流
   → 校验 EventBatch V1
   → 写入 EventSink
 ```
 
-Origin allowlist、CORS 和 rate limit 属于 PR5；PR4 暂不因为 Origin 缺失而拒绝请求。
+Origin、key 和 rate limit 必须共同匹配同一个 enabled environment。同一 site 的不同 environment 不能配置相同 Origin；Origin 与 key 的交集必须唯一。缺失或不允许的 Origin 返回 `403 origin_not_allowed`；Origin 允许但 key 缺失或错误返回 `401 invalid_ingest_key`。每个 `site_id + Origin` 默认每分钟允许 600 个请求，超限返回 `429` 和 `Retry-After: 60`。
 
 Key 不能绕过 Origin allowlist。缺失或错误的 key 返回 `401 invalid_ingest_key`；不允许的 Origin 返回 `403 origin_not_allowed`。
 
 合法请求的 body 最大为 64 KiB，batch 最大为 100 个事件；请求必须使用 `application/json`（可带 charset 参数），否则返回 `415 unsupported_media_type`。
 
-Preflight 请求不携带实际的 `X-Ingest-Key` 值，因此 OPTIONS 只执行 Origin、路由和 CORS 相关检查；真正的 POST 必须执行完整 key 校验。
+Preflight 请求不携带实际的 `X-Ingest-Key` 值，因此 OPTIONS 只执行 Origin、method、request headers 和 CORS 相关检查；真正的 POST 必须执行完整 Origin/key 校验和限流。
 
 ## 6. 本地开发
 

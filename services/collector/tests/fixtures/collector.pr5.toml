@@ -1,0 +1,20 @@
+[[sites]]
+site_id = "site_example"
+environment = "development"
+enabled = true
+allowed_origins = ["http://localhost:3000"]
+ingest_keys = ["pr5-development-key"]
+
+[[sites]]
+site_id = "site_example"
+environment = "production"
+enabled = true
+allowed_origins = ["https://example.com"]
+ingest_keys = ["pr5-production-key"]
+
+[[sites]]
+site_id = "site_disabled"
+environment = "production"
+enabled = false
+allowed_origins = ["https://disabled.example"]
+ingest_keys = ["pr5-disabled-key"]

@@ -1,5 +1,5 @@
 {
-  "id": "preflight-disallowed-origin",
+  "id": "preflight-invalid-header",
   "setup": {
     "config": "../config/collector.example.toml"
   },
@@ -7,9 +7,9 @@
     "method": "OPTIONS",
     "path": "/v1/events",
     "headers": {
-      "origin": "https://evil.example",
+      "origin": "https://www.example.com",
       "access-control-request-method": "POST",
-      "access-control-request-headers": "content-type, x-ingest-key"
+      "access-control-request-headers": "content-type, x-admin-token"
     },
     "body": ""
   },

@@ -13,6 +13,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::{
+    rate_limit::RateLimiter,
     security::{AccessError, KeyPolicy},
     sink::EventSink,
     validation::Validator,
@@ -25,19 +26,26 @@ pub struct AppState {
     validator: Arc<Validator>,
     sink: Arc<dyn EventSink>,
     policy: Arc<KeyPolicy>,
+    rate_limiter: Arc<RateLimiter>,
 }
 
-pub fn router<S>(validator: Validator, sink: S, policy: KeyPolicy) -> Router
+pub fn router<S>(
+    validator: Validator,
+    sink: S,
+    policy: KeyPolicy,
+    rate_limiter: RateLimiter,
+) -> Router
 where
     S: EventSink + 'static,
 {
     Router::new()
         .route("/health", get(health))
-        .route("/v1/events", post(events))
+        .route("/v1/events", post(events).options(preflight))
         .with_state(AppState {
             validator: Arc::new(validator),
             sink: Arc::new(sink),
             policy: Arc::new(policy),
+            rate_limiter: Arc::new(rate_limiter),
         })
 }
 
@@ -47,8 +55,15 @@ async fn health() -> Json<HealthResponse> {
 
 async fn events(State(state): State<AppState>, request: Request<Body>) -> Response {
     let headers = request.headers().clone();
+    let has_origin = headers.contains_key(header::ORIGIN);
+    let global_cors_origin =
+        request_origin(&headers).and_then(|origin| state.policy.preflight_origin_allowed(origin));
     if !is_json_content_type(&headers) {
-        return ApiError::unsupported_media_type().into_response();
+        return with_cors(
+            ApiError::unsupported_media_type().into_response(),
+            has_origin,
+            global_cors_origin.as_deref(),
+        );
     }
 
     let body = match Limited::new(request.into_body(), MAX_BODY_SIZE + 1)
@@ -57,52 +72,174 @@ async fn events(State(state): State<AppState>, request: Request<Body>) -> Respon
     {
         Ok(body) => body.to_bytes(),
         Err(error) if error.downcast_ref::<LengthLimitError>().is_some() => {
-            return ApiError::payload_too_large().into_response();
+            return with_cors(
+                ApiError::payload_too_large().into_response(),
+                has_origin,
+                global_cors_origin.as_deref(),
+            );
         }
         Err(error) => {
             tracing::error!(error = %error, "failed to read request body");
-            return ApiError::collector_error().into_response();
+            return with_cors(
+                ApiError::collector_error().into_response(),
+                has_origin,
+                global_cors_origin.as_deref(),
+            );
         }
     };
 
     if body.len() > MAX_BODY_SIZE {
-        return ApiError::payload_too_large().into_response();
+        return with_cors(
+            ApiError::payload_too_large().into_response(),
+            has_origin,
+            global_cors_origin.as_deref(),
+        );
     }
 
     let value: Value = match serde_json::from_slice(&body) {
         Ok(value) => value,
-        Err(_) => return ApiError::invalid_json().into_response(),
+        Err(_) => {
+            return with_cors(
+                ApiError::invalid_json().into_response(),
+                has_origin,
+                global_cors_origin.as_deref(),
+            );
+        }
     };
 
     let site_id = match batch_site_id(&value) {
         Ok(Some(site_id)) => site_id,
-        Ok(None) => return validate_batch(&state, value).await,
-        Err(()) => return ApiError::invalid_event_batch().into_response(),
+        Ok(None) => {
+            return validate_batch(&state, value, has_origin, global_cors_origin.as_deref()).await;
+        }
+        Err(()) => {
+            return with_cors(
+                ApiError::invalid_event_batch().into_response(),
+                has_origin,
+                global_cors_origin.as_deref(),
+            );
+        }
     };
 
-    if let Err(error) = state.policy.authorize(site_id, request_key(&headers)) {
-        return match error {
-            AccessError::SiteNotAllowed => ApiError::site_not_allowed().into_response(),
-            AccessError::InvalidIngestKey => ApiError::invalid_ingest_key().into_response(),
+    let authorized =
+        match state
+            .policy
+            .authorize(site_id, request_origin(&headers), request_key(&headers))
+        {
+            Ok(authorized) => authorized,
+            Err(AccessError::SiteNotAllowed) => {
+                return with_cors(
+                    ApiError::site_not_allowed().into_response(),
+                    has_origin,
+                    None,
+                );
+            }
+            Err(AccessError::OriginNotAllowed) => {
+                return with_cors(
+                    ApiError::origin_not_allowed().into_response(),
+                    has_origin,
+                    None,
+                );
+            }
+            Err(AccessError::InvalidIngestKey { origin }) => {
+                return with_cors(
+                    ApiError::invalid_ingest_key().into_response(),
+                    has_origin,
+                    Some(origin.as_str()),
+                );
+            }
         };
+
+    if !state.rate_limiter.try_acquire(site_id, &authorized.origin) {
+        return with_cors(
+            rate_limited_response(),
+            has_origin,
+            Some(authorized.origin.as_str()),
+        );
     }
 
-    validate_batch(&state, value).await
+    validate_batch(&state, value, has_origin, Some(authorized.origin.as_str())).await
 }
 
-async fn validate_batch(state: &AppState, value: Value) -> Response {
+async fn validate_batch(
+    state: &AppState,
+    value: Value,
+    has_origin: bool,
+    cors_origin: Option<&str>,
+) -> Response {
     let batch = match state.validator.validate(&value) {
         Ok(batch) => batch,
-        Err(_) => return ApiError::invalid_event_batch().into_response(),
+        Err(_) => {
+            return with_cors(
+                ApiError::invalid_event_batch().into_response(),
+                has_origin,
+                cors_origin,
+            );
+        }
     };
 
     let accepted = batch.events.len();
     if let Err(error) = state.sink.accept(batch.events).await {
         tracing::error!(error = %error, "event sink failed");
-        return ApiError::collector_error().into_response();
+        return with_cors(
+            ApiError::collector_error().into_response(),
+            has_origin,
+            cors_origin,
+        );
     }
 
-    json_response(StatusCode::ACCEPTED, AcceptedResponse { accepted })
+    with_cors(
+        json_response(StatusCode::ACCEPTED, AcceptedResponse { accepted }),
+        has_origin,
+        cors_origin,
+    )
+}
+
+async fn preflight(State(state): State<AppState>, request: Request<Body>) -> Response {
+    let headers = request.headers();
+    let Some(raw_origin) = request_origin(headers) else {
+        return ApiError::origin_not_allowed().into_response();
+    };
+    let Some(origin) = state.policy.preflight_origin_allowed(raw_origin) else {
+        return with_cors(ApiError::origin_not_allowed().into_response(), true, None);
+    };
+
+    let method_allowed = headers
+        .get("access-control-request-method")
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|method| method.eq_ignore_ascii_case("POST"));
+    let headers_allowed = headers
+        .get("access-control-request-headers")
+        .and_then(|value| value.to_str().ok())
+        .map(request_headers_allowed)
+        .unwrap_or(true);
+
+    if !method_allowed || !headers_allowed {
+        return with_cors(ApiError::origin_not_allowed().into_response(), true, None);
+    }
+
+    let mut response = StatusCode::NO_CONTENT.into_response();
+    let response_headers = response.headers_mut();
+    response_headers.insert(
+        header::ACCESS_CONTROL_ALLOW_ORIGIN,
+        origin
+            .parse()
+            .expect("normalized origin is a valid header value"),
+    );
+    response_headers.insert(
+        header::ACCESS_CONTROL_ALLOW_METHODS,
+        header::HeaderValue::from_static("POST"),
+    );
+    response_headers.insert(
+        header::ACCESS_CONTROL_ALLOW_HEADERS,
+        header::HeaderValue::from_static("Content-Type, X-Ingest-Key"),
+    );
+    response_headers.insert(
+        header::ACCESS_CONTROL_MAX_AGE,
+        header::HeaderValue::from_static("600"),
+    );
+    response_headers.insert(header::VARY, header::HeaderValue::from_static("Origin"));
+    response
 }
 
 fn batch_site_id(value: &Value) -> Result<Option<&str>, ()> {
@@ -130,6 +267,41 @@ fn request_key(headers: &HeaderMap) -> Option<&str> {
     headers
         .get("x-ingest-key")
         .and_then(|value| value.to_str().ok())
+}
+
+fn request_origin(headers: &HeaderMap) -> Option<&str> {
+    headers
+        .get(header::ORIGIN)
+        .and_then(|value| value.to_str().ok())
+}
+
+fn request_headers_allowed(value: &str) -> bool {
+    if value.trim().is_empty() {
+        return true;
+    }
+    value.split(',').all(|name| {
+        matches!(
+            name.trim().to_ascii_lowercase().as_str(),
+            "content-type" | "x-ingest-key"
+        )
+    })
+}
+
+fn with_cors(mut response: Response, has_origin: bool, allowed_origin: Option<&str>) -> Response {
+    if has_origin {
+        response
+            .headers_mut()
+            .insert(header::VARY, header::HeaderValue::from_static("Origin"));
+    }
+    if let Some(origin) = allowed_origin {
+        response.headers_mut().insert(
+            header::ACCESS_CONTROL_ALLOW_ORIGIN,
+            origin
+                .parse()
+                .expect("normalized origin is a valid header value"),
+        );
+    }
+    response
 }
 
 fn is_json_content_type(headers: &HeaderMap) -> bool {
@@ -233,6 +405,27 @@ impl ApiError {
             StatusCode::FORBIDDEN,
         )
     }
+
+    fn origin_not_allowed() -> Self {
+        Self::new(
+            "origin_not_allowed",
+            "Origin is not allowed",
+            StatusCode::FORBIDDEN,
+        )
+    }
+}
+
+fn rate_limited_response() -> Response {
+    let mut response = ApiError::new(
+        "rate_limited",
+        "Rate limit exceeded",
+        StatusCode::TOO_MANY_REQUESTS,
+    )
+    .into_response();
+    response
+        .headers_mut()
+        .insert(header::RETRY_AFTER, header::HeaderValue::from_static("60"));
+    response
 }
 
 impl IntoResponse for ApiError {
@@ -251,6 +444,7 @@ mod tests {
     use crate::{
         config::{SiteConfig, SiteRegistry},
         protocol::PageViewEvent,
+        rate_limit::RateLimiter,
         security::KeyPolicy,
         sink::{EventSink, InMemorySink, SinkError},
         validation::Validator,
@@ -264,7 +458,12 @@ mod tests {
     {
         let policy = KeyPolicy::new(
             SiteRegistry::from_sites(vec![
-                SiteConfig::new("site_example", "production", true, "production-key"),
+                {
+                    let mut site =
+                        SiteConfig::new("site_example", "production", true, "production-key");
+                    site.allowed_origins = vec!["https://example.com".into()];
+                    site
+                },
                 SiteConfig::new("site_disabled", "production", false, "disabled-key"),
             ])
             .expect("test registry should be valid"),
@@ -273,6 +472,7 @@ mod tests {
             Validator::new().expect("schemas should compile"),
             sink,
             policy,
+            RateLimiter::new(),
         )
     }
 
@@ -290,6 +490,7 @@ mod tests {
     fn request_with_content_type(body: &str, content_type: &str) -> Request<Body> {
         Request::post("/v1/events")
             .header("content-type", content_type)
+            .header("origin", "https://example.com")
             .header("x-ingest-key", "production-key")
             .body(Body::from(body.to_owned()))
             .expect("request should build")
