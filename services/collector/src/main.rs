@@ -31,14 +31,9 @@ async fn run() -> Result<(), CollectorError> {
     }
 }
 
-async fn generate_key(args: collector::cli::KeyGenerateArgs) -> Result<(), CollectorError> {
+async fn generate_key(_args: collector::cli::KeyGenerateArgs) -> Result<(), CollectorError> {
     let key = collector::key::generate()?;
 
-    info!(
-        site_id = %args.site,
-        environment = %args.environment,
-        "generated ingest key"
-    );
     println!("{key}");
     Ok(())
 }
