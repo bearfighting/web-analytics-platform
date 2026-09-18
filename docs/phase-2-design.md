@@ -546,8 +546,19 @@ collector
 Collector 使用 `backend` profile；本地启动完整 Phase 2 workflow 使用：
 
 ```bash
-docker compose --profile backend up --build
+pnpm docker:backend
 ```
+
+该命令等价于：
+
+```bash
+docker compose \
+  -f compose.yaml \
+  -f compose.backend.yaml \
+  --profile backend up --build
+```
+
+它会等待 Collector 的 `/health` 检查通过后再启动 Playground。默认的 `pnpm docker:dev` 不加载 backend override，仍然只启动使用 MockTransport 的 Playground。
 
 不加入 PostgreSQL。Collector 只使用配置和 InMemory Sink 即可运行。
 
