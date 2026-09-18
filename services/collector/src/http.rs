@@ -1,29 +1,222 @@
-use axum::{Json, Router, routing::get};
-use serde::Serialize;
+use std::sync::Arc;
 
-#[derive(Debug, Serialize)]
-struct HealthResponse {
-    status: &'static str,
+use axum::{
+    Json, Router,
+    body::Body,
+    extract::State,
+    http::{HeaderMap, Request, StatusCode, header},
+    response::{IntoResponse, Response},
+    routing::{get, post},
+};
+use http_body_util::{BodyExt, LengthLimitError, Limited};
+use serde::Serialize;
+use serde_json::Value;
+
+use crate::{sink::EventSink, validation::Validator};
+
+const MAX_BODY_SIZE: usize = 64 * 1024;
+
+#[derive(Clone)]
+pub struct AppState {
+    validator: Arc<Validator>,
+    sink: Arc<dyn EventSink>,
 }
 
-pub fn router() -> Router {
-    Router::new().route("/health", get(health))
+pub fn router<S>(validator: Validator, sink: S) -> Router
+where
+    S: EventSink + 'static,
+{
+    Router::new()
+        .route("/health", get(health))
+        .route("/v1/events", post(events))
+        .with_state(AppState {
+            validator: Arc::new(validator),
+            sink: Arc::new(sink),
+        })
 }
 
 async fn health() -> Json<HealthResponse> {
     Json(HealthResponse { status: "ok" })
 }
 
+async fn events(State(state): State<AppState>, request: Request<Body>) -> Response {
+    if !is_json_content_type(request.headers()) {
+        return ApiError::unsupported_media_type().into_response();
+    }
+
+    let body = match Limited::new(request.into_body(), MAX_BODY_SIZE + 1)
+        .collect()
+        .await
+    {
+        Ok(body) => body.to_bytes(),
+        Err(error) if error.downcast_ref::<LengthLimitError>().is_some() => {
+            return ApiError::payload_too_large().into_response();
+        }
+        Err(error) => {
+            tracing::error!(error = %error, "failed to read request body");
+            return ApiError::collector_error().into_response();
+        }
+    };
+
+    if body.len() > MAX_BODY_SIZE {
+        return ApiError::payload_too_large().into_response();
+    }
+
+    let value: Value = match serde_json::from_slice(&body) {
+        Ok(value) => value,
+        Err(_) => return ApiError::invalid_json().into_response(),
+    };
+
+    let batch = match state.validator.validate(&value) {
+        Ok(batch) => batch,
+        Err(_) => return ApiError::invalid_event_batch().into_response(),
+    };
+
+    let accepted = batch.events.len();
+    if let Err(error) = state.sink.accept(batch.events).await {
+        tracing::error!(error = %error, "event sink failed");
+        return ApiError::collector_error().into_response();
+    }
+
+    json_response(StatusCode::ACCEPTED, AcceptedResponse { accepted })
+}
+
+fn is_json_content_type(headers: &HeaderMap) -> bool {
+    headers
+        .get(header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.split(';').next())
+        .map(str::trim)
+        .is_some_and(|value| value.eq_ignore_ascii_case("application/json"))
+}
+
+fn json_response<T: Serialize>(status: StatusCode, value: T) -> Response {
+    (status, Json(value)).into_response()
+}
+
+#[derive(Debug, Serialize)]
+struct HealthResponse {
+    status: &'static str,
+}
+
+#[derive(Debug, Serialize)]
+struct AcceptedResponse {
+    accepted: usize,
+}
+
+#[derive(Debug, Serialize)]
+struct ErrorResponse {
+    error: ErrorBody,
+}
+
+#[derive(Debug, Serialize)]
+struct ErrorBody {
+    code: &'static str,
+    message: &'static str,
+}
+
+struct ApiError(ErrorResponse, StatusCode);
+
+impl ApiError {
+    fn new(code: &'static str, message: &'static str, status: StatusCode) -> Self {
+        Self(
+            ErrorResponse {
+                error: ErrorBody { code, message },
+            },
+            status,
+        )
+    }
+
+    fn invalid_json() -> Self {
+        Self::new(
+            "invalid_json",
+            "Request body must be valid JSON",
+            StatusCode::BAD_REQUEST,
+        )
+    }
+
+    fn invalid_event_batch() -> Self {
+        Self::new(
+            "invalid_event_batch",
+            "Event batch validation failed",
+            StatusCode::BAD_REQUEST,
+        )
+    }
+
+    fn payload_too_large() -> Self {
+        Self::new(
+            "payload_too_large",
+            "Request body exceeds the maximum size",
+            StatusCode::PAYLOAD_TOO_LARGE,
+        )
+    }
+
+    fn unsupported_media_type() -> Self {
+        Self::new(
+            "unsupported_media_type",
+            "Content-Type must be application/json",
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+        )
+    }
+
+    fn collector_error() -> Self {
+        Self::new(
+            "collector_error",
+            "Collector failed to accept the event batch",
+            StatusCode::INTERNAL_SERVER_ERROR,
+        )
+    }
+}
+
+impl IntoResponse for ApiError {
+    fn into_response(self) -> Response {
+        json_response(self.1, self.0)
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use async_trait::async_trait;
     use axum::{body::Body, body::to_bytes, http::Request};
     use tower::ServiceExt;
 
     use super::router;
+    use crate::{
+        protocol::PageViewEvent,
+        sink::{EventSink, InMemorySink, SinkError},
+        validation::Validator,
+    };
+
+    const VALID_EVENT: &str = r#"{"schema_version":1,"event_id":"01J00000000000000000000000","type":"page_view","site_id":"site_example","occurred_at":1760000000000,"path":"/about"}"#;
+
+    fn app<S>(sink: S) -> axum::Router
+    where
+        S: EventSink + 'static,
+    {
+        router(Validator::new().expect("schemas should compile"), sink)
+    }
+
+    async fn response_json(response: axum::response::Response) -> serde_json::Value {
+        let body = to_bytes(response.into_body(), 128 * 1024)
+            .await
+            .expect("response body should be readable");
+        serde_json::from_slice(&body).expect("response body should be JSON")
+    }
+
+    fn request(body: &str) -> Request<Body> {
+        request_with_content_type(body, "application/json")
+    }
+
+    fn request_with_content_type(body: &str, content_type: &str) -> Request<Body> {
+        Request::post("/v1/events")
+            .header("content-type", content_type)
+            .body(Body::from(body.to_owned()))
+            .expect("request should build")
+    }
 
     #[tokio::test]
     async fn health_returns_ok_json() {
-        let response = router()
+        let response = app(InMemorySink::new())
             .oneshot(
                 Request::get("/health")
                     .body(Body::empty())
@@ -34,24 +227,249 @@ mod tests {
 
         assert_eq!(response.status(), 200);
         assert_eq!(response.headers()["content-type"], "application/json");
-
-        let body = to_bytes(response.into_body(), 1024)
-            .await
-            .expect("health body should be readable");
-        assert_eq!(body.as_ref(), br#"{"status":"ok"}"#);
+        assert_eq!(
+            response_json(response).await,
+            serde_json::json!({"status": "ok"})
+        );
     }
 
     #[tokio::test]
-    async fn events_route_is_not_registered_in_pr2() {
-        let response = router()
+    async fn accepts_single_event_and_stores_it() {
+        let sink = InMemorySink::new();
+        let response = app(sink.clone())
+            .oneshot(request(&format!(
+                r#"{{"schema_version":1,"events":[{VALID_EVENT}]}}"#
+            )))
+            .await
+            .expect("request should complete");
+
+        assert_eq!(response.status(), 202);
+        assert_eq!(
+            response_json(response).await,
+            serde_json::json!({"accepted": 1})
+        );
+        assert_eq!(sink.snapshot().await.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn accepts_multiple_events_and_charset_content_type() {
+        let sink = InMemorySink::new();
+        let body = format!(
+            r#"{{"schema_version":1,"events":[{VALID_EVENT},{VALID_EVENT}],"future_field":true}}"#
+        );
+        let response = app(sink.clone())
+            .oneshot(request_with_content_type(
+                &body,
+                "application/json; charset=utf-8",
+            ))
+            .await
+            .expect("request should complete");
+
+        assert_eq!(response.status(), 202);
+        assert_eq!(
+            response_json(response).await,
+            serde_json::json!({"accepted": 2})
+        );
+        assert_eq!(sink.snapshot().await.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn rejects_invalid_json_without_writing() {
+        let sink = InMemorySink::new();
+        let response = app(sink.clone())
+            .oneshot(request("{"))
+            .await
+            .expect("request should complete");
+
+        assert_eq!(response.status(), 400);
+        assert_eq!(
+            response_json(response).await["error"]["code"],
+            "invalid_json"
+        );
+        assert!(sink.snapshot().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn rejects_invalid_batch_without_writing() {
+        let sink = InMemorySink::new();
+        let body = r#"{"schema_version":1,"events":[{"schema_version":1,"event_id":"bad","type":"page_view","site_id":"site_example","occurred_at":-1,"path":"about"}]}"#;
+        let response = app(sink.clone())
+            .oneshot(request(body))
+            .await
+            .expect("request should complete");
+
+        assert_eq!(response.status(), 400);
+        assert_eq!(
+            response_json(response).await["error"]["code"],
+            "invalid_event_batch"
+        );
+        assert!(sink.snapshot().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn rejects_empty_batch() {
+        let response = app(InMemorySink::new())
+            .oneshot(request(r#"{"schema_version":1,"events":[]}"#))
+            .await
+            .expect("request should complete");
+
+        assert_eq!(response.status(), 400);
+        assert_eq!(
+            response_json(response).await["error"]["code"],
+            "invalid_event_batch"
+        );
+    }
+
+    #[tokio::test]
+    async fn rejects_batch_with_more_than_100_events() {
+        let event: serde_json::Value =
+            serde_json::from_str(VALID_EVENT).expect("event should parse");
+        let body = serde_json::json!({
+            "schema_version": 1,
+            "events": (0..101).map(|_| event.clone()).collect::<Vec<_>>(),
+        });
+        let response = app(InMemorySink::new())
+            .oneshot(request(&body.to_string()))
+            .await
+            .expect("request should complete");
+
+        assert_eq!(response.status(), 400);
+        assert_eq!(
+            response_json(response).await["error"]["code"],
+            "invalid_event_batch"
+        );
+    }
+
+    #[tokio::test]
+    async fn rejects_missing_required_field_and_wrong_event_type() {
+        for body in [
+            r#"{"schema_version":1,"events":[{"schema_version":1,"type":"page_view","site_id":"site_example","occurred_at":1760000000000,"path":"/about"}]}"#,
+            r#"{"schema_version":1,"events":[{"schema_version":1,"event_id":"01J00000000000000000000000","type":"custom","site_id":"site_example","occurred_at":1760000000000,"path":"/about"}]}"#,
+        ] {
+            let response = app(InMemorySink::new())
+                .oneshot(request(body))
+                .await
+                .expect("request should complete");
+
+            assert_eq!(response.status(), 400);
+            assert_eq!(
+                response_json(response).await["error"]["code"],
+                "invalid_event_batch"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn rejects_invalid_occurred_at() {
+        let body = r#"{"schema_version":1,"events":[{"schema_version":1,"event_id":"01J00000000000000000000000","type":"page_view","site_id":"site_example","occurred_at":-1,"path":"/about"}]}"#;
+        let response = app(InMemorySink::new())
+            .oneshot(request(body))
+            .await
+            .expect("request should complete");
+
+        assert_eq!(response.status(), 400);
+        assert_eq!(
+            response_json(response).await["error"]["code"],
+            "invalid_event_batch"
+        );
+    }
+
+    #[tokio::test]
+    async fn rejects_mixed_batch_atomically() {
+        let sink = InMemorySink::new();
+        let body = format!(
+            r#"{{"schema_version":1,"events":[{VALID_EVENT},{{"schema_version":1,"event_id":"bad","type":"page_view","site_id":"site_example","occurred_at":-1,"path":"/about"}}]}}"#
+        );
+        let response = app(sink.clone())
+            .oneshot(request(&body))
+            .await
+            .expect("request should complete");
+
+        assert_eq!(response.status(), 400);
+        assert!(sink.snapshot().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn rejects_unsupported_content_type() {
+        let response = app(InMemorySink::new())
             .oneshot(
                 Request::post("/v1/events")
-                    .body(Body::empty())
+                    .header("content-type", "text/plain")
+                    .body(Body::from(VALID_EVENT))
                     .expect("request should build"),
             )
             .await
             .expect("request should complete");
 
-        assert_eq!(response.status(), 404);
+        assert_eq!(response.status(), 415);
+        assert_eq!(
+            response_json(response).await["error"]["code"],
+            "unsupported_media_type"
+        );
+    }
+
+    #[tokio::test]
+    async fn rejects_missing_content_type() {
+        let response = app(InMemorySink::new())
+            .oneshot(
+                Request::post("/v1/events")
+                    .body(Body::from(VALID_EVENT))
+                    .expect("request should build"),
+            )
+            .await
+            .expect("request should complete");
+
+        assert_eq!(response.status(), 415);
+        assert_eq!(
+            response_json(response).await["error"]["code"],
+            "unsupported_media_type"
+        );
+    }
+
+    #[tokio::test]
+    async fn rejects_oversized_body() {
+        let response = app(InMemorySink::new())
+            .oneshot(
+                Request::post("/v1/events")
+                    .header("content-type", "application/json")
+                    .body(Body::from(format!(
+                        "{{\"padding\":\"{}\"}}",
+                        "x".repeat(64 * 1024)
+                    )))
+                    .expect("request should build"),
+            )
+            .await
+            .expect("request should complete");
+
+        assert_eq!(response.status(), 413);
+        assert_eq!(
+            response_json(response).await["error"]["code"],
+            "payload_too_large"
+        );
+    }
+
+    #[tokio::test]
+    async fn sink_failure_returns_collector_error() {
+        let response = app(FailingSink)
+            .oneshot(request(&format!(
+                r#"{{"schema_version":1,"events":[{VALID_EVENT}]}}"#
+            )))
+            .await
+            .expect("request should complete");
+
+        assert_eq!(response.status(), 500);
+        assert_eq!(
+            response_json(response).await["error"]["code"],
+            "collector_error"
+        );
+    }
+
+    struct FailingSink;
+
+    #[async_trait]
+    impl EventSink for FailingSink {
+        async fn accept(&self, _events: Vec<PageViewEvent>) -> Result<(), SinkError> {
+            Err(SinkError::Failed)
+        }
     }
 }

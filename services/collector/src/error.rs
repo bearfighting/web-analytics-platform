@@ -1,6 +1,7 @@
 use thiserror::Error;
 
 use crate::config::ConfigError;
+use crate::validation::ValidationError;
 
 #[derive(Debug, Error)]
 pub enum CollectorError {
@@ -12,4 +13,6 @@ pub enum CollectorError {
     Bind(#[from] std::io::Error),
     #[error("collector server failed: {0}")]
     Serve(std::io::Error),
+    #[error("failed to initialize event schema validator: {0}")]
+    ValidationSetup(ValidationError),
 }

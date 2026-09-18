@@ -1,21 +1,17 @@
-mod cli;
-mod config;
-mod error;
-mod http;
-mod logging;
-
 use std::net::{IpAddr, SocketAddr};
 
 use clap::Parser;
 use tracing::info;
 
-use crate::cli::{Cli, Commands, ServeArgs};
-use crate::config::CollectorConfig;
-use crate::error::CollectorError;
+use collector::cli::{Cli, Commands, ServeArgs};
+use collector::config::CollectorConfig;
+use collector::error::CollectorError;
+use collector::sink::InMemorySink;
+use collector::validation::Validator;
 
 #[tokio::main]
 async fn main() {
-    logging::init();
+    collector::logging::init();
 
     if let Err(error) = run().await {
         tracing::error!(error = %error, "collector stopped");
@@ -35,7 +31,9 @@ async fn serve(args: ServeArgs) -> Result<(), CollectorError> {
     let config = CollectorConfig::load_from_path(&args.config)?;
     let host: IpAddr = args.host.parse()?;
     let address = SocketAddr::from((host, args.port));
-    let app = http::router();
+    let validator = Validator::new().map_err(CollectorError::ValidationSetup)?;
+    let sink = InMemorySink::new();
+    let app = collector::http::router(validator, sink);
 
     let listener = tokio::net::TcpListener::bind(address).await?;
 

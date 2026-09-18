@@ -131,7 +131,18 @@ Collector 默认监听 `http://localhost:4001`，健康检查地址为：
 http://localhost:4001/health
 ```
 
-当前 Collector 只提供健康检查和配置加载；`POST /v1/events` 会在后续 PR 实现。
+当前 Collector 提供健康检查、配置加载和 `POST /v1/events`。合法事件暂存于进程内 InMemory Sink；Origin、CORS、Ingest Key 和限流会在后续 PR 实现。
+
+发送一个合法 EventBatch：
+
+```bash
+curl -i \\
+  -X POST http://localhost:4001/v1/events \\
+  -H 'Content-Type: application/json' \\
+  --data '{"schema_version":1,"events":[{"schema_version":1,"event_id":"01J00000000000000000000000","type":"page_view","site_id":"site_example","occurred_at":1760000000000,"path":"/about"}]}'
+```
+
+成功请求返回 `202` 和已接收事件数量。当前 Collector 不持久化事件，重启后 InMemory Sink 会清空。
 
 ## CI
 

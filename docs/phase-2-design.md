@@ -557,19 +557,21 @@ docker compose --profile backend up --build
 ### API 与 Protocol
 
 - [ ] HTTP API Contract 已固定。
-- [ ] 成功和错误响应 fixtures 已存在。
-- [ ] EventBatch V1 校验与 canonical Schema 一致。
-- [ ] batch、body 和 response 边界有测试。
+- [x] 成功和错误响应 fixtures 已存在。
+- [x] EventBatch V1 校验与 canonical Schema 一致。
+- [x] batch、body 和 response 边界有测试。
 
 ### Collector
 
-- [ ] Rust workspace 建立。
-- [ ] Collector 可以启动。
-- [ ] `/health` 可用。
-- [ ] `POST /v1/events` 可用。
-- [ ] 合法事件进入 InMemory Sink。
-- [ ] 非法事件不会进入 Sink。
-- [ ] 不依赖 PostgreSQL。
+- [x] Rust workspace 建立。
+- [x] Collector 可以启动。
+- [x] `/health` 可用。
+- [x] `POST /v1/events` 可用。
+- [x] 合法事件进入 InMemory Sink。
+- [x] 非法事件不会进入 Sink。
+- [x] 不依赖 PostgreSQL。
+
+PR3 已完成 HTTP ingestion、Protocol V1 Schema 校验和 InMemory Sink。PR3 明确不执行 Site/Environment、Origin、CORS、Public Ingest Key 或 rate limit 校验；这些能力分别留给 PR4 和 PR5。
 
 ### Security
 

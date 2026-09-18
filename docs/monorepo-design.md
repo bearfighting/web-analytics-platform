@@ -63,7 +63,7 @@ crates/
 services/
 ```
 
-当前 Backend Foundation 已创建 `services/collector`，但尚未创建 `crates/`。Collector 使用 Rust 1.96.0、TOML 启动配置和 Axum `/health` 服务；ingestion、Storage 和 Processor 仍按后续阶段创建。
+当前 Backend Foundation 已创建 `services/collector`，但尚未创建 `crates/`。Collector 使用 Rust 1.96.0、TOML 启动配置、Axum HTTP ingestion 和 InMemory Sink；Storage 和 Processor 仍按后续阶段创建。
 
 ## 模块职责
 
