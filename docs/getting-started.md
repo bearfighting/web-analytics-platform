@@ -136,6 +136,23 @@ NEXT_PUBLIC_ANALYTICS_SITE_ID=site_example
 docker compose --profile backend up --build collector
 ```
 
+如果同时启动 Playground，并要求它等待 Collector 健康后再启动：
+
+```bash
+docker compose \
+  -f compose.yaml \
+  -f compose.backend.yaml \
+  --profile backend up --build
+```
+
+也可以直接运行：
+
+```bash
+pnpm docker:backend
+```
+
+默认的 `pnpm docker:dev` 不加载 backend override，仍然只启动使用 MockTransport 的 Playground。
+
 Collector 默认监听 `http://localhost:4001`，健康检查地址为：
 
 ```text
@@ -166,7 +183,10 @@ curl -i \\
 启用完整 Compose workflow：
 
 ```bash
-docker compose --profile backend up --build
+docker compose \
+  -f compose.yaml \
+  -f compose.backend.yaml \
+  --profile backend up --build
 ```
 
 Transport 不自动重试，也不持久化发送失败的事件。Collector 的 `400`、`401`、`403`、`413`、`429` 和 `5xx` 响应会转换为可识别的 `FetchTransportError`。

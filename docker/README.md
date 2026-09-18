@@ -29,6 +29,25 @@ Start the Collector with the backend profile:
 docker compose --profile backend up --build collector
 ```
 
+To start the Playground only after the Collector is healthy, use the backend
+Compose override:
+
+```bash
+docker compose \
+  -f compose.yaml \
+  -f compose.backend.yaml \
+  --profile backend up --build
+```
+
+The same workflow is available as:
+
+```bash
+pnpm docker:backend
+```
+
+The default `pnpm docker:dev` workflow does not load this override. It keeps
+the Playground on MockTransport and does not require the Collector.
+
 The Collector is available at `http://localhost:4001` and exposes `GET /health`, `POST /v1/events`, and CORS preflight for `/v1/events`. POST requests require both an allowlisted `Origin` and the configured `X-Ingest-Key`; accepted events are stored only in the process-local InMemory Sink. Each `site_id + Origin` is limited to 600 requests per minute.
 
 Generate a key without modifying the TOML configuration:
@@ -39,4 +58,4 @@ cargo run -p collector -- key generate --site site_example --environment product
 
 Add the output to the matching `ingest_keys` entry and configure the Website Origin in `allowed_origins` before sending local events. CORS preflight returns `204`; rate-limited requests return `429` with `Retry-After: 60`.
 
-The Compose setup mounts the source directory and keeps dependency/build directories in named volumes. The container builds `observer-next`, `analytics-browser`, and `transport` before starting the Playground. Changes to Playground source hot reload; after changing package source, restart the container so the package can be rebuilt. PostgreSQL, BeaconTransport, retries, and durable storage are intentionally not part of this integration PR.
+The Compose setup mounts the source directory and keeps dependency/build directories in named volumes. The Collector image caches Cargo registry dependencies during image build and keeps `/workspace/target` in a named volume for incremental compilation. The container builds `observer-next`, `analytics-browser`, and `transport` before starting the Playground. Changes to Playground source hot reload; after changing package source, restart the container so the package can be rebuilt. PostgreSQL, BeaconTransport, retries, and durable storage are intentionally not part of this integration PR.

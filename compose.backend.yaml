@@ -1,0 +1,5 @@
+services:
+  router-playground:
+    depends_on:
+      collector:
+        condition: service_healthy

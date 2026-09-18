@@ -15,6 +15,7 @@
     "format": "./scripts/format.sh",
     "format:check": "./scripts/format-check.sh",
     "docker:dev": "./scripts/docker-dev.sh",
+    "docker:backend": "./scripts/docker-backend.sh",
     "protocol:validate": "node ./scripts/validate-protocol.mjs",
     "http:validate": "node ./scripts/validate-http-fixtures.mjs",
     "build:packages": "pnpm --filter @web-analytics/protocol-ts --filter @web-analytics/observer-core --filter @web-analytics/observer-next --filter @web-analytics/analytics-core --filter @web-analytics/analytics-browser --filter @web-analytics/transport build"
