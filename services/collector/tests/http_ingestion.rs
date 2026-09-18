@@ -316,24 +316,29 @@ async fn external_request_test_accepts_localhost_development_origin() {
 }
 
 #[tokio::test]
-async fn external_request_test_rate_limits_before_schema_and_sink() {
+async fn external_request_test_rate_limits_at_production_boundary() {
     let sink = InMemorySink::new();
-    let app = app_with_limiter(sink.clone(), RateLimiter::with_limit(1));
+    let app = app_with_limiter(sink.clone(), RateLimiter::new());
     let body = format!(r#"{{"schema_version":1,"events":[{VALID_EVENT}]}}"#);
 
-    let first = app
-        .clone()
-        .oneshot(request(&body))
-        .await
-        .expect("request should complete");
-    assert_eq!(first.status(), 202);
+    for _ in 0..600 {
+        let response = app
+            .clone()
+            .oneshot(request(&body))
+            .await
+            .expect("request should complete");
+        assert_eq!(response.status(), 202);
+    }
 
-    let second = app
+    let response = app
         .oneshot(request(&body))
         .await
         .expect("request should complete");
-    assert_eq!(second.status(), 429);
-    assert_eq!(second.headers()["retry-after"], "60");
-    assert_eq!(response_json(second).await["error"]["code"], "rate_limited");
-    assert_eq!(sink.snapshot().await.len(), 1);
+    assert_eq!(response.status(), 429);
+    assert_eq!(response.headers()["retry-after"], "60");
+    assert_eq!(
+        response_json(response).await["error"]["code"],
+        "rate_limited"
+    );
+    assert_eq!(sink.snapshot().await.len(), 600);
 }

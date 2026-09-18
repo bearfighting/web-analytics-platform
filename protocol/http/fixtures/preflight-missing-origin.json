@@ -1,0 +1,22 @@
+{
+  "id": "preflight-missing-origin",
+  "setup": {
+    "config": "../config/collector.example.toml"
+  },
+  "request": {
+    "method": "OPTIONS",
+    "path": "/v1/events",
+    "headers": {
+      "access-control-request-method": "POST",
+      "access-control-request-headers": "content-type, x-ingest-key"
+    },
+    "body": ""
+  },
+  "expected": {
+    "status": 403,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"error\":{\"code\":\"origin_not_allowed\",\"message\":\"Origin is not allowed\"}}"
+  }
+}

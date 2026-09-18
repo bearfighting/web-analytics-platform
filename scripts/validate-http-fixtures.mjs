@@ -29,6 +29,7 @@ const requiredFixtureIds = new Set([
   "missing-ingest-key",
   "invalid-ingest-key",
   "preflight-success",
+  "preflight-missing-origin",
   "preflight-disallowed-origin",
   "preflight-invalid-method",
   "preflight-invalid-header",
@@ -226,6 +227,8 @@ function validateSetup(fixture, fixtureName) {
       !Number.isInteger(rateLimit.requests)
     ) {
       errors.push(`${fixtureName}: setup.rate_limit is invalid.`);
+    } else if (fixture.id === "rate-limited" && rateLimit.requests !== 601) {
+      errors.push(`${fixtureName}: rate-limited setup must specify exactly 601 requests.`);
     }
   }
 
@@ -271,18 +274,30 @@ function validateResponseSemantics(fixture, fixtureName) {
     ) {
       errors.push(`${fixtureName}: rejected preflight must not allow an Origin.`);
     }
+    if (expected.status !== 204) {
+      if (expected.status !== 403) {
+        errors.push(`${fixtureName}: rejected preflight must return 403.`);
+      }
+      if (errorCodeFromBody(expected.body) !== "origin_not_allowed") {
+        errors.push(`${fixtureName}: rejected preflight must return origin_not_allowed.`);
+      }
+    }
+  }
+
+  if (request.method === "OPTIONS" && typeof request.headers?.origin !== "string") {
+    if (expected.status !== 403) {
+      errors.push(`${fixtureName}: preflight without Origin must return 403.`);
+    }
+    if (errorCodeFromBody(expected.body) !== "origin_not_allowed") {
+      errors.push(`${fixtureName}: preflight without Origin must return origin_not_allowed.`);
+    }
   }
 
   if (request.method === "POST" && typeof request.headers?.origin === "string") {
     if (expected.headers?.vary !== "Origin") {
       errors.push(`${fixtureName}: POST response must include Vary: Origin.`);
     }
-    let errorCode;
-    try {
-      errorCode = JSON.parse(expected.body)?.error?.code;
-    } catch {
-      // The body validator reports malformed expected JSON separately.
-    }
+    const errorCode = errorCodeFromBody(expected.body);
 
     if (errorCode !== "origin_not_allowed" && errorCode !== "site_not_allowed") {
       if (expected.headers?.["access-control-allow-origin"] !== request.headers.origin) {
@@ -295,6 +310,14 @@ function validateResponseSemantics(fixture, fixtureName) {
     if (expected.status !== 429 || expected.headers?.["retry-after"] !== "60") {
       errors.push(`${fixtureName}: rate-limited must return 429 with Retry-After: 60.`);
     }
+  }
+}
+
+function errorCodeFromBody(body) {
+  try {
+    return JSON.parse(body)?.error?.code;
+  } catch {
+    return undefined;
   }
 }
 

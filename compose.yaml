@@ -3,14 +3,6 @@ services:
     build:
       context: .
       dockerfile: docker/nextjs-router-playground.Dockerfile
-    command:
-      - sh
-      - -c
-      - pnpm install --frozen-lockfile && pnpm --filter @web-analytics/observer-next --filter @web-analytics/analytics-browser build && exec pnpm --filter @web-analytics/nextjs-router-playground dev --hostname 0.0.0.0
-    environment:
-      HOSTNAME: 0.0.0.0
-      PORT: 3000
-      CI: "true"
     ports:
       - "3000:3000"
     volumes:
@@ -24,19 +16,6 @@ services:
     build:
       context: .
       dockerfile: docker/collector.Dockerfile
-    command:
-      - cargo
-      - run
-      - -p
-      - collector
-      - --
-      - serve
-      - --config
-      - /workspace/protocol/http/config/collector.example.toml
-      - --host
-      - 0.0.0.0
-      - --port
-      - "4001"
     environment:
       RUST_LOG: collector=info
     ports:
