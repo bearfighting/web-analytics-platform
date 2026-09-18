@@ -4,8 +4,9 @@
 
 - Node.js 22 LTS
 - pnpm 11
+- Rust 1.96.0 with Cargo
 
-Phase 0 和 Phase 1 不需要 Rust、Cargo、PostgreSQL 或其他后端依赖。Docker 是可选的 Playground 开发方式。
+Phase 0 和 Phase 1 不需要 Rust、Cargo、PostgreSQL 或其他后端依赖。Phase 2 Collector 需要 Rust；Docker 是可选的开发方式。
 
 ## Install
 
@@ -118,11 +119,25 @@ http://localhost:3000
 
 当前 Compose 只运行 Playground，不包含 PostgreSQL 或其他后端服务；页面内的 SDK workflow 使用本地 MockTransport，不发起真实 API request。
 
+启动 Phase 2 Collector：
+
+```bash
+docker compose --profile backend up --build collector
+```
+
+Collector 默认监听 `http://localhost:4001`，健康检查地址为：
+
+```text
+http://localhost:4001/health
+```
+
+当前 Collector 只提供健康检查和配置加载；`POST /v1/events` 会在后续 PR 实现。
+
 ## CI
 
 GitHub Actions 会复用本地检查命令，并额外验证 Docker Compose 配置。CI 不构建或启动 Docker 镜像。
 
-Phase 0 没有必需的环境变量；`.env.example` 仅用于说明未来配置的预留位置。
+Collector 配置文件路径可以通过 `COLLECTOR_CONFIG` 指定；示例值见 `.env.example`。
 
 ## 当前范围
 

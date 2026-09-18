@@ -19,7 +19,34 @@ services:
       - playground_node_modules:/workspace/examples/nextjs-router-playground/node_modules
       - playground_next:/workspace/examples/nextjs-router-playground/.next
 
+  collector:
+    profiles: ["backend"]
+    build:
+      context: .
+      dockerfile: docker/collector.Dockerfile
+    command:
+      - cargo
+      - run
+      - -p
+      - collector
+      - --
+      - serve
+      - --config
+      - /workspace/protocol/http/config/collector.example.toml
+      - --host
+      - 0.0.0.0
+      - --port
+      - "4001"
+    environment:
+      RUST_LOG: collector=info
+    ports:
+      - "4001:4001"
+    volumes:
+      - .:/workspace
+      - collector_target:/workspace/target
+
 volumes:
   root_node_modules:
   playground_node_modules:
   playground_next:
+  collector_target:

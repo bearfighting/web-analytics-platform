@@ -160,6 +160,12 @@ export interface NavigationObserver {
 - 格式化、类型检查、测试和构建必须纳入统一脚本，并与 CI 使用相同命令。
 - 发现架构决策变化时，在 `docs/decisions/` 添加 ADR，而不是只在代码中体现。
 
+Backend Foundation 阶段 Rust 约定：
+
+- Rust toolchain 固定为 `1.96.0`，由 `rust-toolchain.toml` 管理。
+- Rust workspace 命令通过统一脚本执行：`cargo fmt --check`、`cargo clippy --workspace --all-targets --all-features -- -D warnings`、`cargo test --workspace` 和 `cargo build --workspace`。
+- Collector 默认监听 `0.0.0.0:4001`，配置通过 `COLLECTOR_CONFIG` 或 `--config` 指定。
+
 ## 完成定义
 
 一个功能只有在以下内容都具备时才算完成：

@@ -4,6 +4,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+
 pnpm --filter @web-analytics/protocol-ts typecheck
 pnpm --filter @web-analytics/observer-core typecheck
 pnpm --filter @web-analytics/observer-next typecheck

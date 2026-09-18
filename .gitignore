@@ -4,6 +4,7 @@ node_modules/
 out/
 coverage/
 dist/
+target/
 *.tsbuildinfo
 *.log
 .DS_Store

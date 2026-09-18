@@ -8,7 +8,7 @@
 
 ## 当前状态
 
-项目已完成 Phase 0 和 Phase 1，当前准备进入 Phase 2 Backend Collector。
+项目已完成 Phase 0 和 Phase 1，Phase 2 当前已完成 Backend API Contract 和 Rust Collector Foundation。
 
 当前已具备：
 
@@ -19,10 +19,11 @@
 - `analytics-browser` 的事件 runtime、Browser Context 和可注入 Transport contract
 - `analytics-browser` 的有界内存 Buffer、定时 flush 和本地 Mock workflow
 - Docker / Docker Compose 开发环境
+- Rust Collector foundation、TOML 配置加载和 `/health` 健康检查
 
 Phase 0 的 Event Protocol、Router Playground、Docker 开发环境和基础工程治理已经完成。可以参考 [Getting Started](docs/getting-started.md) 启动项目。
 
-真实网络 Transport、Backend、Storage 和 Dashboard 将按照路线图线性实现，不会在项目启动时一次性创建全部模块。当前 SDK 不发起 API request。
+真实网络 Transport、Collector ingestion、Storage 和 Dashboard 将按照路线图线性实现，不会在项目启动时一次性创建全部模块。当前 SDK 仍不发起 API request。
 
 ## 目标 Workflow
 

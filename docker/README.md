@@ -1,6 +1,6 @@
 # Docker Development
 
-PR2 provides a development container for the Next.js Router Playground.
+The repository provides development containers for the Next.js Router Playground and the Phase 2 Collector.
 
 From the repository root:
 
@@ -14,4 +14,12 @@ The Playground is available at:
 http://localhost:3000
 ```
 
-The Compose setup mounts the source directory and keeps dependency/build directories in named volumes. The container builds `observer-next` before starting the Playground. Changes to Playground source hot reload; after changing Adapter source, restart the container so the package can be rebuilt. PostgreSQL and backend services are intentionally not part of this PR.
+Start the Collector with the backend profile:
+
+```bash
+docker compose --profile backend up --build collector
+```
+
+The Collector is available at `http://localhost:4001` and exposes `GET /health`.
+
+The Compose setup mounts the source directory and keeps dependency/build directories in named volumes. The container builds `observer-next` before starting the Playground. Changes to Playground source hot reload; after changing Adapter source, restart the container so the package can be rebuilt. PostgreSQL and Collector ingestion are intentionally not part of this foundation PR.

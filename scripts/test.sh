@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+cargo test --workspace
+
 pnpm protocol:validate
 pnpm http:validate
 pnpm --filter @web-analytics/protocol-ts test
