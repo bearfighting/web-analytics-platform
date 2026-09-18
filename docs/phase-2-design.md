@@ -205,7 +205,7 @@ Collector 需要支持浏览器 Fetch：
 
 HTTP fixture 使用统一的 scenario JSON 结构，放在 `protocol/http/fixtures/`。每个 fixture 包含唯一 `id`、原始 request（包括字符串形式的 body）和 expected response；POST fixture 还包含 `setup.config`，需要特殊服务状态的 fixture 可以声明 `setup.rate_limit` 或 `setup.sink`。这样可以同时表达合法 JSON、非法 JSON、边界 payload 和可重放的安全/错误场景。`pnpm http:validate` 校验 fixture 结构和关键语义，不启动 Collector。
 
-请求错误优先级固定为：Content-Type 检查 → body 大小检查 → JSON 解析 → batch/site 一致性检查 → site 配置检查 → Origin 检查 → Ingest Key 检查 → 完整 Event Protocol Schema 校验 → EventSink。带有允许 Origin 的 POST response 必须返回精确的 `Access-Control-Allow-Origin` 和 `Vary: Origin`；错误优先级和 CORS 行为由对应 fixtures 覆盖。
+最终请求错误优先级固定为：Content-Type 检查 → body 大小检查 → JSON 解析 → batch/site 一致性检查 → site 配置检查 → Origin 检查 → Ingest Key 检查 → 完整 Event Protocol Schema 校验 → EventSink。PR4 当前实现 JSON 解析后的 site lookup、enabled 和 Ingest Key 检查，Origin 检查及其 CORS response headers 在 PR5 接入；错误优先级和 CORS 行为由对应 fixtures 覆盖。
 
 ## 6. Site 与 Environment 配置
 
@@ -429,8 +429,11 @@ Phase 2 按以下顺序线性实施。
 - 实现 Public Ingest Key 校验。
 - 实现 key 脱敏日志和配置启动校验。
 - 添加正确、错误、缺失 key 的测试。
+- `key generate` 使用 OS 安全随机源生成 32 字节 Base64URL key，只输出 stdout，不自动写入 TOML。
 
 不实现在线 key 管理 API，不实现自动轮换。
+
+PR4 的 key policy 在 Schema 校验前执行 site lookup、enabled 检查和恒定时间 key 比较；未知或 disabled site 返回 `403 site_not_allowed`，缺失或错误 key 返回 `401 invalid_ingest_key`。Origin、CORS 和 rate limit 明确留给 PR5。
 
 ### PR5 — Origin Allowlist, CORS and Rate Limit
 
@@ -571,16 +574,16 @@ docker compose --profile backend up --build
 - [x] 非法事件不会进入 Sink。
 - [x] 不依赖 PostgreSQL。
 
-PR3 已完成 HTTP ingestion、Protocol V1 Schema 校验和 InMemory Sink。PR3 明确不执行 Site/Environment、Origin、CORS、Public Ingest Key 或 rate limit 校验；这些能力分别留给 PR4 和 PR5。
+PR3 已完成 HTTP ingestion、Protocol V1 Schema 校验和 InMemory Sink。PR4 在其基础上完成 Site/Environment、Public Ingest Key 生成与校验；Origin、CORS 和 rate limit 仍留给 PR5。
 
 ### Security
 
-- [ ] Site / environment 校验完成。
+- [x] Site / environment 和 ingest key 配置校验完成。
 - [ ] Origin allowlist 完成。
 - [ ] CORS preflight 完成。
-- [ ] Public Ingest Key 完成。
+- [x] Public Ingest Key 生成、脱敏日志和请求校验完成。
 - [ ] 基础内存限流完成。
-- [ ] 安全日志不泄露完整 Key。
+- [x] 安全日志不泄露完整 Key。
 
 ### Client Integration
 

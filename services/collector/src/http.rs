@@ -12,7 +12,11 @@ use http_body_util::{BodyExt, LengthLimitError, Limited};
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::{sink::EventSink, validation::Validator};
+use crate::{
+    security::{AccessError, KeyPolicy},
+    sink::EventSink,
+    validation::Validator,
+};
 
 const MAX_BODY_SIZE: usize = 64 * 1024;
 
@@ -20,9 +24,10 @@ const MAX_BODY_SIZE: usize = 64 * 1024;
 pub struct AppState {
     validator: Arc<Validator>,
     sink: Arc<dyn EventSink>,
+    policy: Arc<KeyPolicy>,
 }
 
-pub fn router<S>(validator: Validator, sink: S) -> Router
+pub fn router<S>(validator: Validator, sink: S, policy: KeyPolicy) -> Router
 where
     S: EventSink + 'static,
 {
@@ -32,6 +37,7 @@ where
         .with_state(AppState {
             validator: Arc::new(validator),
             sink: Arc::new(sink),
+            policy: Arc::new(policy),
         })
 }
 
@@ -40,7 +46,8 @@ async fn health() -> Json<HealthResponse> {
 }
 
 async fn events(State(state): State<AppState>, request: Request<Body>) -> Response {
-    if !is_json_content_type(request.headers()) {
+    let headers = request.headers().clone();
+    if !is_json_content_type(&headers) {
         return ApiError::unsupported_media_type().into_response();
     }
 
@@ -67,6 +74,23 @@ async fn events(State(state): State<AppState>, request: Request<Body>) -> Respon
         Err(_) => return ApiError::invalid_json().into_response(),
     };
 
+    let site_id = match batch_site_id(&value) {
+        Ok(Some(site_id)) => site_id,
+        Ok(None) => return validate_batch(&state, value).await,
+        Err(()) => return ApiError::invalid_event_batch().into_response(),
+    };
+
+    if let Err(error) = state.policy.authorize(site_id, request_key(&headers)) {
+        return match error {
+            AccessError::SiteNotAllowed => ApiError::site_not_allowed().into_response(),
+            AccessError::InvalidIngestKey => ApiError::invalid_ingest_key().into_response(),
+        };
+    }
+
+    validate_batch(&state, value).await
+}
+
+async fn validate_batch(state: &AppState, value: Value) -> Response {
     let batch = match state.validator.validate(&value) {
         Ok(batch) => batch,
         Err(_) => return ApiError::invalid_event_batch().into_response(),
@@ -79,6 +103,33 @@ async fn events(State(state): State<AppState>, request: Request<Body>) -> Respon
     }
 
     json_response(StatusCode::ACCEPTED, AcceptedResponse { accepted })
+}
+
+fn batch_site_id(value: &Value) -> Result<Option<&str>, ()> {
+    let Some(events) = value.get("events").and_then(Value::as_array) else {
+        return Ok(None);
+    };
+
+    let mut site_id = None;
+    for event in events {
+        let Some(current) = event.get("site_id").and_then(Value::as_str) else {
+            return Ok(None);
+        };
+
+        match site_id {
+            None => site_id = Some(current),
+            Some(expected) if expected == current => {}
+            Some(_) => return Err(()),
+        }
+    }
+
+    Ok(site_id)
+}
+
+fn request_key(headers: &HeaderMap) -> Option<&str> {
+    headers
+        .get("x-ingest-key")
+        .and_then(|value| value.to_str().ok())
 }
 
 fn is_json_content_type(headers: &HeaderMap) -> bool {
@@ -166,6 +217,22 @@ impl ApiError {
             StatusCode::INTERNAL_SERVER_ERROR,
         )
     }
+
+    fn invalid_ingest_key() -> Self {
+        Self::new(
+            "invalid_ingest_key",
+            "Ingest Key is missing or invalid",
+            StatusCode::UNAUTHORIZED,
+        )
+    }
+
+    fn site_not_allowed() -> Self {
+        Self::new(
+            "site_not_allowed",
+            "Site is not allowed",
+            StatusCode::FORBIDDEN,
+        )
+    }
 }
 
 impl IntoResponse for ApiError {
@@ -182,7 +249,9 @@ mod tests {
 
     use super::router;
     use crate::{
+        config::{SiteConfig, SiteRegistry},
         protocol::PageViewEvent,
+        security::KeyPolicy,
         sink::{EventSink, InMemorySink, SinkError},
         validation::Validator,
     };
@@ -193,7 +262,18 @@ mod tests {
     where
         S: EventSink + 'static,
     {
-        router(Validator::new().expect("schemas should compile"), sink)
+        let policy = KeyPolicy::new(
+            SiteRegistry::from_sites(vec![
+                SiteConfig::new("site_example", "production", true, "production-key"),
+                SiteConfig::new("site_disabled", "production", false, "disabled-key"),
+            ])
+            .expect("test registry should be valid"),
+        );
+        router(
+            Validator::new().expect("schemas should compile"),
+            sink,
+            policy,
+        )
     }
 
     async fn response_json(response: axum::response::Response) -> serde_json::Value {
@@ -210,6 +290,7 @@ mod tests {
     fn request_with_content_type(body: &str, content_type: &str) -> Request<Body> {
         Request::post("/v1/events")
             .header("content-type", content_type)
+            .header("x-ingest-key", "production-key")
             .body(Body::from(body.to_owned()))
             .expect("request should build")
     }

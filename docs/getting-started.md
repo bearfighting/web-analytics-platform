@@ -131,7 +131,13 @@ Collector 默认监听 `http://localhost:4001`，健康检查地址为：
 http://localhost:4001/health
 ```
 
-当前 Collector 提供健康检查、配置加载和 `POST /v1/events`。合法事件暂存于进程内 InMemory Sink；Origin、CORS、Ingest Key 和限流会在后续 PR 实现。
+当前 Collector 提供健康检查、配置加载、`POST /v1/events` 和 Public Ingest Key 校验。合法事件暂存于进程内 InMemory Sink；Origin、CORS 和限流会在 PR5 实现。
+
+生成本地测试 key（命令只输出 key，不修改 TOML）：
+
+```bash
+cargo run -p collector -- key generate --site site_example --environment production
+```
 
 发送一个合法 EventBatch：
 
@@ -139,6 +145,7 @@ http://localhost:4001/health
 curl -i \\
   -X POST http://localhost:4001/v1/events \\
   -H 'Content-Type: application/json' \\
+  -H 'X-Ingest-Key: <configured-key>' \\
   --data '{"schema_version":1,"events":[{"schema_version":1,"event_id":"01J00000000000000000000000","type":"page_view","site_id":"site_example","occurred_at":1760000000000,"path":"/about"}]}'
 ```
 

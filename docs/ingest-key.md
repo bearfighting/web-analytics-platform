@@ -62,13 +62,22 @@ const ingestKey = randomBytes(32).toString("base64url");
 console.log(ingestKey);
 ```
 
-计划中的 CLI 形式：
+Collector CLI 只生成并输出 key，不会自动修改 TOML：
 
 ```bash
 collector key generate \
   --site site_example \
   --environment production
 ```
+
+stdout 只包含一行无 padding 的 Base64URL key。`site` 和 `environment` 用于明确生成上下文，不参与 key 推导；生成命令不会写入配置文件。部署者需要将输出手动加入对应 TOML 的 `ingest_keys`，再将同一个公开值配置给 Website：
+
+```bash
+INGEST_KEY="$(collector key generate --site site_example --environment production)"
+printf '%s\n' "$INGEST_KEY"
+```
+
+Collector 使用操作系统安全随机源生成 32 字节 key。生成上下文可以出现在 stderr 日志中，但完整 key 不会进入日志。请求日志只记录 `key_sha256` 的前 12 个 hex 字符。
 
 不要使用以下方式生成 key：
 
@@ -102,18 +111,19 @@ X-Ingest-Key: generated-public-key
 
 EventBatch V1 不携带 `environment` 字段。Collector 不能从请求 body 读取或信任 environment；environment 由匹配到的服务端 site 配置确定。
 
-请求处理逻辑应遵循以下顺序：
+PR4 已实现的请求处理逻辑遵循以下顺序：
 
 ```text
 读取 batch.site_id
   → 查找对应的 site 配置
   → 检查 site 是否 enabled
-  → 检查 Origin 是否在 allowlist
   → 检查 X-Ingest-Key 是否匹配某个 site/environment 配置
   → 确定唯一的 site/environment
   → 校验 EventBatch V1
   → 写入 EventSink
 ```
+
+Origin allowlist、CORS 和 rate limit 属于 PR5；PR4 暂不因为 Origin 缺失而拒绝请求。
 
 Key 不能绕过 Origin allowlist。缺失或错误的 key 返回 `401 invalid_ingest_key`；不允许的 Origin 返回 `403 origin_not_allowed`。
 

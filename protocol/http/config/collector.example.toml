@@ -1,4 +1,5 @@
-# Phase 2 HTTP contract example. Runtime parsing starts in PR2.
+# Phase 2 Collector development configuration example.
+# The ingest keys below are placeholders, not production credentials.
 
 [[sites]]
 site_id = "site_example"

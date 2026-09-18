@@ -1,0 +1,20 @@
+[[sites]]
+site_id = "site_example"
+environment = "development"
+enabled = true
+allowed_origins = []
+ingest_keys = ["test-development-key"]
+
+[[sites]]
+site_id = "site_example"
+environment = "production"
+enabled = true
+allowed_origins = []
+ingest_keys = ["test-production-key"]
+
+[[sites]]
+site_id = "site_disabled"
+environment = "production"
+enabled = false
+allowed_origins = []
+ingest_keys = ["test-disabled-key"]

@@ -12,6 +12,24 @@ pub struct Cli {
 #[derive(Debug, Subcommand)]
 pub enum Commands {
     Serve(ServeArgs),
+    Key {
+        #[command(subcommand)]
+        command: KeyCommands,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum KeyCommands {
+    Generate(KeyGenerateArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct KeyGenerateArgs {
+    #[arg(long)]
+    pub site: String,
+
+    #[arg(long)]
+    pub environment: String,
 }
 
 #[derive(Debug, Args)]
@@ -40,7 +58,9 @@ mod tests {
         let cli = Cli::try_parse_from(["collector", "serve", "--config", "config.toml"])
             .expect("CLI should parse");
 
-        let Commands::Serve(args) = cli.command;
+        let Commands::Serve(args) = cli.command else {
+            panic!("expected serve command");
+        };
         assert_eq!(args.config.to_string_lossy(), "config.toml");
         assert_eq!(args.host, "0.0.0.0");
         assert_eq!(args.port, 4001);
@@ -60,7 +80,9 @@ mod tests {
         ])
         .expect("CLI should parse");
 
-        let Commands::Serve(args) = cli.command;
+        let Commands::Serve(args) = cli.command else {
+            panic!("expected serve command");
+        };
         assert_eq!(args.host, "127.0.0.1");
         assert_eq!(args.port, 4100);
     }
@@ -75,7 +97,9 @@ mod tests {
         let cli = Cli::try_parse_from(["collector", "serve"])
             .expect("CLI should read config from the environment");
 
-        let Commands::Serve(args) = cli.command;
+        let Commands::Serve(args) = cli.command else {
+            panic!("expected serve command");
+        };
         assert_eq!(args.config.to_string_lossy(), "from-env.toml");
 
         restore_config_env(previous);
@@ -91,10 +115,21 @@ mod tests {
         let cli = Cli::try_parse_from(["collector", "serve", "--config", "from-cli.toml"])
             .expect("CLI argument should override the environment");
 
-        let Commands::Serve(args) = cli.command;
+        let Commands::Serve(args) = cli.command else {
+            panic!("expected serve command");
+        };
         assert_eq!(args.config.to_string_lossy(), "from-cli.toml");
 
         restore_config_env(previous);
+    }
+
+    #[test]
+    fn key_generate_requires_site_and_environment() {
+        assert!(Cli::try_parse_from(["collector", "key", "generate"]).is_err());
+        assert!(
+            Cli::try_parse_from(["collector", "key", "generate", "--site", "site_example"])
+                .is_err()
+        );
     }
 
     fn restore_config_env(previous: Option<std::ffi::OsString>) {
