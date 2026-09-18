@@ -138,7 +138,9 @@ export interface NavigationObserver {
 
 `route_pattern` 是可选扩展字段；第一阶段至少保证 `path`、`url` 和 `title`。
 
-## 第一阶段默认语义
+## 后续 Analytics 默认语义
+
+以下是计划中的 Analytics 目标语义，不代表 Phase 3 已经实现；Visitor 和 Session 的具体规则须在 Phase 5 先完成契约设计，再在 Phase 6 实现。
 
 - 首次加载页面计为一次 Page View。
 - pathname 或 search params 变化计为一次 Page View。

@@ -96,20 +96,23 @@ Rust / Cargo workspace 不属于 Phase 0，等进入 Backend 阶段时再建立�
 
 ## Phase 3 — Storage and Processing
 
+详细执行方案见：[phase-3-design.md](phase-3-design.md)。
+
 目标：添加 Storage 模块，使事件可以持久化并产生基础统计结果。
 
 交付：
 
 - PostgreSQL Adapter
 - `raw_events` 表和 migration
-- 基础 Processor
-- Page View 统计
-- 简单匿名 Visitor
-- 简单 Session
+- 幂等 Page View Processor
+- `page_view_daily` 和 `page_view_routes` 聚合
 - Timeline 和 Top Pages 查询
 - Analytics API 的最小实现
+- Client → Collector → PostgreSQL → Processor → Analytics API E2E workflow
 
-验收：Client SDK → Backend → PostgreSQL → Processor → Analytics API 完整链路可运行。
+本阶段不实现 Visitor、Session、Browser Dimensions 或复杂实时处理；这些能力需要先完成独立的数据契约和 SDK 语义设计。
+
+验收：Client SDK → Backend → PostgreSQL → Processor → Analytics API 完整链路可运行，重复事件不会造成重复 Page View 统计。
 
 ## Phase 4 — Dashboard
 
@@ -127,24 +130,40 @@ Rust / Cargo workspace 不属于 Phase 0，等进入 Backend 阶段时再建立�
 
 Dashboard 不实现统计逻辑，只消费 Analytics API。
 
-## Phase 5 — Browser Dimensions
+## Phase 5 — Analytics Semantics and Identity Design
 
-目标：补充浏览器端可以直接采集的上下文信息。
+目标：在实现 Visitor、Session 和浏览器维度之前，先完成指标语义、匿名身份和数据生命周期设计。
 
 交付：
 
-- Referrer
-- UTM
-- Language / timezone
-- Device
-- Browser
-- OS
-- Viewport / screen size
-- 对应 API 和 Dashboard 维度
+- Visitor 的定义、匿名 ID 生命周期和存储边界。
+- Session 的 inactivity timeout、跨午夜、跨标签页和异常场景语义。
+- `occurred_at`、`received_at`、迟到事件和重处理规则。
+- Browser Context 字段的稳定 schema、版本和隐私边界。
+- Referrer、UTM、Language、timezone、Device、Browser、OS 的指标定义。
+- API 和 Dashboard 需要支持的维度、过滤器和空数据语义。
+- 相关 ADR、Protocol/SDK 变更设计、canonical fixtures 和迁移计划。
+
+本阶段以研究、契约和可验证 fixture 为主；没有稳定契约前，不实现正式 Visitor、Session 或维度聚合。
+
+Country / IP、指纹识别和跨设备识别不属于本阶段设计目标。
+
+## Phase 6 — Browser and Analytics Dimensions
+
+目标：根据 Phase 5 已确认的语义，实现浏览器上下文、匿名 Visitor、Session 和对应查询能力。
+
+交付：
+
+- 按已确认契约生成和持久化匿名 Visitor ID。
+- Sessionization 和对应的 Processor 聚合。
+- Referrer、UTM、Language / timezone、Device、Browser、OS。
+- 对应 Raw Event / Aggregate migration。
+- Analytics API 和 Dashboard 维度、筛选及空数据状态。
+- Visitor、Session 和维度的端到端 fixtures。
 
 Country / IP 不属于本阶段必须内容。
 
-## Phase 6 — Stabilization
+## Phase 7 — Stabilization
 
 目标：在不扩大产品范围的前提下提高可用性。
 

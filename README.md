@@ -41,19 +41,17 @@ Next.js Website
   → Dashboard
 ```
 
-## 第一阶段范围
+## MVP 范围
 
-第一阶段只处理浏览器端可以获得的网页浏览信息：
+项目最终聚焦于浏览器端可以获得的网页浏览信息，并按 roadmap 分阶段交付：
 
 ```text
-Page Views
-Pages / Paths
-Visitors
-Sessions
-Referrers
-UTM
-基础 Device / Browser / OS
+Phase 3  Page Views、Pages / Paths
+Phase 5  Visitor、Session 和浏览器维度语义设计
+Phase 6  Referrer、UTM、Device、Browser、OS 等实现
 ```
+
+当前已实现的浏览器 SDK 只负责 Page View 事件和基础 Browser Context；Visitor、Session 和维度统计不在当前 Phase 3 实现。
 
 第一阶段只实现 Next.js App Router Adapter，同时通过通用 `NavigationObserver` 接口为未来支持其他 Router 留出空间。
 
@@ -73,6 +71,9 @@ Phase 1  Client SDK 和 Next.js Adapter
 Phase 2  Backend Collector
 Phase 3  Storage、Processor、Analytics API
 Phase 4  Dashboard
+Phase 5  Analytics Semantics 和 Identity Design
+Phase 6  Browser 和 Analytics Dimensions
+Phase 7  Stabilization
 ```
 
 ## 文档
@@ -87,6 +88,7 @@ Phase 4  Dashboard
 - [Router Playground](docs/router-playground.md)
 - [Phase 1 Design](docs/phase-1-design.md)
 - [Phase 2 Design](docs/phase-2-design.md)
+- [Phase 3 Design](docs/phase-3-design.md)
 
 项目协作规则见 [AGENTS.md](AGENTS.md)。CI 使用与本地相同的统一脚本，并额外验证 Docker Compose 配置。
 
