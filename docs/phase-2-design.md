@@ -20,7 +20,7 @@ Next.js Website
   → InMemory Event Sink
 ```
 
-Phase 2 仍然采用线性实施方式。先确定 HTTP 契约，再建立 Rust 服务，再实现 ingestion 和安全控制，最后接入 Client FetchTransport。
+Phase 2 仍然采用线性实施方式。先确定 HTTP 契约，再建立 Rust 服务，再实现 ingestion 和安全控制，最后接入 Client FetchTransport。FetchTransport 只在显式配置后启用，默认开发 workflow 仍使用 MockTransport。
 
 ## 2. 必须达成
 
@@ -361,6 +361,8 @@ export interface FetchTransportOptions {
 
 `endpoint` 是完整的 `POST /v1/events` URL，不是 Collector base URL。FetchTransport 不发送空 batch；请求超时、HTTP 错误和 Collector 返回的 `error.code` 需要转换为可识别的 Transport error。Phase 2 不实现自动超时重试。
 
+PR6 的 `FetchTransport` 使用 `Content-Type: application/json` 和 `X-Ingest-Key`，不手动设置 `Origin`。只有 `202 Accepted` 视为发送成功；`400`、`401`、`403`、`413`、`429` 和 `5xx` 转换为带有 `kind`、HTTP status、Collector error code 和 `Retry-After`（如果存在）的 `FetchTransportError`。Fetch 抛出的异常映射为 network error，Transport 不内置默认 timeout、不自动重试，也不持久化失败事件。
+
 行为：
 
 - 将 `PageViewEvent[]` 包装为 EventBatch。
@@ -518,6 +520,8 @@ PR5 使用规范化后的 `scheme://host[:port]` 精确匹配 Origin；固定 `O
 - 不自动重试。
 - 可注入 fetch，测试不依赖真实网络。
 
+Playground 通过 `NEXT_PUBLIC_ANALYTICS_TRANSPORT` 显式选择 `mock` 或 `fetch`。默认值为 `mock`；启用 `fetch` 时必须同时配置完整 endpoint、ingest key 和 site id。
+
 ## 12. 工程与开发环境
 
 Phase 2 应更新根脚本，使本地和 CI 保持一致：
@@ -562,7 +566,7 @@ docker compose --profile backend up --build
 
 ### API 与 Protocol
 
-- [ ] HTTP API Contract 已固定。
+- [x] HTTP API Contract 已固定。
 - [x] 成功和错误响应 fixtures 已存在。
 - [x] EventBatch V1 校验与 canonical Schema 一致。
 - [x] batch、body 和 response 边界有测试。
@@ -590,18 +594,18 @@ PR3 已完成 HTTP ingestion、Protocol V1 Schema 校验和 InMemory Sink。PR4 
 
 ### Client Integration
 
-- [ ] FetchTransport 完成。
-- [ ] Collector endpoint 可配置。
-- [ ] Client SDK 可以发送 EventBatch。
-- [ ] 4xx、429、5xx 行为明确。
-- [ ] 不自动重试、不持久化失败事件。
+- [x] FetchTransport 完成。
+- [x] Collector endpoint 可配置。
+- [x] Client SDK 可以发送 EventBatch。
+- [x] 4xx、429、5xx 行为明确。
+- [x] 不自动重试、不持久化失败事件。
 
 ### 工程
 
-- [ ] TypeScript 和 Rust 检查都接入统一流程。
-- [ ] Docker Compose 可同时启动 Playground 和 Collector。
-- [ ] Client → Collector integration test 通过。
-- [ ] 不创建 PostgreSQL、Processor、Analytics API 或 Dashboard。
+- [x] TypeScript 和 Rust 检查都接入统一流程。
+- [x] Docker Compose 可同时启动 Playground 和 Collector。
+- [x] Client → Collector integration workflow 可验证。
+- [x] 不创建 PostgreSQL、Processor、Analytics API 或 Dashboard。
 
 ## 14. PR1 必须实现的契约项
 

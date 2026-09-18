@@ -8,7 +8,7 @@
 
 ## 当前状态
 
-项目已完成 Phase 0 和 Phase 1，Phase 2 当前已完成 Backend API Contract、Rust Collector Foundation 和 Event Ingestion。
+项目已完成 Phase 0 和 Phase 1，Phase 2 当前已完成 Backend API Contract、Rust Collector、Event Ingestion、Origin/CORS、Ingest Key、限流和 FetchTransport。
 
 当前已具备：
 
@@ -18,13 +18,14 @@
 - `observer-core`、`observer-next` 和 `analytics-core` 的基础实现
 - `analytics-browser` 的事件 runtime、Browser Context 和可注入 Transport contract
 - `analytics-browser` 的有界内存 Buffer、定时 flush 和本地 Mock workflow
+- `@web-analytics/transport` 的 FetchTransport 和 Collector 错误映射
 - Docker / Docker Compose 开发环境
 - Rust Collector foundation、TOML 配置加载和 `/health` 健康检查
 - `POST /v1/events`、Event Protocol V1 校验、Origin/CORS、Public Ingest Key、单进程限流和 InMemory Sink
 
 Phase 0 的 Event Protocol、Router Playground、Docker 开发环境和基础工程治理已经完成。可以参考 [Getting Started](docs/getting-started.md) 启动项目。
 
-真实网络 Transport、Storage 和 Dashboard 将按照路线图线性实现，不会在项目启动时一次性创建全部模块。当前 SDK 仍不发起 API request。
+Storage 和 Dashboard 将按照路线图线性实现，不会在项目启动时一次性创建全部模块。Playground 默认使用 MockTransport；显式配置后可以向本地 Collector 发起真实 API request。
 
 ## 目标 Workflow
 

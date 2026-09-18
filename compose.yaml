@@ -3,6 +3,11 @@ services:
     build:
       context: .
       dockerfile: docker/nextjs-router-playground.Dockerfile
+    environment:
+      NEXT_PUBLIC_ANALYTICS_TRANSPORT: ${NEXT_PUBLIC_ANALYTICS_TRANSPORT:-mock}
+      NEXT_PUBLIC_ANALYTICS_ENDPOINT: ${NEXT_PUBLIC_ANALYTICS_ENDPOINT:-}
+      NEXT_PUBLIC_ANALYTICS_INGEST_KEY: ${NEXT_PUBLIC_ANALYTICS_INGEST_KEY:-}
+      NEXT_PUBLIC_ANALYTICS_SITE_ID: ${NEXT_PUBLIC_ANALYTICS_SITE_ID:-site_playground}
     ports:
       - "3000:3000"
     volumes:

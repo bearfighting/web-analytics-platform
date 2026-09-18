@@ -119,6 +119,17 @@ http://localhost:3000
 
 当前 Compose 只运行 Playground，不包含 PostgreSQL 或其他后端服务；页面内的 SDK workflow 使用本地 MockTransport，不发起真实 API request。
 
+Playground 默认使用 MockTransport。要启用本地 Collector workflow，在 `.env` 中设置：
+
+```env
+NEXT_PUBLIC_ANALYTICS_TRANSPORT=fetch
+NEXT_PUBLIC_ANALYTICS_ENDPOINT=http://localhost:4001/v1/events
+NEXT_PUBLIC_ANALYTICS_INGEST_KEY=public-key-example
+NEXT_PUBLIC_ANALYTICS_SITE_ID=site_example
+```
+
+`NEXT_PUBLIC_ANALYTICS_ENDPOINT` 必须是完整的 `POST /v1/events` URL，不能只填写 Collector base URL。浏览器会自动发送 `Origin`，Collector 会执行 CORS、Origin、Ingest Key、Schema 和限流校验。
+
 启动 Phase 2 Collector：
 
 ```bash
@@ -152,6 +163,14 @@ curl -i \\
 
 成功请求返回 `202` 和已接收事件数量。每个 `site_id + Origin` 默认每分钟允许 600 个请求，超限返回 `429`。当前 Collector 不持久化事件，重启后 InMemory Sink 会清空。
 
+启用完整 Compose workflow：
+
+```bash
+docker compose --profile backend up --build
+```
+
+Transport 不自动重试，也不持久化发送失败的事件。Collector 的 `400`、`401`、`403`、`413`、`429` 和 `5xx` 响应会转换为可识别的 `FetchTransportError`。
+
 ## CI
 
 GitHub Actions 会复用本地检查命令，并额外验证 Docker Compose 配置。CI 不构建或启动 Docker 镜像。
@@ -167,9 +186,10 @@ Collector 配置文件路径可以通过 `COLLECTOR_CONFIG` 指定；示例值�
 - `analytics-core` 的基础事件管线
 - `analytics-browser` 的 Browser SDK runtime 和 Context provider
 - Browser SDK 的本地 Mock Buffer workflow
+- `@web-analytics/transport` FetchTransport 和 Collector API workflow
 - Next.js Router Playground
 
 当前仍不包含：
 
-- 真实 Transport、API request、Buffer 持久化和网络发送
+- Buffer 持久化、离线队列和 BeaconTransport
 - Backend、Storage、数据库或 Dashboard

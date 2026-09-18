@@ -14,6 +14,15 @@ The Playground is available at:
 http://localhost:3000
 ```
 
+The Playground uses `MockTransport` by default. To send browser events to the Collector, set these values in `.env`:
+
+```env
+NEXT_PUBLIC_ANALYTICS_TRANSPORT=fetch
+NEXT_PUBLIC_ANALYTICS_ENDPOINT=http://localhost:4001/v1/events
+NEXT_PUBLIC_ANALYTICS_INGEST_KEY=public-key-example
+NEXT_PUBLIC_ANALYTICS_SITE_ID=site_example
+```
+
 Start the Collector with the backend profile:
 
 ```bash
@@ -30,4 +39,4 @@ cargo run -p collector -- key generate --site site_example --environment product
 
 Add the output to the matching `ingest_keys` entry and configure the Website Origin in `allowed_origins` before sending local events. CORS preflight returns `204`; rate-limited requests return `429` with `Retry-After: 60`.
 
-The Compose setup mounts the source directory and keeps dependency/build directories in named volumes. The container builds `observer-next` before starting the Playground. Changes to Playground source hot reload; after changing Adapter source, restart the container so the package can be rebuilt. PostgreSQL, security controls, and durable storage are intentionally not part of this ingestion PR.
+The Compose setup mounts the source directory and keeps dependency/build directories in named volumes. The container builds `observer-next`, `analytics-browser`, and `transport` before starting the Playground. Changes to Playground source hot reload; after changing package source, restart the container so the package can be rebuilt. PostgreSQL, BeaconTransport, retries, and durable storage are intentionally not part of this integration PR.

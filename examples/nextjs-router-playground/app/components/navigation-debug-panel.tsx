@@ -3,6 +3,7 @@
 import { createAnalytics } from "@web-analytics/analytics-browser";
 import { MemoryNavigationObserver } from "@web-analytics/observer-core";
 import { NextNavigationBridge } from "@web-analytics/observer-next";
+import { FetchTransport } from "@web-analytics/transport";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -85,7 +86,7 @@ export function NavigationDebugPanel() {
   }, []);
 
   useEffect(() => {
-    const transport = new PlaygroundMockTransport((events) => {
+    const onSend = (events: readonly PageViewEvent[]) => {
       setWorkflow((current) => ({
         ...current,
         sentBatches: current.sentBatches + 1,
@@ -93,9 +94,22 @@ export function NavigationDebugPanel() {
         lastBatchSize: events.length,
         lastSentAt: new Date().toISOString(),
       }));
-    });
+    };
+
+    let transport: Transport;
+    try {
+      transport = createPlaygroundTransport(onSend);
+    } catch (error) {
+      setWorkflow((current) => ({
+        ...current,
+        lastError: error instanceof Error ? error.message : String(error),
+      }));
+
+      return;
+    }
+
     const analytics = createAnalytics({
-      siteId: "site_playground",
+      siteId: process.env.NEXT_PUBLIC_ANALYTICS_SITE_ID || "site_playground",
       transport,
       onBufferChange: (bufferedEvents) =>
         setWorkflow((current) => ({ ...current, bufferedEvents })),
@@ -170,4 +184,35 @@ export function NavigationDebugPanel() {
       </section>
     </>
   );
+}
+
+function createPlaygroundTransport(onSend: (events: readonly PageViewEvent[]) => void): Transport {
+  const mode = process.env.NEXT_PUBLIC_ANALYTICS_TRANSPORT || "mock";
+  if (mode === "mock") {
+    return new PlaygroundMockTransport(onSend);
+  }
+
+  if (mode !== "fetch") {
+    throw new Error(`Unsupported analytics transport '${mode}'`);
+  }
+
+  const endpoint = process.env.NEXT_PUBLIC_ANALYTICS_ENDPOINT;
+  const ingestKey = process.env.NEXT_PUBLIC_ANALYTICS_INGEST_KEY;
+  if (!endpoint || !ingestKey) {
+    throw new Error(
+      "FetchTransport requires NEXT_PUBLIC_ANALYTICS_ENDPOINT and NEXT_PUBLIC_ANALYTICS_INGEST_KEY",
+    );
+  }
+  if (!process.env.NEXT_PUBLIC_ANALYTICS_SITE_ID) {
+    throw new Error("FetchTransport requires NEXT_PUBLIC_ANALYTICS_SITE_ID");
+  }
+
+  const fetchTransport = new FetchTransport({ endpoint, ingestKey });
+
+  return {
+    async sendBatch(events) {
+      await fetchTransport.sendBatch(events);
+      onSend(events);
+    },
+  };
 }

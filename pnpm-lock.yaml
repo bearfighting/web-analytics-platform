@@ -56,6 +56,9 @@ importers:
       '@web-analytics/protocol-ts':
         specifier: workspace:*
         version: link:../../packages/protocol-ts
+      '@web-analytics/transport':
+        specifier: workspace:*
+        version: link:../../packages/transport
       next:
         specifier: 15.5.24
         version: 15.5.24(@types/node@22.20.3)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -191,6 +194,25 @@ importers:
         version: 3.2.7(@types/node@22.20.3)
 
   packages/protocol-ts:
+    devDependencies:
+      prettier:
+        specifier: ^3.9.7
+        version: 3.9.7
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.9
+        version: 3.2.7(@types/node@22.20.3)
+
+  packages/transport:
+    dependencies:
+      '@web-analytics/analytics-core':
+        specifier: workspace:*
+        version: link:../analytics-core
+      '@web-analytics/protocol-ts':
+        specifier: workspace:*
+        version: link:../protocol-ts
     devDependencies:
       prettier:
         specifier: ^3.9.7

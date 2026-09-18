@@ -12,6 +12,7 @@ pnpm --filter @web-analytics/observer-core typecheck
 pnpm --filter @web-analytics/observer-next typecheck
 pnpm --filter @web-analytics/analytics-core typecheck
 pnpm --filter @web-analytics/analytics-browser typecheck
+pnpm --filter @web-analytics/transport typecheck
 pnpm exec eslint packages --config eslint.config.mjs
 pnpm --filter @web-analytics/nextjs-router-playground typecheck
 pnpm --filter @web-analytics/nextjs-router-playground lint

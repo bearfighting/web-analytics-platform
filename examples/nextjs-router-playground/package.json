@@ -18,6 +18,7 @@
     "@web-analytics/observer-core": "workspace:*",
     "@web-analytics/observer-next": "workspace:*",
     "@web-analytics/protocol-ts": "workspace:*",
+    "@web-analytics/transport": "workspace:*",
     "next": "15.5.24",
     "react": "19.1.0",
     "react-dom": "19.1.0"

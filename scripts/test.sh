@@ -13,4 +13,5 @@ pnpm --filter @web-analytics/observer-core test
 pnpm --filter @web-analytics/observer-next test
 pnpm --filter @web-analytics/analytics-core test
 pnpm --filter @web-analytics/analytics-browser test
+pnpm --filter @web-analytics/transport test
 pnpm --filter @web-analytics/nextjs-router-playground test
