@@ -117,7 +117,7 @@ pnpm docker:dev
 http://localhost:3000
 ```
 
-当前 Compose 只运行 Playground，不包含 PostgreSQL 或其他后端服务；页面内的 SDK workflow 使用本地 MockTransport，不发起真实 API request。
+默认 Compose 只运行 Playground，不包含 PostgreSQL；页面内的 SDK workflow 使用本地 MockTransport，不发起真实 API request。通过 backend override 可以额外启动 Phase 2 Collector。
 
 Playground 默认使用 MockTransport。要启用本地 Collector workflow，在 `.env` 中设置：
 
@@ -212,4 +212,4 @@ Collector 配置文件路径可以通过 `COLLECTOR_CONFIG` 指定；示例值�
 当前仍不包含：
 
 - Buffer 持久化、离线队列和 BeaconTransport
-- Backend、Storage、数据库或 Dashboard
+- PostgreSQL Storage、Processor、Analytics API 和 Dashboard

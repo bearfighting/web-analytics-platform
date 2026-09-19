@@ -8,7 +8,7 @@
 
 ## 当前状态
 
-项目已完成 Phase 0 和 Phase 1，Phase 2 当前已完成 Backend API Contract、Rust Collector、Event Ingestion、Origin/CORS、Ingest Key、限流和 FetchTransport。
+项目已完成 Phase 0、Phase 1 和 Phase 2。当前已完成 Backend API Contract、Rust Collector、Event Ingestion、Origin/CORS、Ingest Key、限流和 FetchTransport，下一步进入 Phase 3 Storage、Processor 和 Analytics API。
 
 当前已具备：
 
@@ -25,7 +25,7 @@
 
 Phase 0 的 Event Protocol、Router Playground、Docker 开发环境和基础工程治理已经完成。可以参考 [Getting Started](docs/getting-started.md) 启动项目。
 
-Storage 和 Dashboard 将按照路线图线性实现，不会在项目启动时一次性创建全部模块。Playground 默认使用 MockTransport；显式配置后可以向本地 Collector 发起真实 API request。
+Storage、Processor、Analytics API 和 Dashboard 将按照路线图线性实现，不会一次性创建全部模块。Playground 默认使用 MockTransport；显式配置后可以向本地 Collector 发起真实 API request。
 
 ## 目标 Workflow
 

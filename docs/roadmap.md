@@ -12,7 +12,7 @@
 
 目标：建立 Monorepo、开发环境、Router Playground 和 Event Protocol V1，并完成基础工程治理。
 
-当前状态：Phase 0 已完成。
+当前状态：已完成。
 
 交付：
 
@@ -51,7 +51,7 @@ Rust / Cargo workspace 不属于 Phase 0，等进入 Backend 阶段时再建立�
 
 目标：实现第一个可使用的浏览器端 SDK，并建立可扩展的 Router Adapter 机制。
 
-当前状态：Phase 1 已完成，下一阶段进入 Phase 2 Backend Collector。SDK 已支持 Next.js App Router、Browser Context、有界内存 Buffer、flush 和本地 MockTransport workflow。
+当前状态：已完成。SDK 已支持 Next.js App Router、Browser Context、有界内存 Buffer、flush 和本地 MockTransport workflow。
 
 交付：
 
@@ -90,6 +90,8 @@ Rust / Cargo workspace 不属于 Phase 0，等进入 Backend 阶段时再建立�
 - 内存或开发用接收适配器
 - 健康检查、结构化日志
 
+当前状态：已完成。已实现 Rust Collector、HTTP ingestion、Event Protocol V1 校验、Origin/CORS、Public Ingest Key、单进程限流、InMemory Sink 和 FetchTransport workflow。
+
 本阶段暂不要求正式数据库存储；Backend 先能正确接收、校验和观测事件。
 
 验收：SDK 可以向 Collector 发送事件，Collector 能返回明确的成功和错误响应。
@@ -99,6 +101,8 @@ Rust / Cargo workspace 不属于 Phase 0，等进入 Backend 阶段时再建立�
 详细执行方案见：[phase-3-design.md](phase-3-design.md)。
 
 目标：添加 Storage 模块，使事件可以持久化并产生基础统计结果。
+
+当前状态：设计已完成，实施尚未开始。
 
 交付：
 
