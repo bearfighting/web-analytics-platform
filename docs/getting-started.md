@@ -123,6 +123,14 @@ pnpm docker:backend
 该命令同时启用 `backend` 和 `storage` profiles。Collector 使用 PostgreSQL；没有 `DATABASE_URL` 时不会静默回退到 InMemory Sink。
 `pnpm docker:backend` 会先等待 PostgreSQL 健康、执行 migration，再启动 Collector 和 Playground。
 
+启动 Processor workflow：
+
+```bash
+pnpm docker:processing
+```
+
+该命令启用 `backend`、`storage` 和 `processing` profiles，先执行 migration，再启动 Collector、Processor 和 Playground。
+
 单独运行 Protocol 校验：
 
 ```bash
@@ -246,4 +254,4 @@ Collector 配置文件路径可以通过 `COLLECTOR_CONFIG` 指定；示例值�
 当前仍不包含：
 
 - Buffer 持久化、离线队列和 BeaconTransport
-- PostgreSQL Storage、Processor、Analytics API 和 Dashboard
+- Analytics API 和 Dashboard

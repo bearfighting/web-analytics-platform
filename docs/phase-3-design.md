@@ -1,6 +1,6 @@
 # Phase 3 Design — Storage, Page View Processing and Analytics API
 
-> Status: PR2 PostgreSQL Raw Event Storage complete; next step is PR3 Processor
+> Status: PR3 Idempotent Page View Processor complete; next step is PR4 Analytics API
 > Scope: PostgreSQL raw event storage, idempotent Page View processing, minimal Analytics API and end-to-end verification
 
 ## 1. Phase 3 定义
@@ -396,17 +396,17 @@ docker compose --profile backend --profile storage --profile processing config
 - [x] PostgreSQL 可以通过 Compose 启动。
 - [x] Migration 可以在空数据库执行。
 - [x] PostgreSQL Sink 可以写入 `raw_events`。
-- [ ] `page_view_totals` 可以按 site 保存累计 Page Views。
+- [x] `page_view_totals` 可以按 site 保存累计 Page Views。
 - [x] 完整 payload 被保留。
 - [x] 重复事件不会重复写入。
 
 ### Processing
 
-- [ ] Processor 可以执行一次性 batch 和持续轮询。
-- [ ] Daily、route Page View aggregate 正确。
-- [ ] Site total Page View aggregate 正确。
-- [ ] 重复执行不会重复计数。
-- [ ] 处理失败可以安全重试。
+- [x] Processor 可以执行一次性 batch 和持续轮询。
+- [x] Daily、route Page View aggregate 正确。
+- [x] Site total Page View aggregate 正确。
+- [x] 重复执行不会重复计数。
+- [x] 处理失败可以安全重试。
 
 ### Analytics API
 

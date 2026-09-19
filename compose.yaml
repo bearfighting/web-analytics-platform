@@ -63,9 +63,28 @@ services:
       - collector_target:/workspace/target
     command: ["cargo", "run", "-p", "collector", "--", "migrate"]
 
+  processor:
+    profiles: ["processing"]
+    build:
+      context: .
+      dockerfile: docker/processor.Dockerfile
+    environment:
+      DATABASE_URL: ${COLLECTOR_DATABASE_URL:-postgres://analytics:analytics@postgres:5432/analytics}
+      PROCESSOR_POLL_INTERVAL_MS: ${PROCESSOR_POLL_INTERVAL_MS:-1000}
+      RUST_LOG: processor=info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      collector-migrate:
+        condition: service_completed_successfully
+    volumes:
+      - .:/workspace
+      - processor_target:/workspace/target
+
 volumes:
   root_node_modules:
   playground_node_modules:
   playground_next:
   collector_target:
   postgres_data:
+  processor_target:

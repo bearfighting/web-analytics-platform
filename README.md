@@ -8,7 +8,7 @@
 
 ## 当前状态
 
-项目已完成 Phase 0、Phase 1、Phase 2，以及 Phase 3 PR1 Contract 和 PR2 PostgreSQL Raw Event Storage。当前已完成 Backend API Contract、Rust Collector、Event Ingestion、Origin/CORS、Ingest Key、限流和 FetchTransport；下一步进入 PR3 Processor。
+项目已完成 Phase 0、Phase 1、Phase 2，以及 Phase 3 PR1 Contract、PR2 PostgreSQL Raw Event Storage 和 PR3 Page View Processor。当前下一步进入 PR4 Analytics API。
 
 当前已具备：
 
@@ -23,6 +23,7 @@
 - Rust Collector foundation、TOML 配置加载和 `/health` 健康检查
 - `POST /v1/events`、Event Protocol V1 校验、Origin/CORS、Public Ingest Key、单进程限流和 InMemory Sink
 - PostgreSQL `raw_events` migration、幂等 Raw Event Sink 和 storage Compose profile
+- Page View Processor、daily/routes/totals 聚合和 processing Compose profile
 
 Phase 0 的 Event Protocol、Router Playground、Docker 开发环境和基础工程治理已经完成。可以参考 [Getting Started](docs/getting-started.md) 启动项目。
 

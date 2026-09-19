@@ -17,6 +17,7 @@
     "format:check": "./scripts/format-check.sh",
     "docker:dev": "./scripts/docker-dev.sh",
     "docker:backend": "./scripts/docker-backend.sh",
+    "docker:processing": "./scripts/docker-processing.sh",
     "db:migrate": "cargo run -p collector -- migrate",
     "protocol:validate": "node ./scripts/validate-protocol.mjs",
     "http:validate": "node ./scripts/validate-http-fixtures.mjs",
