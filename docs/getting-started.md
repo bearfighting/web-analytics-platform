@@ -131,6 +131,14 @@ pnpm docker:processing
 
 该命令启用 `backend`、`storage` 和 `processing` profiles，先执行 migration，再启动 Collector、Processor、Analytics API 和 Playground。Analytics API 地址为 `http://localhost:4002`。
 
+运行完整 Phase 3 E2E workflow：
+
+```bash
+pnpm e2e:analytics
+```
+
+该命令会启动独立的 PostgreSQL、Collector、Processor one-shot 和 Analytics API 测试环境，逐个执行 canonical fixtures，结束后自动清理自己的容器和 volume，不影响用户已有 PostgreSQL volume。
+
 单独运行 Protocol 校验：
 
 ```bash

@@ -102,7 +102,7 @@ Rust / Cargo workspace 不属于 Phase 0，等进入 Backend 阶段时再建立�
 
 目标：添加 Storage 模块，使事件可以持久化并产生基础统计结果。
 
-当前状态：PR1 Contract、PR2 PostgreSQL Raw Event Storage、PR3 Processor 和 PR4 Analytics API 已完成，下一步进入 PR5 端到端 Workflow 验证。
+当前状态：Phase 3 PR1–PR5 已完成，下一步进入 Phase 4 Dashboard。
 
 交付：
 

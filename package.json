@@ -12,6 +12,7 @@
     "check": "./scripts/check.sh",
     "test": "./scripts/test.sh",
     "test:integration": "./scripts/test-integration.sh",
+    "e2e:analytics": "node ./scripts/e2e-analytics.mjs",
     "build": "./scripts/build.sh",
     "format": "./scripts/format.sh",
     "format:check": "./scripts/format-check.sh",

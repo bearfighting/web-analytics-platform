@@ -1,0 +1,19 @@
+services:
+  postgres:
+    ports: !override
+      - "${E2E_POSTGRES_PORT:-15432}:5432"
+
+  collector:
+    environment:
+      COLLECTOR_CONFIG: /workspace/protocol/http/config/collector.e2e.toml
+    ports: !override
+      - "${E2E_COLLECTOR_PORT:-14001}:4001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      collector-migrate:
+        condition: service_completed_successfully
+
+  analytics-api:
+    ports: !override
+      - "${E2E_ANALYTICS_API_PORT:-14002}:4002"

@@ -58,6 +58,14 @@ pnpm docker:processing
 
 The Analytics API is available at `http://localhost:4002`. It exposes `/health`, all-time site Overview, and date-range Reports endpoints. The API reads only the PostgreSQL aggregate tables.
 
+Run the complete Analytics workflow with an isolated E2E Compose project:
+
+```bash
+pnpm e2e:analytics
+```
+
+The E2E harness uses ports `14001`, `14002` and `15432`, and does not remove the existing PostgreSQL volume.
+
 Generate a key without modifying the TOML configuration:
 
 ```bash

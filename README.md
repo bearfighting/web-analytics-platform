@@ -8,7 +8,7 @@
 
 ## 当前状态
 
-项目已完成 Phase 0、Phase 1、Phase 2，以及 Phase 3 PR1 Contract、PR2 PostgreSQL Raw Event Storage、PR3 Page View Processor 和 PR4 Analytics API。下一步进入 PR5 端到端 Workflow 验证。
+项目已完成 Phase 0、Phase 1、Phase 2，以及 Phase 3 PR1 Contract、PR2 PostgreSQL Raw Event Storage、PR3 Page View Processor、PR4 Analytics API 和 PR5 端到端 Workflow。下一步进入 Phase 4 Dashboard。
 
 当前已具备：
 
@@ -111,6 +111,14 @@ pnpm docker:processing
 ```
 
 Analytics API 在 `http://localhost:4002` 提供查询接口；Processor 处理 Raw Events 后可查询 Overview、Timeline 和 Top Pages。
+
+验证完整的 Phase 3 链路：
+
+```bash
+pnpm e2e:analytics
+```
+
+该命令使用独立 Compose project 和测试端口，不删除现有 PostgreSQL volume。
 
 Phase 3 PostgreSQL Storage 需要先启动 storage profile 并执行 migration：
 

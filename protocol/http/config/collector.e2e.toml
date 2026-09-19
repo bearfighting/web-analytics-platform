@@ -1,0 +1,22 @@
+# Dedicated local E2E configuration. The key is test-only and not a secret.
+
+[[sites]]
+site_id = "site_playground"
+environment = "e2e"
+enabled = true
+allowed_origins = ["http://localhost:3000"]
+ingest_keys = ["e2e-test-key"]
+
+[[sites]]
+site_id = "site_alpha"
+environment = "e2e"
+enabled = true
+allowed_origins = ["http://localhost:3000"]
+ingest_keys = ["e2e-test-key-alpha"]
+
+[[sites]]
+site_id = "site_beta"
+environment = "e2e"
+enabled = true
+allowed_origins = ["http://localhost:3000"]
+ingest_keys = ["e2e-test-key-beta"]

@@ -1,6 +1,6 @@
 # Phase 3 Design — Storage, Page View Processing and Analytics API
 
-> Status: PR4 Analytics API complete; next step is PR5 End-to-end Workflow
+> Status: PR5 End-to-end Workflow complete; next step is Phase 4 Dashboard
 > Scope: PostgreSQL raw event storage, idempotent Page View processing, minimal Analytics API and end-to-end verification
 
 ## 1. Phase 3 定义
@@ -336,11 +336,10 @@ PR1 交付全量 Overview、Reports API、`page_view_totals` contract、OpenAPI 
 
 ### PR5 — End-to-end Workflow
 
-- 用 Playground 或可复现 fixture 发送 Page View。
-- 验证 Collector 写入 PostgreSQL。
-- 运行 Processor。
-- 查询 API 并比对预期 JSON。
-- 增加重复事件、多页面、多个 site 和空结果场景。
+- 新增自包含 `pnpm e2e:analytics` Node harness。
+- 使用独立 Compose project、端口和 Collector E2E 配置。
+- 用 canonical fixtures 发送 Collector HTTP batch，验证 Raw Events、Processor 聚合和 API response。
+- 覆盖重复事件、多页面、迟到事件、多个 site 和空结果场景。
 - 更新 README、getting started 和 Docker 文档。
 
 ## 11. 测试策略
@@ -381,7 +380,7 @@ docker compose config
 docker compose --profile backend --profile storage --profile processing config
 ```
 
-当前提供 `pnpm db:migrate` 和 `pnpm test:integration`；`pnpm e2e:analytics` 留待 PR5 完整链路实现后加入。
+当前提供 `pnpm db:migrate`、`pnpm test:integration` 和 `pnpm e2e:analytics`。E2E 使用独立 Compose project、测试端口和测试 volume；清理时只删除自己的资源，不影响用户已有 PostgreSQL volume。
 
 ## 13. Phase 3 验收清单
 
@@ -416,12 +415,12 @@ docker compose --profile backend --profile storage --profile processing config
 
 ### End-to-end
 
-- [ ] SDK 可以向 Collector 发送事件。
-- [ ] 事件可以进入 PostgreSQL。
-- [ ] Processor 可以生成聚合。
-- [ ] API 可以返回预期结果。
-- [ ] 多 site 数据隔离。
-- [ ] Docker Compose workflow 可以复现。
+- [x] HTTP harness 可以向 Collector 发送 Event Protocol V1 batch。
+- [x] 事件可以进入 PostgreSQL。
+- [x] Processor 可以生成聚合。
+- [x] API 可以返回预期结果。
+- [x] 多 site 数据隔离。
+- [x] Docker Compose workflow 可以复现。
 
 ## 14. Phase 3 退出条件
 

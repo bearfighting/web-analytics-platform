@@ -26,4 +26,4 @@ EXPOSE 4001
 HEALTHCHECK --interval=2s --timeout=2s --start-period=5s --retries=15 \
   CMD curl --fail --silent http://127.0.0.1:4001/health || exit 1
 
-CMD ["cargo", "run", "-p", "collector", "--", "serve", "--config", "/workspace/protocol/http/config/collector.example.toml", "--host", "0.0.0.0", "--port", "4001"]
+CMD ["cargo", "run", "-p", "collector", "--", "serve", "--host", "0.0.0.0", "--port", "4001"]
