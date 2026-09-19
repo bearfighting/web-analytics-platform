@@ -5,7 +5,18 @@ use serde_json::Value;
 use thiserror::Error;
 use url::Url;
 
-use crate::protocol::{EventBatch, PageViewEvent};
+use crate::protocol::PageViewEvent;
+
+#[derive(Debug, Clone)]
+pub struct ValidatedBatch {
+    pub events: Vec<ValidatedEvent>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ValidatedEvent {
+    pub event: PageViewEvent,
+    pub payload: Value,
+}
 
 const EVENT_BATCH_SCHEMA: &str = include_str!("../../../protocol/schemas/event-batch.schema.json");
 const PAGE_VIEW_SCHEMA: &str =
@@ -52,12 +63,28 @@ impl Validator {
         Ok(Self { batch, event })
     }
 
-    pub fn validate(&self, value: &Value) -> Result<EventBatch, Vec<String>> {
+    pub fn validate(&self, value: &Value) -> Result<ValidatedBatch, Vec<String>> {
         if let Err(errors) = self.batch.validate(value) {
             return Err(errors.map(|error| error.to_string()).collect());
         }
 
-        serde_json::from_value(value.clone()).map_err(|error| vec![error.to_string()])
+        let events = value
+            .get("events")
+            .and_then(Value::as_array)
+            .ok_or_else(|| vec!["events must be an array".to_owned()])?;
+        let mut validated_events = Vec::with_capacity(events.len());
+        for payload in events {
+            let event =
+                serde_json::from_value(payload.clone()).map_err(|error| vec![error.to_string()])?;
+            validated_events.push(ValidatedEvent {
+                event,
+                payload: payload.clone(),
+            });
+        }
+
+        Ok(ValidatedBatch {
+            events: validated_events,
+        })
     }
 
     #[allow(dead_code)]

@@ -1,6 +1,6 @@
 # Phase 3 Design — Storage, Page View Processing and Analytics API
 
-> Status: PR1 Contract complete; implementation pending
+> Status: PR2 PostgreSQL Raw Event Storage complete; next step is PR3 Processor
 > Scope: PostgreSQL raw event storage, idempotent Page View processing, minimal Analytics API and end-to-end verification
 
 ## 1. Phase 3 定义
@@ -310,6 +310,8 @@ PR1 交付全量 Overview、Reports API、`page_view_totals` contract、OpenAPI 
 - 将 PostgreSQL Sink 接入 Collector。
 - 实现 `(site_id, event_id)` 幂等写入。
 - 保留 InMemory Sink，增加 Storage integration tests。
+- 使用单一事务整批写入，保留完整原始 payload。
+- `pnpm db:migrate` 执行 SQLx migrations；`pnpm test:integration` 执行 PostgreSQL 集成测试。
 
 验收：`FetchTransport → Collector → PostgreSQL raw_events`。
 
@@ -343,7 +345,7 @@ PR1 交付全量 Overview、Reports API、`page_view_totals` contract、OpenAPI 
 
 ## 11. 测试策略
 
-Storage tests：合法事件写入并保留完整 payload；`received_at` 与 `occurred_at` 均保存；相同 `site_id + event_id` 不重复插入；不同 site 隔离；`page_view_totals` 只保存每个 site 的累计值；数据库错误不返回成功；非法请求不写入数据库。
+Storage tests：合法事件写入并保留完整 payload；`received_at` 与 `occurred_at` 均保存；相同 `site_id + event_id` 不重复插入；不同 site 隔离；`page_view_totals` 在 PR2 中只创建不写入；数据库错误不返回成功；非法请求不写入数据库；整批写入失败时回滚。
 
 Processor tests：单事件和多路径聚合正确；daily、route、total 三类聚合同时更新；重复运行不重复累加；迟到事件进入正确 UTC 日期并增加 site total；事务失败时所有聚合和 processed 标记一起回滚；无未处理事件时安全退出。
 
@@ -379,7 +381,7 @@ docker compose config
 docker compose --profile backend --profile storage --profile processing config
 ```
 
-建议增加 `pnpm db:migrate`、`pnpm test:integration` 和 `pnpm e2e:analytics`。PR2 选择并固定 migration 工具后，再实现这些脚本，不同时维护多套 migration 流程。
+当前提供 `pnpm db:migrate` 和 `pnpm test:integration`；`pnpm e2e:analytics` 留待 PR5 完整链路实现后加入。
 
 ## 13. Phase 3 验收清单
 
@@ -391,12 +393,12 @@ docker compose --profile backend --profile storage --profile processing config
 
 ### Storage
 
-- [ ] PostgreSQL 可以通过 Compose 启动。
-- [ ] Migration 可以在空数据库执行。
-- [ ] Collector 可以写入 `raw_events`。
+- [x] PostgreSQL 可以通过 Compose 启动。
+- [x] Migration 可以在空数据库执行。
+- [x] PostgreSQL Sink 可以写入 `raw_events`。
 - [ ] `page_view_totals` 可以按 site 保存累计 Page Views。
-- [ ] 完整 payload 被保留。
-- [ ] 重复事件不会重复写入。
+- [x] 完整 payload 被保留。
+- [x] 重复事件不会重复写入。
 
 ### Processing
 

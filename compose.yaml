@@ -23,14 +23,49 @@ services:
       dockerfile: docker/collector.Dockerfile
     environment:
       RUST_LOG: collector=info
+      DATABASE_URL: ${COLLECTOR_DATABASE_URL:-postgres://analytics:analytics@postgres:5432/analytics}
     ports:
       - "4001:4001"
     volumes:
       - .:/workspace
       - collector_target:/workspace/target
 
+  postgres:
+    profiles: ["storage"]
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-analytics}
+      POSTGRES_USER: ${POSTGRES_USER:-analytics}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-analytics}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  collector-migrate:
+    profiles: ["storage"]
+    build:
+      context: .
+      dockerfile: docker/collector.Dockerfile
+    environment:
+      DATABASE_URL: ${COLLECTOR_DATABASE_URL:-postgres://analytics:analytics@postgres:5432/analytics}
+      RUST_LOG: collector=info
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/workspace
+      - collector_target:/workspace/target
+    command: ["cargo", "run", "-p", "collector", "--", "migrate"]
+
 volumes:
   root_node_modules:
   playground_node_modules:
   playground_next:
   collector_target:
+  postgres_data:

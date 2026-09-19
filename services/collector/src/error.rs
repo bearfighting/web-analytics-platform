@@ -2,6 +2,7 @@ use thiserror::Error;
 
 use crate::config::ConfigError;
 use crate::key::KeyGenerationError;
+use crate::sink::SinkError;
 use crate::validation::ValidationError;
 
 #[derive(Debug, Error)]
@@ -16,6 +17,10 @@ pub enum CollectorError {
     Serve(std::io::Error),
     #[error("failed to initialize event schema validator: {0}")]
     ValidationSetup(ValidationError),
+    #[error("DATABASE_URL must be configured")]
+    MissingDatabaseUrl,
+    #[error(transparent)]
+    Storage(#[from] SinkError),
     #[error("failed to generate ingest key: {0}")]
     KeyGeneration(#[from] KeyGenerationError),
 }

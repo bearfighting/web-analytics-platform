@@ -6,7 +6,7 @@
 - pnpm 11
 - Rust 1.96.0 with Cargo
 
-Phase 0 和 Phase 1 不需要 Rust、Cargo、PostgreSQL 或其他后端依赖。Phase 2 Collector 需要 Rust；Docker 是可选的开发方式。
+Phase 0 和 Phase 1 不需要 Rust、Cargo、PostgreSQL 或其他后端依赖。Phase 2 Collector 需要 Rust；Phase 3 Storage 需要 Docker 和 PostgreSQL。
 
 ## Install
 
@@ -83,7 +83,7 @@ pnpm test
 pnpm analytics:contract:validate
 ```
 
-该命令校验 OpenAPI 3.1 JSON contract、canonical fixtures、Raw Event 语义、UTC 聚合结果和 API 响应结构。`/overview` 查询站点累计 Page Views；Reports API 使用 `/reports/{from}/{to}/...` 路径并限制为最多 366 天。PR1 只提供 contract 和 fixtures，不启动 PostgreSQL 或新增后端服务。
+该命令校验 OpenAPI 3.1 JSON contract、canonical fixtures、Raw Event 语义、UTC 聚合结果和 API 响应结构。`/overview` 查询站点累计 Page Views；Reports API 使用 `/reports/{from}/{to}/...` 路径并限制为最多 366 天。PR1 提供 contract 和 fixtures；PR2 另外提供 PostgreSQL Storage 和 migration。
 
 验证 Phase 2 HTTP contract fixtures：
 
@@ -96,6 +96,32 @@ pnpm http:validate
 命令会执行 Protocol 校验以及所有已创建 package 的单元测试。
 
 `pnpm test` 同时校验 Event Protocol V1 的合法和非法 fixtures。
+
+## PostgreSQL Storage
+
+启动 Phase 3 PostgreSQL：
+
+```bash
+cp .env.example .env
+docker compose --profile storage up -d --wait postgres
+export DATABASE_URL=postgres://analytics:analytics@localhost:5432/analytics
+pnpm db:migrate
+```
+
+运行 PostgreSQL 集成测试：
+
+```bash
+DATABASE_URL=postgres://analytics:analytics@localhost:5432/analytics pnpm test:integration
+```
+
+启动 Collector 和 PostgreSQL 的开发 workflow：
+
+```bash
+pnpm docker:backend
+```
+
+该命令同时启用 `backend` 和 `storage` profiles。Collector 使用 PostgreSQL；没有 `DATABASE_URL` 时不会静默回退到 InMemory Sink。
+`pnpm docker:backend` 会先等待 PostgreSQL 健康、执行 migration，再启动 Collector 和 Playground。
 
 单独运行 Protocol 校验：
 

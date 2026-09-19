@@ -12,6 +12,7 @@ pub struct Cli {
 #[derive(Debug, Subcommand)]
 pub enum Commands {
     Serve(ServeArgs),
+    Migrate,
     Key {
         #[command(subcommand)]
         command: KeyCommands,

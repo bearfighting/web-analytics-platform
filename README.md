@@ -8,7 +8,7 @@
 
 ## 当前状态
 
-项目已完成 Phase 0、Phase 1 和 Phase 2，Phase 3 PR1 Contract 已完成。当前已完成 Backend API Contract、Rust Collector、Event Ingestion、Origin/CORS、Ingest Key、限流和 FetchTransport；下一步进入 PR2 PostgreSQL Raw Event Storage。
+项目已完成 Phase 0、Phase 1、Phase 2，以及 Phase 3 PR1 Contract 和 PR2 PostgreSQL Raw Event Storage。当前已完成 Backend API Contract、Rust Collector、Event Ingestion、Origin/CORS、Ingest Key、限流和 FetchTransport；下一步进入 PR3 Processor。
 
 当前已具备：
 
@@ -22,6 +22,7 @@
 - Docker / Docker Compose 开发环境
 - Rust Collector foundation、TOML 配置加载和 `/health` 健康检查
 - `POST /v1/events`、Event Protocol V1 校验、Origin/CORS、Public Ingest Key、单进程限流和 InMemory Sink
+- PostgreSQL `raw_events` migration、幂等 Raw Event Sink 和 storage Compose profile
 
 Phase 0 的 Event Protocol、Router Playground、Docker 开发环境和基础工程治理已经完成。可以参考 [Getting Started](docs/getting-started.md) 启动项目。
 
@@ -100,6 +101,15 @@ pnpm analytics:contract:validate
 ```
 
 Phase 3 API contract 区分无日期的站点累计 Overview，以及必须提供 `from/to` 的 Reports API；详见 [Analytics API OpenAPI Contract](docs/analytics-api.openapi.json)。
+
+Phase 3 PostgreSQL Storage 需要先启动 storage profile 并执行 migration：
+
+```bash
+docker compose --profile storage up -d --wait postgres
+export DATABASE_URL=postgres://analytics:analytics@localhost:5432/analytics
+pnpm db:migrate
+DATABASE_URL=postgres://analytics:analytics@localhost:5432/analytics pnpm test:integration
+```
 
 ## 技术方向
 

@@ -7,7 +7,7 @@ use collector::cli::{Cli, Commands, KeyCommands, ServeArgs};
 use collector::config::CollectorConfig;
 use collector::error::CollectorError;
 use collector::rate_limit::RateLimiter;
-use collector::sink::InMemorySink;
+use collector::sink::PostgresSink;
 use collector::validation::Validator;
 
 #[tokio::main]
@@ -25,10 +25,18 @@ async fn run() -> Result<(), CollectorError> {
 
     match cli.command {
         Commands::Serve(args) => serve(args).await,
+        Commands::Migrate => migrate().await,
         Commands::Key {
             command: KeyCommands::Generate(args),
         } => generate_key(args).await,
     }
+}
+
+async fn migrate() -> Result<(), CollectorError> {
+    let database_url =
+        std::env::var("DATABASE_URL").map_err(|_| CollectorError::MissingDatabaseUrl)?;
+    PostgresSink::migrate(&database_url).await?;
+    Ok(())
 }
 
 async fn generate_key(_args: collector::cli::KeyGenerateArgs) -> Result<(), CollectorError> {
@@ -44,7 +52,9 @@ async fn serve(args: ServeArgs) -> Result<(), CollectorError> {
     let host: IpAddr = args.host.parse()?;
     let address = SocketAddr::from((host, args.port));
     let validator = Validator::new().map_err(CollectorError::ValidationSetup)?;
-    let sink = InMemorySink::new();
+    let database_url =
+        std::env::var("DATABASE_URL").map_err(|_| CollectorError::MissingDatabaseUrl)?;
+    let sink = PostgresSink::connect(&database_url).await?;
     let policy = collector::security::KeyPolicy::new(registry);
     let app = collector::http::router(validator, sink, policy, RateLimiter::new());
 

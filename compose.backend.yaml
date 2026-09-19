@@ -3,3 +3,7 @@ services:
     depends_on:
       collector:
         condition: service_healthy
+  collector:
+    depends_on:
+      postgres:
+        condition: service_healthy

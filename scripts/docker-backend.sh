@@ -14,7 +14,10 @@ if ! docker compose version >/dev/null 2>&1; then
   exit 1
 fi
 
-exec docker compose \
+COMPOSE=(docker compose \
   -f compose.yaml \
-  -f compose.backend.yaml \
-  --profile backend up --build
+  -f compose.backend.yaml)
+
+"${COMPOSE[@]}" --profile backend --profile storage up -d --wait postgres
+"${COMPOSE[@]}" --profile backend --profile storage run --rm collector-migrate
+exec "${COMPOSE[@]}" --profile backend --profile storage up --build

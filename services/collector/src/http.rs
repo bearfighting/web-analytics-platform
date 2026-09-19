@@ -8,6 +8,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
+use chrono::Utc;
 use http_body_util::{BodyExt, LengthLimitError, Limited};
 use serde::Serialize;
 use serde_json::Value;
@@ -15,7 +16,7 @@ use serde_json::Value;
 use crate::{
     rate_limit::RateLimiter,
     security::{AccessError, KeyPolicy},
-    sink::EventSink,
+    sink::{EventSink, StoredEvent},
     validation::Validator,
 };
 
@@ -179,7 +180,17 @@ async fn validate_batch(
     };
 
     let accepted = batch.events.len();
-    if let Err(error) = state.sink.accept(batch.events).await {
+    let received_at = Utc::now();
+    let events = batch
+        .events
+        .into_iter()
+        .map(|event| StoredEvent {
+            event: event.event,
+            payload: event.payload,
+            received_at,
+        })
+        .collect();
+    if let Err(error) = state.sink.accept(events).await {
         tracing::error!(error = %error, "event sink failed");
         return with_cors(
             ApiError::collector_error().into_response(),
@@ -443,10 +454,9 @@ mod tests {
     use super::router;
     use crate::{
         config::{SiteConfig, SiteRegistry},
-        protocol::PageViewEvent,
         rate_limit::RateLimiter,
         security::KeyPolicy,
-        sink::{EventSink, InMemorySink, SinkError},
+        sink::{EventSink, InMemorySink, SinkError, StoredEvent},
         validation::Validator,
     };
 
@@ -750,7 +760,7 @@ mod tests {
 
     #[async_trait]
     impl EventSink for FailingSink {
-        async fn accept(&self, _events: Vec<PageViewEvent>) -> Result<(), SinkError> {
+        async fn accept(&self, _events: Vec<StoredEvent>) -> Result<(), SinkError> {
             Err(SinkError::Failed)
         }
     }
