@@ -8,7 +8,7 @@
 
 ## 当前状态
 
-项目已完成 Phase 0、Phase 1、Phase 2，以及 Phase 3 PR1 Contract、PR2 PostgreSQL Raw Event Storage 和 PR3 Page View Processor。当前下一步进入 PR4 Analytics API。
+项目已完成 Phase 0、Phase 1、Phase 2，以及 Phase 3 PR1 Contract、PR2 PostgreSQL Raw Event Storage、PR3 Page View Processor 和 PR4 Analytics API。下一步进入 PR5 端到端 Workflow 验证。
 
 当前已具备：
 
@@ -24,10 +24,11 @@
 - `POST /v1/events`、Event Protocol V1 校验、Origin/CORS、Public Ingest Key、单进程限流和 InMemory Sink
 - PostgreSQL `raw_events` migration、幂等 Raw Event Sink 和 storage Compose profile
 - Page View Processor、daily/routes/totals 聚合和 processing Compose profile
+- Analytics API 的 Overview、Reports、Timeline、Top Pages 和 processing Compose profile
 
 Phase 0 的 Event Protocol、Router Playground、Docker 开发环境和基础工程治理已经完成。可以参考 [Getting Started](docs/getting-started.md) 启动项目。
 
-Storage、Processor、Analytics API 和 Dashboard 将按照路线图线性实现，不会一次性创建全部模块。Playground 默认使用 MockTransport；显式配置后可以向本地 Collector 发起真实 API request。
+Storage、Processor、Analytics API 和 Dashboard 按照路线图线性实现。Playground 默认使用 MockTransport；显式配置后可以向本地 Collector 发起真实 API request。
 
 ## 目标 Workflow
 
@@ -102,6 +103,14 @@ pnpm analytics:contract:validate
 ```
 
 Phase 3 API contract 区分无日期的站点累计 Overview，以及必须提供 `from/to` 的 Reports API；详见 [Analytics API OpenAPI Contract](docs/analytics-api.openapi.json)。
+
+启动完整的 Phase 3 processing workflow：
+
+```bash
+pnpm docker:processing
+```
+
+Analytics API 在 `http://localhost:4002` 提供查询接口；Processor 处理 Raw Events 后可查询 Overview、Timeline 和 Top Pages。
 
 Phase 3 PostgreSQL Storage 需要先启动 storage profile 并执行 migration：
 

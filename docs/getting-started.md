@@ -123,13 +123,13 @@ pnpm docker:backend
 该命令同时启用 `backend` 和 `storage` profiles。Collector 使用 PostgreSQL；没有 `DATABASE_URL` 时不会静默回退到 InMemory Sink。
 `pnpm docker:backend` 会先等待 PostgreSQL 健康、执行 migration，再启动 Collector 和 Playground。
 
-启动 Processor workflow：
+启动 Processor 和 Analytics API workflow：
 
 ```bash
 pnpm docker:processing
 ```
 
-该命令启用 `backend`、`storage` 和 `processing` profiles，先执行 migration，再启动 Collector、Processor 和 Playground。
+该命令启用 `backend`、`storage` 和 `processing` profiles，先执行 migration，再启动 Collector、Processor、Analytics API 和 Playground。Analytics API 地址为 `http://localhost:4002`。
 
 单独运行 Protocol 校验：
 

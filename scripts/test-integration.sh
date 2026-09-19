@@ -12,3 +12,4 @@ fi
 pnpm db:migrate
 cargo test -p collector --test postgres_storage -- --ignored --test-threads=1
 cargo test -p processor --test processor -- --ignored --test-threads=1
+cargo test -p analytics-api --test http -- --ignored --test-threads=1

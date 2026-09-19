@@ -1,6 +1,6 @@
 # Phase 3 Design — Storage, Page View Processing and Analytics API
 
-> Status: PR3 Idempotent Page View Processor complete; next step is PR4 Analytics API
+> Status: PR4 Analytics API complete; next step is PR5 End-to-end Workflow
 > Scope: PostgreSQL raw event storage, idempotent Page View processing, minimal Analytics API and end-to-end verification
 
 ## 1. Phase 3 定义
@@ -327,10 +327,10 @@ PR1 交付全量 Overview、Reports API、`page_view_totals` contract、OpenAPI 
 
 ### PR4 — Minimal Analytics API
 
-- 创建 `services/analytics-api`。
-- 实现 `/health`、无日期 `/overview` 和 Reports API 的 `/overview`、`/timeline`、`/pages`。
-- 实现日期范围、limit、空数据和错误响应。
-- 只从聚合表查询并增加 integration tests。
+- 已创建 `services/analytics-api`，使用 Axum 和 SQLx PostgreSQL。
+- 已实现 `/health`、无日期 `/overview` 和 Reports API 的 `/overview`、`/timeline`、`/pages`。
+- 已实现日期范围、limit、空数据和统一错误响应。
+- 只从聚合表查询，并增加单元测试和 PostgreSQL HTTP integration tests。
 
 不创建 Dashboard UI。
 
@@ -410,9 +410,9 @@ docker compose --profile backend --profile storage --profile processing config
 
 ### Analytics API
 
-- [ ] `/health`、全量 Overview、Reports Overview、Timeline、Top Pages 可用。
-- [ ] 日期、limit、空数据和错误状态有测试。
-- [ ] API 不直接暴露数据库。
+- [x] `/health`、全量 Overview、Reports Overview、Timeline、Top Pages 可用。
+- [x] 日期、limit、空数据和错误状态有测试。
+- [x] API 不直接暴露数据库。
 
 ### End-to-end
 

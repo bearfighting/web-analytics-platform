@@ -1,6 +1,6 @@
 # Docker Development
 
-The repository provides development containers for the Next.js Router Playground and the Phase 2 Collector.
+The repository provides development containers for the Next.js Router Playground, Collector, Processor and Analytics API.
 
 From the repository root:
 
@@ -48,7 +48,15 @@ pnpm docker:backend
 The default `pnpm docker:dev` workflow does not load this override. It keeps
 the Playground on MockTransport and does not require the Collector.
 
-The Collector is available at `http://localhost:4001` and exposes `GET /health`, `POST /v1/events`, and CORS preflight for `/v1/events`. POST requests require both an allowlisted `Origin` and the configured `X-Ingest-Key`; accepted events are stored only in the process-local InMemory Sink. Each `site_id + Origin` is limited to 600 requests per minute.
+The Collector is available at `http://localhost:4001` and exposes `GET /health`, `POST /v1/events`, and CORS preflight for `/v1/events`. POST requests require both an allowlisted `Origin` and the configured `X-Ingest-Key`; in the PostgreSQL-backed workflow accepted events are stored in `raw_events`. Each `site_id + Origin` is limited to 600 requests per minute.
+
+Start the PostgreSQL-backed Collector, Processor and Analytics API workflow with:
+
+```bash
+pnpm docker:processing
+```
+
+The Analytics API is available at `http://localhost:4002`. It exposes `/health`, all-time site Overview, and date-range Reports endpoints. The API reads only the PostgreSQL aggregate tables.
 
 Generate a key without modifying the TOML configuration:
 

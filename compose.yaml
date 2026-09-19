@@ -81,6 +81,30 @@ services:
       - .:/workspace
       - processor_target:/workspace/target
 
+  analytics-api:
+    profiles: ["processing"]
+    build:
+      context: .
+      dockerfile: docker/analytics-api.Dockerfile
+    environment:
+      DATABASE_URL: ${COLLECTOR_DATABASE_URL:-postgres://analytics:analytics@postgres:5432/analytics}
+      RUST_LOG: analytics_api=info
+    ports:
+      - "4002:4002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      collector-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:4002/health || exit 1"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+    volumes:
+      - .:/workspace
+      - analytics_api_target:/workspace/target
+
 volumes:
   root_node_modules:
   playground_node_modules:
@@ -88,3 +112,4 @@ volumes:
   collector_target:
   postgres_data:
   processor_target:
+  analytics_api_target:

@@ -1,5 +1,5 @@
 [workspace]
-members = ["services/collector", "services/processor"]
+members = ["services/analytics-api", "services/collector", "services/processor"]
 resolver = "3"
 
 [workspace.package]
