@@ -1,0 +1,428 @@
+import { readdir, readFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const openapiPath = path.join(root, "docs", "analytics-api.openapi.json");
+const fixturesDirectory = path.join(root, "protocol", "phase-3", "fixtures");
+const queryCasesPath = path.join(root, "protocol", "phase-3", "api-contract-cases.json");
+const requiredIds = new Set([
+  "single-page-view",
+  "multi-page-navigation",
+  "duplicate-events",
+  "late-event",
+  "multi-site-isolation",
+  "empty-date-range",
+  "all-time-overview",
+]);
+const errors = [];
+
+const openapi = await readJson(openapiPath, "OpenAPI contract");
+if (openapi) validateOpenApi(openapi);
+const queryCases = await readJson(queryCasesPath, "Analytics API contract cases");
+if (queryCases) validateQueryCases(queryCases);
+
+const fixtureNames = (await readdir(fixturesDirectory))
+  .filter((name) => name.endsWith(".json"))
+  .sort();
+const ids = new Set();
+for (const fixtureName of fixtureNames) {
+  const fixture = await readJson(path.join(fixturesDirectory, fixtureName), fixtureName);
+  if (fixture) validateFixture(fixture, fixtureName, ids);
+}
+
+for (const id of requiredIds) {
+  if (!ids.has(id)) errors.push(`missing required fixture '${id}'`);
+}
+
+if (errors.length > 0) {
+  console.error(errors.map((error) => `- ${error}`).join("\n"));
+  process.exitCode = 1;
+} else {
+  console.log(`Validated analytics contract and ${fixtureNames.length} fixtures.`);
+}
+
+async function readJson(filePath, label) {
+  try {
+    return JSON.parse(await readFile(filePath, "utf8"));
+  } catch (error) {
+    errors.push(`${label}: invalid JSON (${error.message})`);
+    return null;
+  }
+}
+
+function validateOpenApi(document) {
+  if (document.openapi !== "3.1.0") errors.push("OpenAPI contract must use version 3.1.0");
+  for (const pathName of [
+    "/health",
+    "/v1/sites/{site_id}/overview",
+    "/v1/sites/{site_id}/reports/{from}/{to}/overview",
+    "/v1/sites/{site_id}/reports/{from}/{to}/timeline",
+    "/v1/sites/{site_id}/reports/{from}/{to}/pages",
+  ]) {
+    if (!document.paths?.[pathName]?.get)
+      errors.push(`OpenAPI contract is missing GET ${pathName}`);
+  }
+  const expectedResponses = {
+    "/health": ["200", "503"],
+    "/v1/sites/{site_id}/overview": ["200", "500"],
+    "/v1/sites/{site_id}/reports/{from}/{to}/overview": ["200", "400", "500"],
+    "/v1/sites/{site_id}/reports/{from}/{to}/timeline": ["200", "400", "500"],
+    "/v1/sites/{site_id}/reports/{from}/{to}/pages": ["200", "400", "500"],
+  };
+  for (const [pathName, statuses] of Object.entries(expectedResponses)) {
+    for (const status of statuses) {
+      if (!document.paths?.[pathName]?.get?.responses?.[status])
+        errors.push(`OpenAPI contract is missing ${status} response for ${pathName}`);
+    }
+  }
+  for (const schemaName of [
+    "OverviewResponse",
+    "RangeOverviewResponse",
+    "TimelineResponse",
+    "PagesResponse",
+    "ErrorResponse",
+  ]) {
+    if (!document.components?.schemas?.[schemaName])
+      errors.push(`OpenAPI contract is missing schema ${schemaName}`);
+  }
+  if (!document.components?.responses?.InvalidQuery) {
+    errors.push("OpenAPI contract is missing the shared 400 InvalidQuery response");
+  }
+  for (const schemaName of ["OverviewResponse", "TimelineResponse", "PagesResponse"]) {
+    if (document.components?.schemas?.[schemaName]?.allOf) {
+      errors.push(`${schemaName} must be a standalone object schema`);
+    }
+  }
+  const errorCodes = document.components?.schemas?.ErrorBody?.properties?.code?.enum;
+  for (const code of [
+    "invalid_date_range",
+    "date_range_too_large",
+    "invalid_limit",
+    "analytics_api_error",
+  ]) {
+    if (!errorCodes?.includes(code)) errors.push(`OpenAPI contract is missing error code ${code}`);
+  }
+  for (const pathName of [
+    "/v1/sites/{site_id}/reports/{from}/{to}/overview",
+    "/v1/sites/{site_id}/reports/{from}/{to}/timeline",
+    "/v1/sites/{site_id}/reports/{from}/{to}/pages",
+  ]) {
+    const parameters = document.paths?.[pathName]?.get?.parameters ?? [];
+    for (const parameter of ["FromPath", "ToPath"]) {
+      if (!parameters.some((item) => item.$ref === `#/components/parameters/${parameter}`))
+        errors.push(`${pathName} must require ${parameter}`);
+    }
+  }
+}
+
+function validateQueryCases(document) {
+  if (!Array.isArray(document.cases) || document.cases.length === 0) {
+    errors.push("Analytics API contract cases must be a non-empty array");
+    return;
+  }
+  const ids = new Set();
+  for (const testCase of document.cases) {
+    if (!testCase?.id || ids.has(testCase.id))
+      errors.push("Analytics API contract case IDs must be unique and non-empty");
+    ids.add(testCase?.id);
+    if (typeof testCase.path !== "string" || !testCase.path.includes("/reports/"))
+      errors.push(`${testCase.id}: case path must be a reports path`);
+    if (testCase.expected?.status !== 400)
+      errors.push(`${testCase.id}: contract case must expect HTTP 400`);
+    if (!testCase.expected?.error_code)
+      errors.push(`${testCase.id}: expected.error_code is required`);
+  }
+  for (const code of ["invalid_date_range", "date_range_too_large", "invalid_limit"]) {
+    if (!document.cases.some((testCase) => testCase.expected.error_code === code))
+      errors.push(`missing API contract case for ${code}`);
+  }
+  for (const testCase of document.cases) validateQueryCaseSemantics(testCase);
+}
+
+function validateQueryCaseSemantics(testCase) {
+  const path = testCase.path.split("?")[0];
+  const segments = path.split("/");
+  const from = segments[5];
+  const to = segments[6];
+  const expectedCode = testCase.expected.error_code;
+  if (expectedCode === "invalid_date_range" && isDate(from) && isDate(to) && from < to)
+    errors.push(`${testCase.id}: invalid_date_range case must have invalid or reversed dates`);
+  if (expectedCode === "date_range_too_large" && isDate(from) && isDate(to)) {
+    const days = (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000 + 1;
+    if (days <= 366) errors.push(`${testCase.id}: date_range_too_large case must exceed 366 days`);
+  }
+  if (
+    expectedCode === "invalid_limit" &&
+    !/(?:^|&)limit=(?:0|101)(?:&|$)/.test(testCase.path.split("?")[1] ?? "")
+  )
+    errors.push(`${testCase.id}: invalid_limit case must use an out-of-range limit`);
+}
+
+function validateFixture(fixture, fixtureName, ids) {
+  if (!fixture || typeof fixture !== "object")
+    return errors.push(`${fixtureName}: fixture must be an object`);
+  if (typeof fixture.id !== "string" || !fixture.id) errors.push(`${fixtureName}: id is required`);
+  else if (ids.has(fixture.id)) errors.push(`${fixtureName}: duplicate id '${fixture.id}'`);
+  else ids.add(fixture.id);
+  if (!Array.isArray(fixture.input?.events))
+    errors.push(`${fixtureName}: input.events must be an array`);
+  if (!isIsoDateTime(fixture.input?.received_at))
+    errors.push(`${fixtureName}: input.received_at must be an ISO timestamp`);
+  if (fixture.processor?.mode !== "once")
+    errors.push(`${fixtureName}: processor.mode must be 'once'`);
+  validateInputEvents(fixture, fixtureName);
+  validateRawEventExpectations(fixture, fixtureName);
+  validateAggregateArray(fixture.expected?.page_view_daily, fixtureName, "page_view_daily");
+  validateRouteArray(fixture.expected?.page_view_routes, fixtureName);
+  validateTotalArray(fixture.expected?.page_view_totals, fixtureName);
+  validateApiResponses(fixture.expected?.api, fixtureName);
+  if (fixture.expected?.api?.unknown_site)
+    validateUnknownSiteResponses(fixture.expected.api.unknown_site, fixtureName);
+  validateScenarioSemantics(fixture, fixtureName);
+}
+
+function validateInputEvents(fixture, fixtureName) {
+  for (const event of fixture.input?.events ?? []) {
+    if (!isEventIdentity(event)) errors.push(`${fixtureName}: input event has invalid identity`);
+  }
+}
+
+function validateRawEventExpectations(fixture, fixtureName) {
+  const rawEvents = fixture.expected?.raw_events;
+  if (
+    !rawEvents ||
+    !Number.isInteger(rawEvents.inserted) ||
+    !Number.isInteger(rawEvents.duplicates_ignored) ||
+    !Array.isArray(rawEvents.events)
+  ) {
+    errors.push(
+      `${fixtureName}: expected.raw_events must define inserted, duplicates_ignored and events`,
+    );
+    return;
+  }
+  if (rawEvents.inserted !== rawEvents.events.length)
+    errors.push(`${fixtureName}: raw event inserted count must match events length`);
+  const inputEvents = fixture.input?.events ?? [];
+  if (rawEvents.inserted + rawEvents.duplicates_ignored !== inputEvents.length)
+    errors.push(`${fixtureName}: inserted plus duplicate counts must match input event count`);
+  for (const event of rawEvents.events) {
+    if (
+      !isEventIdentity(event) ||
+      !isIsoDateTime(event.received_at) ||
+      !isEventIdentity(event.payload)
+    ) {
+      errors.push(
+        `${fixtureName}: expected raw event has invalid identity, received_at or payload`,
+      );
+    }
+  }
+}
+
+function validateScenarioSemantics(fixture, fixtureName) {
+  const inputEvents = fixture.input?.events ?? [];
+  const inputIds = inputEvents.map((event) => event.event_id);
+  const uniqueIds = new Set(inputIds);
+  const duplicateCount = inputIds.length - uniqueIds.size;
+  const rawEvents = fixture.expected?.raw_events;
+  const totalsBySite = new Map();
+  for (const event of rawEvents?.events ?? [])
+    totalsBySite.set(event.site_id, (totalsBySite.get(event.site_id) ?? 0) + 1);
+  for (const total of fixture.expected?.page_view_totals ?? []) {
+    if (total.page_views !== (totalsBySite.get(total.site_id) ?? 0))
+      errors.push(`${fixtureName}: page_view_totals must equal inserted events per site`);
+  }
+
+  if (fixture.id === "duplicate-events") {
+    if (duplicateCount === 0 || rawEvents.duplicates_ignored !== duplicateCount)
+      errors.push(
+        `${fixtureName}: duplicate scenario must contain and account for duplicate event IDs`,
+      );
+  }
+
+  if (
+    fixture.id === "multi-site-isolation" &&
+    new Set(inputEvents.map((event) => event.site_id)).size < 2
+  )
+    errors.push(`${fixtureName}: multi-site scenario must contain at least two site IDs`);
+
+  if (fixture.id === "empty-date-range") {
+    if (inputEvents.length !== 0 || rawEvents.inserted !== 0 || rawEvents.duplicates_ignored !== 0)
+      errors.push(`${fixtureName}: empty-date scenario must contain no events`);
+    if (
+      fixture.expected.api.overview.body.page_views !== 0 ||
+      fixture.expected.api.timeline.body.items.length !== 0 ||
+      fixture.expected.api.pages.body.items.length !== 0
+    )
+      errors.push(`${fixtureName}: empty-date scenario must return empty API results`);
+  }
+
+  if (fixture.id === "late-event" && inputEvents.length === 1) {
+    const expectedDay = new Date(inputEvents[0].occurred_at).toISOString().slice(0, 10);
+    const aggregateDay = fixture.expected.page_view_daily[0]?.day;
+    if (aggregateDay !== expectedDay)
+      errors.push(`${fixtureName}: late event must aggregate by occurred_at UTC date`);
+  }
+
+  const expectedRawIds = new Set(rawEvents.events.map((event) => event.event_id));
+  if (expectedRawIds.size !== rawEvents.events.length)
+    errors.push(`${fixtureName}: expected raw events must have unique event IDs`);
+  for (const event of rawEvents.events) {
+    if (
+      event.payload.event_id !== event.event_id ||
+      event.payload.site_id !== event.site_id ||
+      event.payload.path !== event.path
+    )
+      errors.push(`${fixtureName}: raw event payload must preserve the event identity fields`);
+  }
+
+  const overview = fixture.expected?.api?.overview?.body;
+  if (overview && overview.page_views !== (totalsBySite.get(overview.site_id) ?? 0))
+    errors.push(`${fixtureName}: all-time overview must equal the site total`);
+  if (fixture.id === "all-time-overview") {
+    const betaOverview = fixture.expected?.api?.site_beta_overview?.body;
+    if (!betaOverview || betaOverview.page_views !== (totalsBySite.get("site_beta") ?? 0))
+      errors.push(`${fixtureName}: site_beta overview must be isolated and equal its site total`);
+    if (!fixture.expected?.api?.unknown_site)
+      errors.push(
+        `${fixtureName}: all-time overview must include an unknown site empty-result case`,
+      );
+  }
+  const rangeOverview = fixture.expected?.api?.range_overview?.body;
+  if (rangeOverview) {
+    const rangeTotal = (fixture.expected.page_view_daily ?? [])
+      .filter(
+        (item) =>
+          item.site_id === rangeOverview.site_id &&
+          item.day >= rangeOverview.from &&
+          item.day <= rangeOverview.to,
+      )
+      .reduce((sum, item) => sum + item.page_views, 0);
+    if (rangeOverview.page_views !== rangeTotal)
+      errors.push(`${fixtureName}: range overview must equal daily aggregates in its date range`);
+  }
+}
+
+function validateAggregateArray(items, fixtureName, label) {
+  if (!Array.isArray(items))
+    return errors.push(`${fixtureName}: expected.${label} must be an array`);
+  for (const item of items) {
+    if (
+      !isSiteId(item?.site_id) ||
+      !isDate(item?.day) ||
+      !Number.isInteger(item?.page_views) ||
+      item.page_views < 0
+    ) {
+      errors.push(`${fixtureName}: ${label} contains an invalid item`);
+    }
+  }
+}
+
+function validateRouteArray(items, fixtureName) {
+  if (!Array.isArray(items))
+    return errors.push(`${fixtureName}: expected.page_view_routes must be an array`);
+  for (const item of items) {
+    if (
+      !isSiteId(item?.site_id) ||
+      !isDate(item?.day) ||
+      typeof item?.path !== "string" ||
+      !item.path.startsWith("/") ||
+      !Number.isInteger(item?.page_views) ||
+      item.page_views < 0
+    ) {
+      errors.push(`${fixtureName}: page_view_routes contains an invalid item`);
+    }
+  }
+}
+
+function validateTotalArray(items, fixtureName) {
+  if (!Array.isArray(items))
+    return errors.push(`${fixtureName}: expected.page_view_totals must be an array`);
+  for (const item of items) {
+    if (!isSiteId(item?.site_id) || !Number.isInteger(item?.page_views) || item.page_views < 0) {
+      errors.push(`${fixtureName}: page_view_totals contains an invalid item`);
+    }
+  }
+}
+
+function validateApiResponses(api, fixtureName) {
+  if (!api || typeof api !== "object")
+    return errors.push(`${fixtureName}: expected.api must be an object`);
+  for (const name of ["overview", "range_overview", "timeline", "pages"]) {
+    const response = api[name];
+    if (
+      !response ||
+      response.status !== 200 ||
+      !response.body ||
+      typeof response.body !== "object"
+    ) {
+      errors.push(`${fixtureName}: expected.api.${name} must be a 200 response with a body`);
+      continue;
+    }
+    if (!isSiteId(response.body.site_id))
+      errors.push(`${fixtureName}: ${name} response has invalid site_id`);
+    if (name === "overview" && ("from" in response.body || "to" in response.body))
+      errors.push(`${fixtureName}: all-time overview must not contain from/to`);
+    if (name !== "overview" && (!isDate(response.body.from) || !isDate(response.body.to)))
+      errors.push(`${fixtureName}: ${name} response has invalid date range`);
+    if (
+      (name === "overview" || name === "range_overview") &&
+      (!Number.isInteger(response.body.page_views) || response.body.page_views < 0)
+    )
+      errors.push(`${fixtureName}: ${name} page_views must be a non-negative integer`);
+    if ((name === "timeline" || name === "pages") && !Array.isArray(response.body.items))
+      errors.push(`${fixtureName}: ${name} items must be an array`);
+    if (
+      name === "timeline" &&
+      !isSorted(response.body.items, (left, right) => left.day.localeCompare(right.day))
+    )
+      errors.push(`${fixtureName}: timeline items must be sorted by day ascending`);
+    if (name === "pages" && !isSorted(response.body.items, comparePageItems))
+      errors.push(
+        `${fixtureName}: pages items must be sorted by page_views descending and path ascending`,
+      );
+  }
+}
+
+function validateUnknownSiteResponses(api, fixtureName) {
+  validateApiResponses(api, `${fixtureName}:unknown_site`);
+  for (const name of ["overview", "range_overview"]) {
+    if (api[name]?.body?.page_views !== 0)
+      errors.push(`${fixtureName}: unknown site ${name} must return page_views 0`);
+  }
+  for (const name of ["timeline", "pages"]) {
+    if (api[name]?.body?.items?.length !== 0)
+      errors.push(`${fixtureName}: unknown site ${name} must return empty items`);
+  }
+}
+
+function isSorted(items, compare) {
+  return items.every((item, index) => index === 0 || compare(items[index - 1], item) <= 0);
+}
+
+function comparePageItems(left, right) {
+  return right.page_views - left.page_views || left.path.localeCompare(right.path);
+}
+
+function isEventIdentity(event) {
+  return (
+    event?.schema_version === 1 &&
+    isSiteId(event?.site_id) &&
+    typeof event?.event_id === "string" &&
+    event.event_id.length === 26 &&
+    event.type === "page_view" &&
+    Number.isInteger(event?.occurred_at) &&
+    typeof event?.path === "string" &&
+    event.path.startsWith("/")
+  );
+}
+
+function isSiteId(value) {
+  return typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(value);
+}
+function isDate(value) {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+function isIsoDateTime(value) {
+  return typeof value === "string" && !Number.isNaN(Date.parse(value));
+}

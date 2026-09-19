@@ -34,7 +34,8 @@ web-analytics-platform/
 ├── protocol/
 │   ├── schemas/
 │   ├── examples/
-│   └── fixtures/
+│   ├── fixtures/
+│   └── phase-3/fixtures/          # Storage / Processor / Analytics API contract fixtures
 ├── tests/
 │   ├── integration/
 │   └── e2e/
@@ -63,7 +64,7 @@ crates/
 services/
 ```
 
-当前 Backend Foundation 已创建 `services/collector`，但尚未创建 `crates/`。Collector 使用 Rust 1.96.0、TOML 启动配置、Axum HTTP ingestion 和 InMemory Sink；Storage 和 Processor 仍按后续阶段创建。
+当前 Backend Foundation 已创建 `services/collector`，但尚未创建 `crates/`。Collector 使用 Rust 1.96.0、TOML 启动配置、Axum HTTP ingestion 和 InMemory Sink；Phase 3 PR1 已固定 Storage 和 Analytics API contract，但 Storage、Processor 和 API 实现仍按后续 PR 创建。
 
 ## 模块职责
 

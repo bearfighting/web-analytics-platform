@@ -1,0 +1,174 @@
+{
+  "id": "all-time-overview",
+  "description": "The unbounded overview reads a site total without a date range and isolates sites.",
+  "input": {
+    "received_at": "2026-09-18T12:06:05Z",
+    "events": [
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000009",
+        "type": "page_view",
+        "site_id": "site_alpha",
+        "occurred_at": 1789646400000,
+        "path": "/alpha"
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J0000000000000000000000A",
+        "type": "page_view",
+        "site_id": "site_alpha",
+        "occurred_at": 1789732800000,
+        "path": "/alpha/today"
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J0000000000000000000000B",
+        "type": "page_view",
+        "site_id": "site_beta",
+        "occurred_at": 1789732800000,
+        "path": "/beta"
+      }
+    ]
+  },
+  "processor": { "mode": "once", "input": "unprocessed_raw_events" },
+  "expected": {
+    "raw_events": {
+      "inserted": 3,
+      "duplicates_ignored": 0,
+      "events": [
+        {
+          "schema_version": 1,
+          "site_id": "site_alpha",
+          "event_id": "01J00000000000000000000009",
+          "type": "page_view",
+          "occurred_at": 1789646400000,
+          "received_at": "2026-09-18T12:06:05Z",
+          "path": "/alpha",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000009",
+            "type": "page_view",
+            "site_id": "site_alpha",
+            "occurred_at": 1789646400000,
+            "path": "/alpha"
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_alpha",
+          "event_id": "01J0000000000000000000000A",
+          "type": "page_view",
+          "occurred_at": 1789732800000,
+          "received_at": "2026-09-18T12:06:05Z",
+          "path": "/alpha/today",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J0000000000000000000000A",
+            "type": "page_view",
+            "site_id": "site_alpha",
+            "occurred_at": 1789732800000,
+            "path": "/alpha/today"
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_beta",
+          "event_id": "01J0000000000000000000000B",
+          "type": "page_view",
+          "occurred_at": 1789732800000,
+          "received_at": "2026-09-18T12:06:05Z",
+          "path": "/beta",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J0000000000000000000000B",
+            "type": "page_view",
+            "site_id": "site_beta",
+            "occurred_at": 1789732800000,
+            "path": "/beta"
+          }
+        }
+      ]
+    },
+    "page_view_daily": [
+      { "site_id": "site_alpha", "day": "2026-09-17", "page_views": 1 },
+      { "site_id": "site_alpha", "day": "2026-09-18", "page_views": 1 },
+      { "site_id": "site_beta", "day": "2026-09-18", "page_views": 1 }
+    ],
+    "page_view_routes": [
+      { "site_id": "site_alpha", "day": "2026-09-17", "path": "/alpha", "page_views": 1 },
+      { "site_id": "site_alpha", "day": "2026-09-18", "path": "/alpha/today", "page_views": 1 },
+      { "site_id": "site_beta", "day": "2026-09-18", "path": "/beta", "page_views": 1 }
+    ],
+    "page_view_totals": [
+      { "site_id": "site_alpha", "page_views": 2 },
+      { "site_id": "site_beta", "page_views": 1 }
+    ],
+    "api": {
+      "overview": { "status": 200, "body": { "site_id": "site_alpha", "page_views": 2 } },
+      "site_beta_overview": { "status": 200, "body": { "site_id": "site_beta", "page_views": 1 } },
+      "unknown_site": {
+        "overview": { "status": 200, "body": { "site_id": "site_unknown", "page_views": 0 } },
+        "range_overview": {
+          "status": 200,
+          "body": {
+            "site_id": "site_unknown",
+            "from": "2026-09-17",
+            "to": "2026-09-18",
+            "page_views": 0
+          }
+        },
+        "timeline": {
+          "status": 200,
+          "body": {
+            "site_id": "site_unknown",
+            "from": "2026-09-17",
+            "to": "2026-09-18",
+            "items": []
+          }
+        },
+        "pages": {
+          "status": 200,
+          "body": {
+            "site_id": "site_unknown",
+            "from": "2026-09-17",
+            "to": "2026-09-18",
+            "items": []
+          }
+        }
+      },
+      "range_overview": {
+        "status": 200,
+        "body": {
+          "site_id": "site_alpha",
+          "from": "2026-09-17",
+          "to": "2026-09-18",
+          "page_views": 2
+        }
+      },
+      "timeline": {
+        "status": 200,
+        "body": {
+          "site_id": "site_alpha",
+          "from": "2026-09-17",
+          "to": "2026-09-18",
+          "items": [
+            { "day": "2026-09-17", "page_views": 1 },
+            { "day": "2026-09-18", "page_views": 1 }
+          ]
+        }
+      },
+      "pages": {
+        "status": 200,
+        "body": {
+          "site_id": "site_alpha",
+          "from": "2026-09-17",
+          "to": "2026-09-18",
+          "items": [
+            { "path": "/alpha", "page_views": 1 },
+            { "path": "/alpha/today", "page_views": 1 }
+          ]
+        }
+      }
+    }
+  }
+}

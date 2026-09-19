@@ -77,6 +77,14 @@ Import 顺序由 ESLint `import/order` 检查，代码边界的空行由 ESLint 
 pnpm test
 ```
 
+验证 Phase 3 Storage、Processor 和 Analytics API contract fixtures：
+
+```bash
+pnpm analytics:contract:validate
+```
+
+该命令校验 OpenAPI 3.1 JSON contract、canonical fixtures、Raw Event 语义、UTC 聚合结果和 API 响应结构。`/overview` 查询站点累计 Page Views；Reports API 使用 `/reports/{from}/{to}/...` 路径并限制为最多 366 天。PR1 只提供 contract 和 fixtures，不启动 PostgreSQL 或新增后端服务。
+
 验证 Phase 2 HTTP contract fixtures：
 
 ```bash

@@ -18,6 +18,7 @@
     "docker:backend": "./scripts/docker-backend.sh",
     "protocol:validate": "node ./scripts/validate-protocol.mjs",
     "http:validate": "node ./scripts/validate-http-fixtures.mjs",
+    "analytics:contract:validate": "node ./scripts/validate-phase3-contract.mjs",
     "build:packages": "pnpm --filter @web-analytics/protocol-ts --filter @web-analytics/observer-core --filter @web-analytics/observer-next --filter @web-analytics/analytics-core --filter @web-analytics/analytics-browser --filter @web-analytics/transport build"
   },
   "devDependencies": {

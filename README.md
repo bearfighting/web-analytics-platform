@@ -8,7 +8,7 @@
 
 ## 当前状态
 
-项目已完成 Phase 0、Phase 1 和 Phase 2。当前已完成 Backend API Contract、Rust Collector、Event Ingestion、Origin/CORS、Ingest Key、限流和 FetchTransport，下一步进入 Phase 3 Storage、Processor 和 Analytics API。
+项目已完成 Phase 0、Phase 1 和 Phase 2，Phase 3 PR1 Contract 已完成。当前已完成 Backend API Contract、Rust Collector、Event Ingestion、Origin/CORS、Ingest Key、限流和 FetchTransport；下一步进入 PR2 PostgreSQL Raw Event Storage。
 
 当前已具备：
 
@@ -89,8 +89,17 @@ Phase 7  Stabilization
 - [Phase 1 Design](docs/phase-1-design.md)
 - [Phase 2 Design](docs/phase-2-design.md)
 - [Phase 3 Design](docs/phase-3-design.md)
+- [Analytics API OpenAPI Contract](docs/analytics-api.openapi.json)
 
 项目协作规则见 [AGENTS.md](AGENTS.md)。CI 使用与本地相同的统一脚本，并额外验证 Docker Compose 配置。
+
+Phase 3 PR1 contract 可以通过以下命令验证：
+
+```bash
+pnpm analytics:contract:validate
+```
+
+Phase 3 API contract 区分无日期的站点累计 Overview，以及必须提供 `from/to` 的 Reports API；详见 [Analytics API OpenAPI Contract](docs/analytics-api.openapi.json)。
 
 ## 技术方向
 

@@ -1,0 +1,279 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Web Analytics API",
+    "version": "1.0.0",
+    "description": "Minimal read API for Phase 3 page view aggregates."
+  },
+  "servers": [{ "url": "http://localhost:4002" }],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "Analytics API and database are available.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/HealthResponse" } }
+            }
+          },
+          "503": {
+            "description": "Analytics API dependency is unavailable.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sites/{site_id}/overview": {
+      "get": {
+        "operationId": "getOverview",
+        "parameters": [{ "$ref": "#/components/parameters/SiteId" }],
+        "responses": {
+          "200": {
+            "description": "All-time page view total for the site.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/OverviewResponse" } }
+            }
+          },
+          "500": { "$ref": "#/components/responses/AnalyticsApiError" }
+        }
+      }
+    },
+    "/v1/sites/{site_id}/reports/{from}/{to}/overview": {
+      "get": {
+        "operationId": "getRangeOverview",
+        "parameters": [
+          { "$ref": "#/components/parameters/SiteId" },
+          { "$ref": "#/components/parameters/FromPath" },
+          { "$ref": "#/components/parameters/ToPath" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page view total for the inclusive UTC date range.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RangeOverviewResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/InvalidQuery" },
+          "500": { "$ref": "#/components/responses/AnalyticsApiError" }
+        }
+      }
+    },
+    "/v1/sites/{site_id}/reports/{from}/{to}/timeline": {
+      "get": {
+        "operationId": "getTimeline",
+        "parameters": [
+          { "$ref": "#/components/parameters/SiteId" },
+          { "$ref": "#/components/parameters/FromPath" },
+          { "$ref": "#/components/parameters/ToPath" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daily page view totals ordered by day ascending.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/TimelineResponse" } }
+            }
+          },
+          "400": { "$ref": "#/components/responses/InvalidQuery" },
+          "500": { "$ref": "#/components/responses/AnalyticsApiError" }
+        }
+      }
+    },
+    "/v1/sites/{site_id}/reports/{from}/{to}/pages": {
+      "get": {
+        "operationId": "getPages",
+        "parameters": [
+          { "$ref": "#/components/parameters/SiteId" },
+          { "$ref": "#/components/parameters/FromPath" },
+          { "$ref": "#/components/parameters/ToPath" },
+          { "$ref": "#/components/parameters/Limit" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page view totals by path, ordered by count descending and path ascending.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/PagesResponse" } }
+            }
+          },
+          "400": { "$ref": "#/components/responses/InvalidQuery" },
+          "500": { "$ref": "#/components/responses/AnalyticsApiError" }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "SiteId": {
+        "name": "site_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$" }
+      },
+      "FromPath": {
+        "name": "from",
+        "in": "path",
+        "required": true,
+        "description": "Inclusive UTC start date. The report range contains at most 366 UTC calendar days, so to minus from must be at most 365 days.",
+        "schema": { "type": "string", "format": "date", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+      },
+      "ToPath": {
+        "name": "to",
+        "in": "path",
+        "required": true,
+        "description": "Inclusive UTC end date. The report range contains at most 366 UTC calendar days, so to minus from must be at most 365 days.",
+        "schema": { "type": "string", "format": "date", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+      }
+    },
+    "responses": {
+      "InvalidQuery": {
+        "description": "The requested date range or limit is invalid.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "examples": {
+              "invalidDateRange": {
+                "value": {
+                  "error": {
+                    "code": "invalid_date_range",
+                    "message": "from must be before or equal to to"
+                  }
+                }
+              },
+              "invalidLimit": {
+                "value": {
+                  "error": {
+                    "code": "invalid_limit",
+                    "message": "limit must be between 1 and 100"
+                  }
+                }
+              },
+              "dateRangeTooLarge": {
+                "value": {
+                  "error": {
+                    "code": "date_range_too_large",
+                    "message": "date range must not exceed 366 days"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "AnalyticsApiError": {
+        "description": "The Analytics API failed to query its storage.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": {
+              "error": {
+                "code": "analytics_api_error",
+                "message": "Analytics API failed to complete the request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "required": ["status"],
+        "properties": { "status": { "const": "ok" } },
+        "additionalProperties": false
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": ["error"],
+        "properties": { "error": { "$ref": "#/components/schemas/ErrorBody" } },
+        "additionalProperties": false
+      },
+      "ErrorBody": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "invalid_date_range",
+              "date_range_too_large",
+              "invalid_limit",
+              "analytics_api_error"
+            ]
+          },
+          "message": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "OverviewResponse": {
+        "type": "object",
+        "required": ["site_id", "page_views"],
+        "properties": {
+          "site_id": { "type": "string" },
+          "page_views": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": false
+      },
+      "RangeOverviewResponse": {
+        "type": "object",
+        "required": ["site_id", "from", "to", "page_views"],
+        "properties": {
+          "site_id": { "type": "string" },
+          "from": { "type": "string", "format": "date" },
+          "to": { "type": "string", "format": "date" },
+          "page_views": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": false
+      },
+      "TimelineItem": {
+        "type": "object",
+        "required": ["day", "page_views"],
+        "properties": {
+          "day": { "type": "string", "format": "date" },
+          "page_views": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": false
+      },
+      "TimelineResponse": {
+        "type": "object",
+        "required": ["site_id", "from", "to", "items"],
+        "properties": {
+          "site_id": { "type": "string" },
+          "from": { "type": "string", "format": "date" },
+          "to": { "type": "string", "format": "date" },
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/TimelineItem" } }
+        },
+        "additionalProperties": false
+      },
+      "PageItem": {
+        "type": "object",
+        "required": ["path", "page_views"],
+        "properties": {
+          "path": { "type": "string", "pattern": "^/" },
+          "page_views": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": false
+      },
+      "PagesResponse": {
+        "type": "object",
+        "required": ["site_id", "from", "to", "items"],
+        "properties": {
+          "site_id": { "type": "string" },
+          "from": { "type": "string", "format": "date" },
+          "to": { "type": "string", "format": "date" },
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/PageItem" } }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

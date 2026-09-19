@@ -1,0 +1,35 @@
+{
+  "description": "Analytics API reports path validation cases.",
+  "cases": [
+    {
+      "id": "invalid-date-format",
+      "method": "GET",
+      "path": "/v1/sites/site_playground/reports/2026-09-xx/2026-09-18/overview",
+      "expected": { "status": 400, "error_code": "invalid_date_range" }
+    },
+    {
+      "id": "date-range-reversed",
+      "method": "GET",
+      "path": "/v1/sites/site_playground/reports/2026-09-18/2026-09-01/overview",
+      "expected": { "status": 400, "error_code": "invalid_date_range" }
+    },
+    {
+      "id": "date-range-too-large",
+      "method": "GET",
+      "path": "/v1/sites/site_playground/reports/2025-01-01/2026-01-02/timeline",
+      "expected": { "status": 400, "error_code": "date_range_too_large" }
+    },
+    {
+      "id": "invalid-limit-zero",
+      "method": "GET",
+      "path": "/v1/sites/site_playground/reports/2026-09-01/2026-09-18/pages?limit=0",
+      "expected": { "status": 400, "error_code": "invalid_limit" }
+    },
+    {
+      "id": "invalid-limit-too-large",
+      "method": "GET",
+      "path": "/v1/sites/site_playground/reports/2026-09-01/2026-09-18/pages?limit=101",
+      "expected": { "status": 400, "error_code": "invalid_limit" }
+    }
+  ]
+}

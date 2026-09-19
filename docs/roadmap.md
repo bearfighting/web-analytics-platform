@@ -102,12 +102,13 @@ Rust / Cargo workspace 不属于 Phase 0，等进入 Backend 阶段时再建立�
 
 目标：添加 Storage 模块，使事件可以持久化并产生基础统计结果。
 
-当前状态：设计已完成，实施尚未开始。
+当前状态：PR1 Contract 已完成，下一步进入 PR2 PostgreSQL Raw Event Storage。
 
 交付：
 
 - PostgreSQL Adapter
 - `raw_events` 表和 migration
+- `page_view_totals` 累计聚合
 - 幂等 Page View Processor
 - `page_view_daily` 和 `page_view_routes` 聚合
 - Timeline 和 Top Pages 查询
@@ -195,6 +196,11 @@ Country / IP 不属于本阶段必须内容。
 - Realtime
 - ClickHouse / Kafka
 - 多组织和复杂权限
+- 非实时趋势 Summary / Insights API
+  - 面向总体趋势和多维度聚合查询。
+  - 可以评估 PostgreSQL Materialized View、rollup table 或其他预计算方案。
+  - 需要单独定义数据新鲜度、刷新策略、`data_as_of` 语义和维度查询 contract。
+  - 不改变当前 `/overview` 与 Reports API 的 Phase 3 contract。
 
 ## 阶段推进原则
 

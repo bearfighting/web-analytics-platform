@@ -1,0 +1,138 @@
+{
+  "id": "multi-page-navigation",
+  "description": "Multiple paths produce daily and route aggregates with stable Top Pages ordering.",
+  "input": {
+    "received_at": "2026-09-18T12:01:05Z",
+    "events": [
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000002",
+        "type": "page_view",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800000,
+        "path": "/"
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000003",
+        "type": "page_view",
+        "site_id": "site_playground",
+        "occurred_at": 1789732860000,
+        "path": "/about"
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000004",
+        "type": "page_view",
+        "site_id": "site_playground",
+        "occurred_at": 1789732920000,
+        "path": "/about"
+      }
+    ]
+  },
+  "processor": { "mode": "once", "input": "unprocessed_raw_events" },
+  "expected": {
+    "raw_events": {
+      "inserted": 3,
+      "duplicates_ignored": 0,
+      "events": [
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000002",
+          "type": "page_view",
+          "occurred_at": 1789732800000,
+          "received_at": "2026-09-18T12:01:05Z",
+          "path": "/",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000002",
+            "type": "page_view",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800000,
+            "path": "/"
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000003",
+          "type": "page_view",
+          "occurred_at": 1789732860000,
+          "received_at": "2026-09-18T12:01:05Z",
+          "path": "/about",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000003",
+            "type": "page_view",
+            "site_id": "site_playground",
+            "occurred_at": 1789732860000,
+            "path": "/about"
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000004",
+          "type": "page_view",
+          "occurred_at": 1789732920000,
+          "received_at": "2026-09-18T12:01:05Z",
+          "path": "/about",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000004",
+            "type": "page_view",
+            "site_id": "site_playground",
+            "occurred_at": 1789732920000,
+            "path": "/about"
+          }
+        }
+      ]
+    },
+    "page_view_daily": [{ "site_id": "site_playground", "day": "2026-09-18", "page_views": 3 }],
+    "page_view_routes": [
+      { "site_id": "site_playground", "day": "2026-09-18", "path": "/about", "page_views": 2 },
+      { "site_id": "site_playground", "day": "2026-09-18", "path": "/", "page_views": 1 }
+    ],
+    "page_view_totals": [{ "site_id": "site_playground", "page_views": 3 }],
+    "api": {
+      "overview": {
+        "status": 200,
+        "body": {
+          "site_id": "site_playground",
+          "page_views": 3
+        }
+      },
+      "range_overview": {
+        "status": 200,
+        "body": {
+          "site_id": "site_playground",
+          "from": "2026-09-18",
+          "to": "2026-09-18",
+          "page_views": 3
+        }
+      },
+      "timeline": {
+        "status": 200,
+        "body": {
+          "site_id": "site_playground",
+          "from": "2026-09-18",
+          "to": "2026-09-18",
+          "items": [{ "day": "2026-09-18", "page_views": 3 }]
+        }
+      },
+      "pages": {
+        "status": 200,
+        "body": {
+          "site_id": "site_playground",
+          "from": "2026-09-18",
+          "to": "2026-09-18",
+          "items": [
+            { "path": "/about", "page_views": 2 },
+            { "path": "/", "page_views": 1 }
+          ]
+        }
+      }
+    }
+  }
+}

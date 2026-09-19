@@ -1,0 +1,48 @@
+{
+  "id": "empty-date-range",
+  "description": "A valid date range without events returns empty aggregate results.",
+  "input": { "received_at": "2026-09-18T12:05:05Z", "events": [] },
+  "processor": { "mode": "once", "input": "unprocessed_raw_events" },
+  "expected": {
+    "raw_events": { "inserted": 0, "duplicates_ignored": 0, "events": [] },
+    "page_view_daily": [],
+    "page_view_routes": [],
+    "page_view_totals": [],
+    "api": {
+      "overview": {
+        "status": 200,
+        "body": {
+          "site_id": "site_playground",
+          "page_views": 0
+        }
+      },
+      "range_overview": {
+        "status": 200,
+        "body": {
+          "site_id": "site_playground",
+          "from": "2026-09-01",
+          "to": "2026-09-01",
+          "page_views": 0
+        }
+      },
+      "timeline": {
+        "status": 200,
+        "body": {
+          "site_id": "site_playground",
+          "from": "2026-09-01",
+          "to": "2026-09-01",
+          "items": []
+        }
+      },
+      "pages": {
+        "status": 200,
+        "body": {
+          "site_id": "site_playground",
+          "from": "2026-09-01",
+          "to": "2026-09-01",
+          "items": []
+        }
+      }
+    }
+  }
+}
