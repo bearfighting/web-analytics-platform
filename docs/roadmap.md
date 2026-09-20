@@ -121,6 +121,10 @@ Rust / Cargo workspace 不属于 Phase 0，等进入 Backend 阶段时再建立�
 
 ## Phase 4 — Dashboard
 
+详细实施方案见：[phase-4-design.md](phase-4-design.md)。
+
+当前状态：规划完成，尚未开始实现。
+
 目标：添加 Dashboard 模块，让项目使用者可以直观看到网站使用情况。
 
 交付：

@@ -92,6 +92,7 @@ Phase 7  Stabilization
 - [Phase 1 Design](docs/phase-1-design.md)
 - [Phase 2 Design](docs/phase-2-design.md)
 - [Phase 3 Design](docs/phase-3-design.md)
+- [Phase 4 Design](docs/phase-4-design.md)
 - [Analytics API OpenAPI Contract](docs/analytics-api.openapi.json)
 
 项目协作规则见 [AGENTS.md](AGENTS.md)。CI 使用与本地相同的统一脚本，并额外验证 Docker Compose 配置。
