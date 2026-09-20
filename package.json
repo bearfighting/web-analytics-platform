@@ -13,6 +13,8 @@
     "test": "./scripts/test.sh",
     "test:integration": "./scripts/test-integration.sh",
     "e2e:analytics": "node ./scripts/e2e-analytics.mjs",
+    "e2e:dashboard": "node ./scripts/e2e-dashboard.mjs",
+    "playwright:install": "playwright install chromium",
     "build": "./scripts/build.sh",
     "format": "./scripts/format.sh",
     "format:check": "./scripts/format-check.sh",
@@ -36,6 +38,7 @@
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.24.0",
     "ulid": "^2.3.0",
-    "vitest": "^3.0.9"
+    "vitest": "^3.0.9",
+    "@playwright/test": "^1.55.0"
   }
 }

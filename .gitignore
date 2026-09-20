@@ -3,6 +3,7 @@ node_modules/
 .next/
 out/
 coverage/
+artifacts/
 dist/
 target/
 *.tsbuildinfo

@@ -8,7 +8,7 @@
 
 ## 当前状态
 
-项目已完成 Phase 0、Phase 1、Phase 2，以及 Phase 3 PR1 Contract、PR2 PostgreSQL Raw Event Storage、PR3 Page View Processor、PR4 Analytics API 和 PR5 端到端 Workflow，并完成 Phase 4 PR1 Dashboard App Skeleton、PR2 Analytics API Query Client、PR3 Overview Dashboard 和 PR4 Timeline/Top Pages。
+项目已完成 Phase 0、Phase 1、Phase 2、Phase 3 PR1–PR5，以及 Phase 4 Dashboard 的 PR1–PR5。
 
 当前已具备：
 
@@ -25,6 +25,7 @@
 - PostgreSQL `raw_events` migration、幂等 Raw Event Sink 和 storage Compose profile
 - Page View Processor、daily/routes/totals 聚合和 processing Compose profile
 - Analytics API 的 Overview、Reports、Timeline、Top Pages 和 processing Compose profile
+- Dashboard 的 Overview、Timeline、Top Pages、Compose service 和 Playwright E2E workflow
 
 Phase 0 的 Event Protocol、Router Playground、Docker 开发环境和基础工程治理已经完成。可以参考 [Getting Started](docs/getting-started.md) 启动项目。
 
@@ -120,6 +121,13 @@ pnpm e2e:analytics
 ```
 
 该命令使用独立 Compose project 和测试端口，不删除现有 PostgreSQL volume。
+
+验证包含 Dashboard 的完整 Phase 4 链路：
+
+```bash
+pnpm playwright:install
+pnpm e2e:dashboard
+```
 
 Phase 3 PostgreSQL Storage 需要先启动 storage profile 并执行 migration：
 

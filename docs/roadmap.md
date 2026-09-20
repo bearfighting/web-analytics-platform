@@ -123,7 +123,7 @@ Rust / Cargo workspace 不属于 Phase 0，等进入 Backend 阶段时再建立�
 
 详细实施方案见：[phase-4-design.md](phase-4-design.md)。
 
-当前状态：Phase 4 PR4 Timeline and Top Pages 已完成。
+当前状态：Phase 4 PR1–PR5 Dashboard workflow 已完成。
 
 目标：添加 Dashboard 模块，让项目使用者可以直观看到网站使用情况。
 
@@ -138,6 +138,8 @@ Rust / Cargo workspace 不属于 Phase 0，等进入 Backend 阶段时再建立�
 - Site 选择的基础结构
 
 Dashboard 不实现统计逻辑，只消费 Analytics API。
+
+Phase 4 退出前通过 `pnpm e2e:dashboard` 验证 Collector → PostgreSQL → Processor → Analytics API → Dashboard 的完整流程。
 
 ## Phase 5 — Analytics Semantics and Identity Design
 

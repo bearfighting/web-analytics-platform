@@ -1,6 +1,6 @@
 # Phase 4 Design — Dashboard
 
-> Status: PR4 Timeline and Top Pages complete
+> Status: Dashboard complete (PR1–PR5)
 > Scope: Next.js Dashboard for Page Views, Timeline, Top Pages and basic site selection
 
 ## 1. Phase 4 定义
@@ -255,6 +255,8 @@ Dashboard 不读取 Raw Events，不读取聚合表，也不复制 Processor 的
 
 浏览器级测试工具只有在现有 Node/Next 工具不足时才新增，并单独说明依赖和运行前置条件。
 
+PR5 使用 Playwright 验证真实 Dashboard 页面。Dashboard 作为 `dashboard` Compose profile service 运行，通过容器网络访问 `http://analytics-api:4002`；后端链路测试仍由 `e2e:analytics` 保持覆盖，Dashboard 完整链路使用 `e2e:dashboard`。
+
 ## 9. 测试策略
 
 ### 单元测试
@@ -353,7 +355,9 @@ pnpm http:validate
 pnpm analytics:contract:validate
 pnpm test:integration
 pnpm e2e:analytics
+pnpm e2e:dashboard
 pnpm dashboard:validate
+pnpm build
 docker compose --profile backend --profile storage --profile processing --profile dashboard config
 git diff --check
 ```

@@ -1,6 +1,6 @@
 # Docker Development
 
-The repository provides development containers for the Next.js Router Playground, Collector, Processor and Analytics API.
+The repository provides development containers for the Next.js Router Playground, Collector, Processor, Analytics API and Dashboard.
 
 From the repository root:
 
@@ -58,6 +58,19 @@ pnpm docker:processing
 
 The Analytics API is available at `http://localhost:4002`. It exposes `/health`, all-time site Overview, and date-range Reports endpoints. The API reads only the PostgreSQL aggregate tables.
 
+Start the Dashboard together with the processing workflow:
+
+```bash
+docker compose \
+  --profile backend \
+  --profile storage \
+  --profile processing \
+  --profile dashboard \
+  up --build --wait
+```
+
+The Dashboard is available at `http://localhost:13000/dashboard`. Its server-side query client uses `http://analytics-api:4002`; the Dashboard service has no PostgreSQL connection.
+
 Run the complete Analytics workflow with an isolated E2E Compose project:
 
 ```bash
@@ -65,6 +78,13 @@ pnpm e2e:analytics
 ```
 
 The E2E harness uses ports `14001`, `14002` and `15432`, and does not remove the existing PostgreSQL volume.
+
+Run the complete Dashboard browser workflow (install Chromium once first):
+
+```bash
+pnpm playwright:install
+pnpm e2e:dashboard
+```
 
 Generate a key without modifying the TOML configuration:
 

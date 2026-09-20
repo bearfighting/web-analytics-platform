@@ -55,7 +55,7 @@ hash
 
 ## Run the Dashboard
 
-Phase 4 PR4 的 Dashboard 运行在独立的 Next.js app 中。当前已接入 Overview、Timeline 和 Top Pages 查询，Timeline 与 Top Pages 使用语义表格展示。
+Phase 4 的 Dashboard 运行在独立的 Next.js app 中，已接入 Overview、Timeline、Top Pages、站点选择和日期范围查询。Dashboard 只通过服务端 Query Client 请求 Analytics API。
 
 ```bash
 DASHBOARD_SITES=site_playground,site_alpha \
@@ -77,6 +77,26 @@ Dashboard 支持以下 URL 参数：
 ```
 
 `DASHBOARD_SITES` 和 `DASHBOARD_DEFAULT_SITE` 必须配置且默认站点必须属于允许列表。`ANALYTICS_API_URL` 必须是绝对的 HTTP(S) URL，例如 `http://localhost:4002`。Dashboard 通过服务端 Query Client 请求 Overview、Timeline 和 Top Pages；页面不会直接从浏览器请求 Analytics API。
+
+以 Compose 启动 Dashboard 和后端完整 workflow：
+
+```bash
+docker compose \
+  --profile backend \
+  --profile storage \
+  --profile processing \
+  --profile dashboard \
+  up --build --wait
+```
+
+Dashboard 默认访问 `http://localhost:13000/dashboard`。它在容器内使用 `http://analytics-api:4002`，不需要数据库环境变量。
+
+运行 Dashboard 浏览器 E2E 前安装 Chromium：
+
+```bash
+pnpm playwright:install
+pnpm e2e:dashboard
+```
 
 ## Check
 
