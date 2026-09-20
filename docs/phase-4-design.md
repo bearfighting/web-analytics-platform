@@ -1,6 +1,6 @@
 # Phase 4 Design — Dashboard
 
-> Status: Planning complete; implementation not started
+> Status: PR1 App Skeleton complete
 > Scope: Next.js Dashboard for Page Views, Timeline, Top Pages and basic site selection
 
 ## 1. Phase 4 定义

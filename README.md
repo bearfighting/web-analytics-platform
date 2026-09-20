@@ -8,7 +8,7 @@
 
 ## 当前状态
 
-项目已完成 Phase 0、Phase 1、Phase 2，以及 Phase 3 PR1 Contract、PR2 PostgreSQL Raw Event Storage、PR3 Page View Processor、PR4 Analytics API 和 PR5 端到端 Workflow。下一步进入 Phase 4 Dashboard。
+项目已完成 Phase 0、Phase 1、Phase 2，以及 Phase 3 PR1 Contract、PR2 PostgreSQL Raw Event Storage、PR3 Page View Processor、PR4 Analytics API 和 PR5 端到端 Workflow，并完成 Phase 4 PR1 Dashboard App Skeleton。
 
 当前已具备：
 

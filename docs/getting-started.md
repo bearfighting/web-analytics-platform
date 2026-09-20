@@ -53,6 +53,30 @@ search params
 hash
 ```
 
+## Run the Dashboard skeleton
+
+Phase 4 PR1 的 Dashboard 运行在独立的 Next.js app 中。PR1 只提供页面骨架和 URL/configuration contract，尚未连接 Analytics API。
+
+```bash
+DASHBOARD_SITES=site_playground,site_alpha \
+DASHBOARD_DEFAULT_SITE=site_playground \
+pnpm --filter @web-analytics/dashboard dev
+```
+
+默认访问：
+
+```text
+http://localhost:3000/dashboard
+```
+
+Dashboard 支持以下 URL 参数：
+
+```text
+/dashboard?site_id=site_playground&from=2026-09-01&to=2026-09-18
+```
+
+`DASHBOARD_SITES` 和 `DASHBOARD_DEFAULT_SITE` 必须配置且默认站点必须属于允许列表。`ANALYTICS_API_URL` 会在后续 PR2 接入，PR1 不会发起 API 请求。
+
 ## Check
 
 ```bash

@@ -16,4 +16,6 @@ pnpm --filter @web-analytics/transport typecheck
 pnpm exec eslint packages --config eslint.config.mjs
 pnpm --filter @web-analytics/nextjs-router-playground typecheck
 pnpm --filter @web-analytics/nextjs-router-playground lint
+pnpm --filter @web-analytics/dashboard typecheck
+pnpm --filter @web-analytics/dashboard lint
 pnpm format:check

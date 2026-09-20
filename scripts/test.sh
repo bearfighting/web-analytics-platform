@@ -15,3 +15,4 @@ pnpm --filter @web-analytics/analytics-core test
 pnpm --filter @web-analytics/analytics-browser test
 pnpm --filter @web-analytics/transport test
 pnpm --filter @web-analytics/nextjs-router-playground test
+pnpm --filter @web-analytics/dashboard test

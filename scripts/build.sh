@@ -8,3 +8,4 @@ cargo build --workspace
 
 pnpm --filter @web-analytics/protocol-ts --filter @web-analytics/observer-core --filter @web-analytics/observer-next --filter @web-analytics/analytics-core --filter @web-analytics/analytics-browser --filter @web-analytics/transport build
 pnpm --filter @web-analytics/nextjs-router-playground build
+pnpm --filter @web-analytics/dashboard build
