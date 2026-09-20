@@ -123,7 +123,7 @@ Rust / Cargo workspace 不属于 Phase 0，等进入 Backend 阶段时再建立�
 
 详细实施方案见：[phase-4-design.md](phase-4-design.md)。
 
-当前状态：Phase 4 PR3 Overview Dashboard 已完成。
+当前状态：Phase 4 PR4 Timeline and Top Pages 已完成。
 
 目标：添加 Dashboard 模块，让项目使用者可以直观看到网站使用情况。
 

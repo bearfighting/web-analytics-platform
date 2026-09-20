@@ -1,8 +1,9 @@
-import { loadDashboardOverview } from "../lib/dashboard-overview";
+import { loadDashboardPageData } from "../lib/dashboard-page-data";
 
 import { OverviewCard } from "./overview-card";
-import { DeferredState } from "./states/deferred-state";
 import { ErrorState } from "./states/error-state";
+import { TimelineTable } from "./timeline-table";
+import { TopPagesTable } from "./top-pages-table";
 
 interface DashboardSectionsProps {
   siteId: string;
@@ -12,7 +13,7 @@ interface DashboardSectionsProps {
 
 export async function DashboardSections({ siteId, from, to }: DashboardSectionsProps) {
   const context = { siteId, dateRange: { from, to } };
-  const overview = await loadDashboardOverview(context);
+  const { overview, reports } = await loadDashboardPageData(context);
 
   return (
     <>
@@ -35,14 +36,8 @@ export async function DashboardSections({ siteId, from, to }: DashboardSectionsP
           />
         </section>
       )}
-      <section className="card" aria-labelledby="timeline-heading">
-        <h2 id="timeline-heading">Timeline</h2>
-        <DeferredState context={context} />
-      </section>
-      <section className="card" aria-labelledby="top-pages-heading">
-        <h2 id="top-pages-heading">Top Pages</h2>
-        <DeferredState context={context} />
-      </section>
+      <TimelineTable context={context} state={reports.timeline} />
+      <TopPagesTable context={context} state={reports.pages} />
     </>
   );
 }

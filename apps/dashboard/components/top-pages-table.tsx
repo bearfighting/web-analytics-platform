@@ -1,0 +1,46 @@
+import React from "react";
+
+import { EmptyState } from "./states/empty-state";
+import { ErrorState } from "./states/error-state";
+
+import type { PagesResponse } from "../lib/analytics-api/types";
+import type { DashboardOverviewContext } from "../lib/dashboard-overview";
+import type { DashboardReportState } from "../lib/dashboard-reports";
+
+interface TopPagesTableProps {
+  context: DashboardOverviewContext;
+  state: DashboardReportState<PagesResponse>;
+}
+
+export function TopPagesTable({ context, state }: TopPagesTableProps) {
+  return (
+    <section className="card" aria-labelledby="top-pages-heading">
+      <h2 id="top-pages-heading">Top Pages</h2>
+      {state.status === "error" ? (
+        <ErrorState context={context} message={state.error.message} />
+      ) : state.data.items.length === 0 ? (
+        <EmptyState context={context} />
+      ) : (
+        <table className="data-table">
+          <caption className="table-caption">Page Views by path</caption>
+          <thead>
+            <tr>
+              <th scope="col">Path</th>
+              <th scope="col">Page Views</th>
+            </tr>
+          </thead>
+          <tbody>
+            {state.data.items.map((item) => (
+              <tr key={item.path}>
+                <td>
+                  <code>{item.path}</code>
+                </td>
+                <td>{item.page_views}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+}

@@ -1,3 +1,5 @@
+import React from "react";
+
 import { dashboardStateCopy } from "./state-copy";
 
 import type { DashboardStateContext } from "../../lib/dashboard-state";

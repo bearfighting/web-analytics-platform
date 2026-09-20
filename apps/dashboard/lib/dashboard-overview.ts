@@ -2,8 +2,9 @@ import { createAnalyticsApiClient } from "./analytics-api/client";
 import { getAnalyticsApiUrl } from "./analytics-api/config";
 import { AnalyticsApiClientError } from "./analytics-api/errors";
 
-import type { AnalyticsApiClient, AnalyticsApiClientOptions } from "./analytics-api/client";
+import type { AnalyticsApiClient } from "./analytics-api/client";
 import type { OverviewResponse, RangeOverviewResponse } from "./analytics-api/types";
+import type { DashboardApiDependencies } from "./dashboard-dependencies";
 import type { DashboardDateRange } from "./query-params";
 
 export interface DashboardOverviewContext {
@@ -21,15 +22,9 @@ export type DashboardOverviewState =
   | { status: "success"; context: DashboardOverviewContext; data: DashboardOverviewData }
   | { status: "error"; context: DashboardOverviewContext; error: AnalyticsApiClientError };
 
-export interface DashboardOverviewDependencies {
-  client?: AnalyticsApiClient;
-  getApiUrl?: () => string;
-  createClient?: (options: AnalyticsApiClientOptions) => AnalyticsApiClient;
-}
-
 export async function loadDashboardOverview(
   context: DashboardOverviewContext,
-  dependencies: DashboardOverviewDependencies = {},
+  dependencies: DashboardApiDependencies = {},
 ): Promise<Exclude<DashboardOverviewState, { status: "loading" }>> {
   try {
     const client =

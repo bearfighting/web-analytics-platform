@@ -123,6 +123,34 @@ button {
   font-size: 0.85rem;
 }
 
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.data-table th,
+.data-table td {
+  padding: 10px 8px;
+}
+
+.data-table th {
+  color: #52606d;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+
+.data-table tbody tr + tr {
+  border-top: 1px solid #e2e8f0;
+}
+
+.table-caption {
+  margin-bottom: 8px;
+  color: #52606d;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
 @media (max-width: 800px) {
   .dashboard-header {
     align-items: stretch;
