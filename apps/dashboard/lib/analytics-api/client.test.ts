@@ -1,0 +1,276 @@
+import { readFileSync } from "node:fs";
+
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { createAnalyticsApiClient } from "./client";
+import { getAnalyticsApiUrl } from "./config";
+import { AnalyticsApiClientError } from "./errors";
+
+const baseUrl = "http://analytics-api:4002";
+
+const canonicalApi = readCanonicalApi();
+const overview = canonicalApi.overview.body;
+const rangeOverview = canonicalApi.range_overview.body;
+const timeline = canonicalApi.timeline.body;
+const pages = canonicalApi.pages.body;
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+function readCanonicalApi() {
+  const fixture = JSON.parse(
+    readFileSync(
+      new URL("../../../../protocol/phase-3/fixtures/single-page-view.json", import.meta.url),
+      "utf8",
+    ),
+  ) as {
+    expected: {
+      api: {
+        overview: { body: Record<string, unknown> };
+        range_overview: { body: Record<string, unknown> };
+        timeline: { body: Record<string, unknown> };
+        pages: { body: Record<string, unknown> };
+      };
+    };
+  };
+
+  return fixture.expected.api;
+}
+
+function clientFor(response: Response) {
+  const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(response);
+
+  return {
+    client: createAnalyticsApiClient({ baseUrl, fetch: fetchMock }),
+    fetchMock,
+  };
+}
+
+async function expectHttpError(
+  request: Promise<unknown>,
+  status: number,
+  code: string,
+): Promise<void> {
+  await expect(request).rejects.toMatchObject({
+    kind: "http",
+    status,
+    code,
+    message: "fixture error",
+  });
+}
+
+describe("Analytics API client configuration", () => {
+  it.each([
+    ["", "ANALYTICS_API_URL is required."],
+    ["/analytics", "ANALYTICS_API_URL must be an absolute HTTP(S) URL."],
+    ["ftp://analytics-api:4002", "ANALYTICS_API_URL must be an absolute HTTP(S) URL."],
+    ["http://analytics-api:4002?debug=true", "ANALYTICS_API_URL must be an absolute HTTP(S) URL."],
+  ])("rejects %s", (value, message) => {
+    vi.stubEnv("ANALYTICS_API_URL", value);
+
+    expect(() => getAnalyticsApiUrl()).toThrowError(
+      expect.objectContaining({ kind: "config", message }),
+    );
+  });
+
+  it("normalizes a valid configured URL", () => {
+    vi.stubEnv("ANALYTICS_API_URL", "http://analytics-api:4002///");
+
+    expect(getAnalyticsApiUrl()).toBe("http://analytics-api:4002");
+  });
+
+  it.each(["/analytics", "ftp://analytics-api:4002", "http://analytics-api:4002?debug=true"])(
+    "rejects invalid client baseUrl %s",
+    (value) => {
+      expect(() => createAnalyticsApiClient({ baseUrl: value })).toThrowError(
+        expect.objectContaining({ kind: "config" }),
+      );
+    },
+  );
+});
+
+describe("Analytics API queries", () => {
+  it("parses all four successful response shapes", async () => {
+    const responses = [overview, rangeOverview, timeline, pages].map((body) => jsonResponse(body));
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(responses[0] as Response)
+      .mockResolvedValueOnce(responses[1] as Response)
+      .mockResolvedValueOnce(responses[2] as Response)
+      .mockResolvedValueOnce(responses[3] as Response);
+    const client = createAnalyticsApiClient({ baseUrl, fetch: fetchMock });
+
+    await expect(client.overview("site_playground")).resolves.toEqual(overview);
+    await expect(
+      client.rangeOverview("site_playground", "2026-09-01", "2026-09-18"),
+    ).resolves.toEqual(rangeOverview);
+    await expect(client.timeline("site_playground", "2026-09-01", "2026-09-18")).resolves.toEqual(
+      timeline,
+    );
+    await expect(client.pages("site_playground", "2026-09-01", "2026-09-18")).resolves.toEqual(
+      pages,
+    );
+  });
+
+  it("builds encoded URLs and uses no-store GET requests", async () => {
+    const { client, fetchMock } = clientFor(jsonResponse(overview));
+
+    await client.overview("site/playground");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://analytics-api:4002/v1/sites/site%2Fplayground/overview",
+      { method: "GET", cache: "no-store" },
+    );
+  });
+
+  it("always includes report dates and defaults pages limit to 20", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse(rangeOverview))
+      .mockResolvedValueOnce(jsonResponse(timeline))
+      .mockResolvedValueOnce(jsonResponse(pages));
+    const client = createAnalyticsApiClient({ baseUrl, fetch: fetchMock });
+
+    await client.rangeOverview("site_playground", "2026-09-01", "2026-09-18");
+    await client.timeline("site_playground", "2026-09-01", "2026-09-18");
+    await client.pages("site_playground", "2026-09-01", "2026-09-18");
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "http://analytics-api:4002/v1/sites/site_playground/reports/2026-09-01/2026-09-18/overview",
+      "http://analytics-api:4002/v1/sites/site_playground/reports/2026-09-01/2026-09-18/timeline",
+      "http://analytics-api:4002/v1/sites/site_playground/reports/2026-09-01/2026-09-18/pages?limit=20",
+    ]);
+  });
+
+  it("passes an explicit pages limit", async () => {
+    const { client, fetchMock } = clientFor(jsonResponse(pages));
+
+    await client.pages("site_playground", "2026-09-01", "2026-09-18", 100);
+
+    expect(fetchMock.mock.calls[0]?.[0]).toContain("/pages?limit=100");
+  });
+});
+
+describe("Analytics API errors and response validation", () => {
+  it.each([
+    [400, "invalid_date_range"],
+    [400, "date_range_too_large"],
+  ])("maps reports API error %s", async (status, code) => {
+    const { client } = clientFor(
+      jsonResponse({ error: { code, message: "fixture error" } }, status),
+    );
+
+    await expectHttpError(
+      client.rangeOverview("site_playground", "2026-09-01", "2026-09-18"),
+      status,
+      code,
+    );
+  });
+
+  it("maps invalid limit from the pages endpoint", async () => {
+    const { client } = clientFor(
+      jsonResponse({ error: { code: "invalid_limit", message: "fixture error" } }, 400),
+    );
+
+    await expectHttpError(
+      client.pages("site_playground", "2026-09-01", "2026-09-18", 0),
+      400,
+      "invalid_limit",
+    );
+  });
+
+  it("maps an Analytics API error from the overview endpoint", async () => {
+    const { client } = clientFor(
+      jsonResponse({ error: { code: "analytics_api_error", message: "fixture error" } }, 500),
+    );
+
+    await expectHttpError(client.overview("site_playground"), 500, "analytics_api_error");
+  });
+
+  it("uses a fallback message for a non-JSON HTTP error", async () => {
+    const { client } = clientFor(new Response("upstream failure", { status: 502 }));
+
+    await expect(client.overview("site_playground")).rejects.toMatchObject({
+      kind: "http",
+      status: 502,
+      message: "Analytics API failed to complete the request",
+    });
+  });
+
+  it("maps network failures", async () => {
+    const failure = new Error("connection refused");
+    const fetchMock = vi.fn<typeof fetch>().mockRejectedValue(failure);
+    const client = createAnalyticsApiClient({ baseUrl, fetch: fetchMock });
+
+    await expect(client.overview("site_playground")).rejects.toMatchObject({
+      kind: "network",
+      cause: failure,
+    });
+  });
+
+  it("rejects invalid overview responses", async () => {
+    const cases = [{}, { site_id: "site_playground", page_views: -1 }];
+
+    for (const body of cases) {
+      const { client } = clientFor(jsonResponse(body));
+
+      await expect(client.overview("site_playground")).rejects.toBeInstanceOf(
+        AnalyticsApiClientError,
+      );
+    }
+  });
+
+  it("rejects invalid range, timeline, and pages responses", async () => {
+    const { client: rangeClient } = clientFor(
+      jsonResponse({
+        site_id: "site_playground",
+        from: "2026-02-30",
+        to: "2026-09-18",
+        page_views: 1,
+      }),
+    );
+    const { client: timelineClient } = clientFor(
+      jsonResponse({
+        site_id: "site_playground",
+        from: "2026-09-01",
+        to: "2026-09-18",
+        items: [{ day: "2026-02-30", page_views: 1 }],
+      }),
+    );
+    const { client: pagesClient } = clientFor(
+      jsonResponse({
+        site_id: "site_playground",
+        from: "2026-09-01",
+        to: "2026-09-18",
+        items: [{ path: "about", page_views: 1 }],
+      }),
+    );
+
+    await expect(
+      rangeClient.rangeOverview("site_playground", "2026-09-01", "2026-09-18"),
+    ).rejects.toBeInstanceOf(AnalyticsApiClientError);
+    await expect(
+      timelineClient.timeline("site_playground", "2026-09-01", "2026-09-18"),
+    ).rejects.toBeInstanceOf(AnalyticsApiClientError);
+    await expect(
+      pagesClient.pages("site_playground", "2026-09-01", "2026-09-18"),
+    ).rejects.toBeInstanceOf(AnalyticsApiClientError);
+  });
+
+  it("maps a successful non-JSON response to a response error", async () => {
+    const { client } = clientFor(new Response("not json"));
+
+    await expect(client.overview("site_playground")).rejects.toMatchObject({
+      kind: "response",
+      message: "Analytics API returned an invalid response",
+    });
+  });
+});

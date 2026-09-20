@@ -75,7 +75,7 @@ Dashboard 支持以下 URL 参数：
 /dashboard?site_id=site_playground&from=2026-09-01&to=2026-09-18
 ```
 
-`DASHBOARD_SITES` 和 `DASHBOARD_DEFAULT_SITE` 必须配置且默认站点必须属于允许列表。`ANALYTICS_API_URL` 会在后续 PR2 接入，PR1 不会发起 API 请求。
+`DASHBOARD_SITES` 和 `DASHBOARD_DEFAULT_SITE` 必须配置且默认站点必须属于允许列表。PR2 已建立服务端 Query Client；使用它时还需要配置绝对的 `ANALYTICS_API_URL`，例如 `http://localhost:4002`。当前页面仍不会发起 Analytics API 请求，页面接入留到 PR3。
 
 ## Check
 
