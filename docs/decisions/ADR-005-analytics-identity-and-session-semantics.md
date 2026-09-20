@@ -1,6 +1,6 @@
 # ADR-005：Visitor 和 Session 采用站点隔离的匿名身份与确定性服务端 Sessionization
 
-- Status: Accepted
+- Status: Accepted (Phase 5 PR1)
 - Date: 2026-09-20
 
 ## Context
@@ -52,3 +52,9 @@ Phase 5 先固定以下设计方向，Phase 6 再实现：
 - localStorage 方案不要求 Collector 或 Dashboard 读取浏览器存储；未来跨子域或服务端协作需要单独评估 Cookie。
 - Phase 6 仍需要定义 parser version、migration、backfill/rebuild 命令和 freshness contract。
 - 现阶段的 30 分钟、UTC 午夜和缺失 Visitor 语义已经冻结，后续实现不能隐式修改。
+
+## Compatibility boundary
+
+This decision is additive to the Phase 3/4 Page View workflow. Existing Protocol V1 events, `site_id + event_id` idempotency, UTC Page View dates, and current Overview/Reports contracts remain unchanged. Events without `visitor_id` continue to count as Page Views but are excluded from Visitor and Session metrics; they are never assigned a shared fallback identity.
+
+The User-Agent parser implementation, versioning, upgrade policy, and historical reprocessing strategy remain a Phase 6 prerequisite. This ADR freezes the privacy and output boundary only: raw User-Agent data is not exposed through Analytics API or Dashboard, derived values must carry parser/version semantics, and unrecognized values map to `unknown`.

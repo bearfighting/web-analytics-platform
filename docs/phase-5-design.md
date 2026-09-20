@@ -1,6 +1,6 @@
 # Phase 5 Design — Analytics Semantics and Identity
 
-> Status: Design in progress
+> Status: PR1 contract review complete; Phase 5 implementation work not started
 > Scope: Visitor、Session、时间语义、Browser Context 和 Analytics Dimensions 的契约设计
 
 ## 1. Phase 5 定义
@@ -47,13 +47,26 @@ Visitor 和 Session 是 Page View 之上的新维度，不能改变现有 Page V
 
 缺少新身份字段的旧事件仍然可以被 Collector 接收并计入 Page Views，但不能被计入 Visitor 或 Session 指标。这样可以让 Protocol V1 数据平滑迁移到新契约。
 
-### 4.2 身份是匿名且站点隔离的
+### 4.2 Phase 3/4 兼容性边界
+
+Phase 5 PR1 不改变已经交付的 Page View 行为：
+
+- Protocol V1 事件继续使用现有的 `site_id + event_id` 幂等规则。
+- `occurred_at` 仍是 Page View 行为时间，日报日期仍按 UTC calendar date 计算。
+- `received_at` 继续由 Collector 生成，用于接收诊断、迟到窗口判定和 freshness，不替代 `occurred_at`。
+- 现有 Page View totals、daily、routes、Overview、Timeline 和 Top Pages contract 保持不变。
+- V1 事件即使没有 Visitor ID，也必须继续计入 Page Views，但不得被合并到任意共享的 anonymous fallback Visitor。
+- Phase 6 新增的 Visitor、Session 和 Dimension 聚合只能作为派生能力接入，不能要求 Phase 3/4 立即修改生产表或 API。
+
+Phase 5 PR1 只冻结实现边界；Protocol V2、canonical fixtures、migration 和新的 API endpoint 分别留给后续 PR。
+
+### 4.3 身份是匿名且站点隔离的
 
 Visitor ID 是站点范围内的随机匿名标识，不代表真实身份，也不能通过 IP、User-Agent、屏幕尺寸或其他 Browser Context 字段推导。
 
 同一个浏览器只在同一个 site_id 范围内复用 Visitor ID。不同站点不能共享 Visitor ID，也不通过跨站 Cookie、URL 参数或服务端 IP 做关联。
 
-### 4.3 Raw Event 仍是事实源
+### 4.4 Raw Event 仍是事实源
 
 所有 Visitor、Session 和维度结果都必须能从 Raw Event 重建。聚合表、派生字段和解析器版本不能替代原始事件。
 
@@ -65,7 +78,7 @@ Visitor ID 是站点范围内的随机匿名标识，不代表真实身份，也
 
 Phase 6 可以选择增量处理或受影响 Visitor 重建，但不能只依赖不可重建的计数器。
 
-### 4.4 时间语义显式区分
+### 4.5 时间语义显式区分
 
 - occurred_at：浏览器产生事件的 Unix milliseconds，是行为时间。
 - received_at：Collector 接收并通过校验后生成的服务端时间，是接收时间。
@@ -393,10 +406,10 @@ Phase 5 只有在以下条件全部满足时结束：
 
 Phase 5 结束后进入 Phase 6：Browser and Analytics Dimensions。
 
-## 15. 待评审决策
+## 15. Phase 6 前置决策
 
-以下内容已经有推荐方向，但应在 Phase 5 PR1/PR2 评审时明确冻结：
+以下内容不属于 Phase 5 PR1 的稳定生产 contract，必须在 Phase 6 实现前单独决定：
 
 - User-Agent parser 的实现、版本锁定、升级和历史重解析策略。
 
-这些决策未冻结前，Phase 6 只能实现测试 fixture 或实验代码，不能把推荐方向当作稳定的生产 contract。
+在该决策冻结前，Phase 6 只能实现测试 fixture 或实验代码，不能把某个 parser 或版本当作稳定的生产 contract。该开放项不阻塞本 PR，因为 PR1 已经冻结了 User-Agent 原文不进入 Dashboard/API、派生值必须带 parser/version 语义以及未知值归入 `unknown` 的边界。
