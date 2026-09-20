@@ -1,0 +1,284 @@
+{
+  "contract_version": 1,
+  "schema_versions": { "event_v1": 1, "event_v2": 2, "context": 1 },
+  "parser_version": "deferred-to-phase-6",
+  "cases": [
+    {
+      "id": "v1-missing-visitor-id",
+      "schema_version": 1,
+      "events": [
+        {
+          "event_id": "01J00000000000000000000000",
+          "site_id": "site_example",
+          "occurred_at": 1760000000000
+        }
+      ],
+      "received_order": ["01J00000000000000000000000"],
+      "expected": {
+        "page_views": 1,
+        "visitor_session_eligible": 0,
+        "shared_fallback_identity": false
+      }
+    },
+    {
+      "id": "v2-identified-page-view",
+      "schema_version": 2,
+      "events": [
+        {
+          "event_id": "01J00000000000000000000001",
+          "site_id": "site_example",
+          "visitor_id": "550e8400-e29b-41d4-a716-446655440000",
+          "occurred_at": 1760000000000
+        }
+      ],
+      "received_order": ["01J00000000000000000000001"],
+      "expected": { "page_views": 1, "visitor_session_eligible": 1 }
+    },
+    {
+      "id": "single-visitor-session",
+      "schema_version": 2,
+      "events": [
+        {
+          "event_id": "01J00000000000000000000002",
+          "site_id": "site_example",
+          "visitor_id": "550e8400-e29b-41d4-a716-446655440000",
+          "occurred_at": 1760000000000
+        },
+        {
+          "event_id": "01J00000000000000000000003",
+          "site_id": "site_example",
+          "visitor_id": "550e8400-e29b-41d4-a716-446655440000",
+          "occurred_at": 1760001000000
+        }
+      ],
+      "received_order": ["01J00000000000000000000002", "01J00000000000000000000003"],
+      "expected": { "page_views": 2, "unique_visitors": 1, "sessions": 1 }
+    },
+    {
+      "id": "session-timeout-boundaries",
+      "schema_version": 2,
+      "events": [
+        {
+          "event_id": "01J00000000000000000000004",
+          "site_id": "site_example",
+          "visitor_id": "550e8400-e29b-41d4-a716-446655440000",
+          "occurred_at": 1760000000000
+        },
+        {
+          "event_id": "01J00000000000000000000005",
+          "site_id": "site_example",
+          "visitor_id": "550e8400-e29b-41d4-a716-446655440000",
+          "occurred_at": 1760001800000
+        },
+        {
+          "event_id": "01J00000000000000000000006",
+          "site_id": "site_example",
+          "visitor_id": "550e8400-e29b-41d4-a716-446655440000",
+          "occurred_at": 1760003600001
+        }
+      ],
+      "received_order": [
+        "01J00000000000000000000004",
+        "01J00000000000000000000005",
+        "01J00000000000000000000006"
+      ],
+      "expected": {
+        "session_timeout_ms": 1800000,
+        "same_session_before_timeout": true,
+        "new_session_at_or_after_timeout": true,
+        "sessions": 3
+      }
+    },
+    {
+      "id": "midnight-split",
+      "schema_version": 2,
+      "events": [
+        {
+          "event_id": "01J00000000000000000000007",
+          "site_id": "site_example",
+          "visitor_id": "550e8400-e29b-41d4-a716-446655440000",
+          "occurred_at": 1760054399000
+        },
+        {
+          "event_id": "01J00000000000000000000008",
+          "site_id": "site_example",
+          "visitor_id": "550e8400-e29b-41d4-a716-446655440000",
+          "occurred_at": 1760054400000
+        }
+      ],
+      "received_order": ["01J00000000000000000000007", "01J00000000000000000000008"],
+      "expected": { "utc_midnight_splits_session": true, "sessions": 2 }
+    },
+    {
+      "id": "multi-tab-shared-visitor",
+      "schema_version": 2,
+      "events": [
+        {
+          "event_id": "01J00000000000000000000009",
+          "site_id": "site_example",
+          "visitor_id": "550e8400-e29b-41d4-a716-446655440000",
+          "occurred_at": 1760000000000,
+          "tab": "a"
+        },
+        {
+          "event_id": "01J0000000000000000000000A",
+          "site_id": "site_example",
+          "visitor_id": "550e8400-e29b-41d4-a716-446655440000",
+          "occurred_at": 1760001000000,
+          "tab": "b"
+        }
+      ],
+      "received_order": ["01J0000000000000000000000A", "01J00000000000000000000009"],
+      "expected": { "unique_visitors": 1, "sessions": 1, "split_by_tab": false }
+    },
+    {
+      "id": "duplicate-and-late-events",
+      "schema_version": 2,
+      "events": [
+        {
+          "event_id": "01J0000000000000000000000B",
+          "site_id": "site_example",
+          "visitor_id": "550e8400-e29b-41d4-a716-446655440000",
+          "occurred_at": 1760003600000,
+          "received_at": 1760003601000
+        },
+        {
+          "event_id": "01J0000000000000000000000B",
+          "site_id": "site_example",
+          "visitor_id": "550e8400-e29b-41d4-a716-446655440000",
+          "occurred_at": 1760003600000,
+          "received_at": 1760003602000
+        },
+        {
+          "event_id": "01J0000000000000000000000C",
+          "site_id": "site_example",
+          "visitor_id": "550e8400-e29b-41d4-a716-446655440000",
+          "occurred_at": 1760000000000,
+          "received_at": 1760007200000
+        }
+      ],
+      "received_order": [
+        "01J0000000000000000000000B",
+        "01J0000000000000000000000B",
+        "01J0000000000000000000000C"
+      ],
+      "expected": {
+        "unique_events": 2,
+        "dedupe_key": "site_id+event_id",
+        "session_ordering": "occurred_at",
+        "automatic_rebuild_within_ms": 86400000,
+        "late_event_requires_rebuild": true
+      }
+    },
+    {
+      "id": "future-event-boundary",
+      "schema_version": 2,
+      "events": [
+        {
+          "event_id": "01J0000000000000000000000D",
+          "site_id": "site_example",
+          "visitor_id": "550e8400-e29b-41d4-a716-446655440000",
+          "occurred_at": 1760000300000,
+          "received_at": 1760000000000
+        },
+        {
+          "event_id": "01J0000000000000000000000E",
+          "site_id": "site_example",
+          "visitor_id": "550e8400-e29b-41d4-a716-446655440000",
+          "occurred_at": 1760000300001,
+          "received_at": 1760000000000
+        }
+      ],
+      "received_order": ["01J0000000000000000000000D", "01J0000000000000000000000E"],
+      "expected": {
+        "max_client_clock_lead_ms": 300000,
+        "five_minute_boundary_allowed": true,
+        "over_boundary_rejected": true
+      }
+    },
+    {
+      "id": "site-isolated-visitor",
+      "schema_version": 2,
+      "events": [
+        {
+          "event_id": "01J0000000000000000000000F",
+          "site_id": "site_alpha",
+          "visitor_id": "550e8400-e29b-41d4-a716-446655440000",
+          "occurred_at": 1760000000000
+        },
+        {
+          "event_id": "01J0000000000000000000000G",
+          "site_id": "site_beta",
+          "visitor_id": "550e8400-e29b-41d4-a716-446655440000",
+          "occurred_at": 1760000000000
+        }
+      ],
+      "received_order": ["01J0000000000000000000000F", "01J0000000000000000000000G"],
+      "expected": {
+        "site_scope_isolation": true,
+        "unique_visitors_per_site": 1,
+        "cross_site_identity_link": false
+      }
+    },
+    {
+      "id": "browser-context-normalization",
+      "schema_version": 2,
+      "events": [
+        {
+          "event_id": "01J0000000000000000000000H",
+          "site_id": "site_example",
+          "occurred_at": 1760000000000
+        }
+      ],
+      "received_order": ["01J0000000000000000000000H"],
+      "raw_context": {
+        "language": null,
+        "timezone": "",
+        "viewport_width": -1,
+        "viewport_height": 900,
+        "screen_width": 2560,
+        "screen_height": 1440,
+        "utm_source": "",
+        "user_agent": null,
+        "ip": "192.0.2.1"
+      },
+      "expected_normalized_context": {
+        "language": "unknown",
+        "timezone": "unknown",
+        "viewport_width": "unknown",
+        "viewport_height": 900,
+        "screen_width": 2560,
+        "screen_height": 1440,
+        "user_agent": "unknown",
+        "utm_source_omitted": true,
+        "ip_omitted": true
+      }
+    },
+    {
+      "id": "privacy-boundary",
+      "schema_version": 2,
+      "events": [
+        {
+          "event_id": "01J0000000000000000000000J",
+          "site_id": "site_example",
+          "occurred_at": 1760000000000
+        }
+      ],
+      "received_order": ["01J0000000000000000000000J"],
+      "forbidden_fields": [
+        "ip",
+        "geo",
+        "latitude",
+        "longitude",
+        "canvas_fingerprint",
+        "fonts",
+        "hardware_concurrency",
+        "session_id"
+      ],
+      "expected": {
+        "forbidden_fields_are_not_contract_fields": true,
+        "visitor_identity_source": "visitor_id_only"
+      }
+    }
+  ]
+}

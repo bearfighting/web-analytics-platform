@@ -1,6 +1,6 @@
 # Phase 5 Design — Analytics Semantics and Identity
 
-> Status: PR1 contract review complete; Phase 5 implementation work not started
+> Status: PR2 contract fixtures complete; Phase 5 implementation work not started
 > Scope: Visitor、Session、时间语义、Browser Context 和 Analytics Dimensions 的契约设计
 
 ## 1. Phase 5 定义
@@ -177,19 +177,19 @@ initial、push、replace、pop 都是 Page View 事件的来源，不改变 Sess
 
 Phase 6 允许采集以下浏览器可直接取得的字段：
 
-| 类别 | 字段 | 语义 |
-| --- | --- | --- |
-| Locale | language | 浏览器首选语言，使用 BCP 47 字符串，不推导国家 |
-| Timezone | timezone | IANA timezone 名称；缺失或无效时为 unknown |
-| Viewport | viewport_width, viewport_height | 事件产生时 CSS viewport 像素，非身份标识 |
-| Screen | screen_width, screen_height | 浏览器报告的 screen 像素，非身份标识 |
-| Campaign | utm_source, utm_medium, utm_campaign, utm_term, utm_content | URL query 中的 allowlist 参数 |
-| Referrer | referrer | 最多 4096 字符，按长度和安全规则处理 |
-| User Agent | user_agent | 可选原始浏览器声明，只用于服务端解析，不直接作为 Dashboard 维度输出 |
+| 类别       | 字段                                                        | 语义                                                                |
+| ---------- | ----------------------------------------------------------- | ------------------------------------------------------------------- |
+| Locale     | language                                                    | 浏览器首选语言，使用 BCP 47 字符串，不推导国家                      |
+| Timezone   | timezone                                                    | IANA timezone 名称；缺失或无效时为 unknown                          |
+| Viewport   | viewport_width, viewport_height                             | 事件产生时 CSS viewport 像素，非身份标识                            |
+| Screen     | screen_width, screen_height                                 | 浏览器报告的 screen 像素，非身份标识                                |
+| Campaign   | utm_source, utm_medium, utm_campaign, utm_term, utm_content | URL query 中的 allowlist 参数                                       |
+| Referrer   | referrer                                                    | 最多 4096 字符，按长度和安全规则处理                                |
+| User Agent | user_agent                                                  | 可选原始浏览器声明，只用于服务端解析，不直接作为 Dashboard 维度输出 |
 
 ### 7.2 稳定 schema 和版本
 
-Browser Context 的字段名、类型、最大长度和缺失语义必须进入 Protocol schema。未知字段可以按照现有 forward-compatible 规则保留在 Raw Event，但不能未经设计直接成为聚合维度。
+Browser Context 的字段名、类型、最大长度和缺失语义必须进入 Protocol schema。normalized Browser Context contract 只允许已经定义的字段；原始输入中的未知字段可以按 forward-compatible 规则保留在 Raw Event，但不会进入 normalized context 或聚合维度。IP、精确地理位置和指纹字段即使出现在原始输入中也必须被丢弃。
 
 Protocol V2 使用独立的 context_schema_version，与 Event Protocol schema_version 分开：协议版本表示事件 envelope，context 版本表示浏览器字段的解释方式。V2 中存在 context 时使用 context_schema_version = 1；没有 context 时可以省略该字段。
 
@@ -197,14 +197,14 @@ Protocol V2 使用独立的 context_schema_version，与 Event Protocol schema_v
 
 Browser Context 的首个版本固定以下约束：
 
-| 字段 | 类型和约束 | 缺失/非法值 |
-| --- | --- | --- |
-| language | BCP 47 字符串，最多 64 字符 | unknown |
-| timezone | IANA 名称，最多 64 字符 | unknown |
-| viewport_width, viewport_height | 整数，范围 0–100000 | unknown |
-| screen_width, screen_height | 整数，范围 0–100000 | unknown |
-| utm_source, utm_medium, utm_campaign, utm_term, utm_content | 字符串，每项最多 256 字符 | 不产生该维度 |
-| user_agent | 字符串，最多 1024 字符 | unknown |
+| 字段                                                        | 类型和约束                  | 缺失/非法值  |
+| ----------------------------------------------------------- | --------------------------- | ------------ |
+| language                                                    | BCP 47 字符串，最多 64 字符 | unknown      |
+| timezone                                                    | IANA 名称，最多 64 字符     | unknown      |
+| viewport_width, viewport_height                             | 整数，范围 0–100000         | unknown      |
+| screen_width, screen_height                                 | 整数，范围 0–100000         | unknown      |
+| utm_source, utm_medium, utm_campaign, utm_term, utm_content | 字符串，每项最多 256 字符   | 不产生该维度 |
+| user_agent                                                  | 字符串，最多 1024 字符      | unknown      |
 
 非法字段不会导致整个事件失败；字段被丢弃并按上表处理。超过最大长度的文本按字段拒绝，不截断后继续作为统计值使用。
 
@@ -349,6 +349,10 @@ Phase 5 必须新增与现有 Phase 3 fixtures 分离的语义 fixtures。至少
 - 事件接收顺序、迟到事件和重复事件的 canonical input fixture。
 
 本 PR 只添加契约、示例和验证，不生成生产 Visitor ID 或 Session。
+
+PR2 的 V2 draft contract 位于 `protocol/phase-5/`，不会替换当前 `protocol/schemas/` 中的生产 V1 Schema。验证命令为：
+
+    pnpm protocol:phase5:validate
 
 ### PR3 — API and Phase 6 Implementation Plan
 

@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "events": [
+    {
+      "schema_version": 2,
+      "event_id": "01J00000000000000000000001",
+      "type": "page_view",
+      "site_id": "site_example",
+      "occurred_at": 1760000000000,
+      "path": "/",
+      "visitor_id": "550e8400-e29b-41d4-a716-446655440000"
+    }
+  ]
+}
