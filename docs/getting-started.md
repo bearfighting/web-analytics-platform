@@ -53,13 +53,14 @@ search params
 hash
 ```
 
-## Run the Dashboard skeleton
+## Run the Dashboard
 
-Phase 4 PR1 的 Dashboard 运行在独立的 Next.js app 中。PR1 只提供页面骨架和 URL/configuration contract，尚未连接 Analytics API。
+Phase 4 PR3 的 Dashboard 运行在独立的 Next.js app 中。当前已接入 Overview 查询；Timeline 和 Top Pages 将在后续 PR 接入。
 
 ```bash
 DASHBOARD_SITES=site_playground,site_alpha \
 DASHBOARD_DEFAULT_SITE=site_playground \
+ANALYTICS_API_URL=http://localhost:4002 \
 pnpm --filter @web-analytics/dashboard dev
 ```
 
@@ -75,7 +76,7 @@ Dashboard 支持以下 URL 参数：
 /dashboard?site_id=site_playground&from=2026-09-01&to=2026-09-18
 ```
 
-`DASHBOARD_SITES` 和 `DASHBOARD_DEFAULT_SITE` 必须配置且默认站点必须属于允许列表。PR2 已建立服务端 Query Client；使用它时还需要配置绝对的 `ANALYTICS_API_URL`，例如 `http://localhost:4002`。当前页面仍不会发起 Analytics API 请求，页面接入留到 PR3。
+`DASHBOARD_SITES` 和 `DASHBOARD_DEFAULT_SITE` 必须配置且默认站点必须属于允许列表。`ANALYTICS_API_URL` 必须是绝对的 HTTP(S) URL，例如 `http://localhost:4002`。Dashboard 通过服务端 Query Client 请求 Overview；页面不会直接从浏览器请求 Analytics API。
 
 ## Check
 

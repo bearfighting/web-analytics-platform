@@ -1,3 +1,5 @@
+import React from "react";
+
 import { DashboardSections } from "../../components/dashboard-sections";
 import { DashboardShell } from "../../components/dashboard-shell";
 import { ErrorState } from "../../components/states/error-state";
@@ -12,6 +14,8 @@ import {
 interface DashboardPageProps {
   searchParams: Promise<DashboardSearchParams>;
 }
+
+export const dynamic = "force-dynamic";
 
 function firstValue(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -63,10 +67,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             context={{ siteId: requestedSite, dateRange: displayedDateRange }}
             message={query.error.message}
           />
-          <p className="context">
-            Requested site: {requestedSite} · Requested range: {displayedDateRange.from} to{" "}
-            {displayedDateRange.to} UTC
-          </p>
         </section>
       </DashboardShell>
     );

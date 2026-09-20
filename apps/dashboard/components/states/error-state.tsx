@@ -1,3 +1,5 @@
+import React from "react";
+
 import { dashboardStateCopy } from "./state-copy";
 
 import type { DashboardStateContext } from "../../lib/dashboard-state";
@@ -9,8 +11,15 @@ interface ErrorStateProps {
 
 export function ErrorState({ context, message }: ErrorStateProps) {
   return (
-    <p role="alert" data-site-id={context?.siteId}>
-      {message ?? dashboardStateCopy.error}
-    </p>
+    <>
+      <p role="alert" data-site-id={context?.siteId}>
+        {message ?? dashboardStateCopy.error}
+      </p>
+      {context ? (
+        <p className="context">
+          Site: {context.siteId} · {context.dateRange.from} to {context.dateRange.to} UTC
+        </p>
+      ) : null}
+    </>
   );
 }

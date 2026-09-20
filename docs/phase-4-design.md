@@ -1,6 +1,6 @@
 # Phase 4 Design — Dashboard
 
-> Status: PR2 Query Client complete
+> Status: PR3 Overview Dashboard complete
 > Scope: Next.js Dashboard for Page Views, Timeline, Top Pages and basic site selection
 
 ## 1. Phase 4 定义

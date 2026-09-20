@@ -1,0 +1,60 @@
+import { createAnalyticsApiClient } from "./analytics-api/client";
+import { getAnalyticsApiUrl } from "./analytics-api/config";
+import { AnalyticsApiClientError } from "./analytics-api/errors";
+
+import type { AnalyticsApiClient, AnalyticsApiClientOptions } from "./analytics-api/client";
+import type { OverviewResponse, RangeOverviewResponse } from "./analytics-api/types";
+import type { DashboardDateRange } from "./query-params";
+
+export interface DashboardOverviewContext {
+  siteId: string;
+  dateRange: DashboardDateRange;
+}
+
+export interface DashboardOverviewData {
+  overview: OverviewResponse;
+  rangeOverview: RangeOverviewResponse;
+}
+
+export type DashboardOverviewState =
+  | { status: "loading"; context: DashboardOverviewContext }
+  | { status: "success"; context: DashboardOverviewContext; data: DashboardOverviewData }
+  | { status: "error"; context: DashboardOverviewContext; error: AnalyticsApiClientError };
+
+export interface DashboardOverviewDependencies {
+  client?: AnalyticsApiClient;
+  getApiUrl?: () => string;
+  createClient?: (options: AnalyticsApiClientOptions) => AnalyticsApiClient;
+}
+
+export async function loadDashboardOverview(
+  context: DashboardOverviewContext,
+  dependencies: DashboardOverviewDependencies = {},
+): Promise<Exclude<DashboardOverviewState, { status: "loading" }>> {
+  try {
+    const client =
+      dependencies.client ??
+      (dependencies.createClient ?? createAnalyticsApiClient)({
+        baseUrl: (dependencies.getApiUrl ?? getAnalyticsApiUrl)(),
+      });
+    const [overview, rangeOverview] = await Promise.all([
+      client.overview(context.siteId),
+      client.rangeOverview(context.siteId, context.dateRange.from, context.dateRange.to),
+    ]);
+
+    return { status: "success", context, data: { overview, rangeOverview } };
+  } catch (cause) {
+    return { status: "error", context, error: toAnalyticsApiClientError(cause) };
+  }
+}
+
+function toAnalyticsApiClientError(cause: unknown): AnalyticsApiClientError {
+  if (cause instanceof AnalyticsApiClientError) {
+    return cause;
+  }
+
+  return new AnalyticsApiClientError("Dashboard overview could not be loaded.", {
+    kind: "network",
+    cause,
+  });
+}

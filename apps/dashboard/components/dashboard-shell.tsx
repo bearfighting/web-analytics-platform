@@ -1,3 +1,5 @@
+import React from "react";
+
 import type { DashboardDateRange } from "../lib/query-params";
 import type { ReactNode } from "react";
 
