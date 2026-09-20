@@ -12,7 +12,7 @@
 - [Phase 2 Design](phase-2-design.md)：Backend Collector、HTTP 契约和基础安全控制的实施计划。
 - [Phase 3 Design](phase-3-design.md)：PostgreSQL Storage、Page View Processor 和 Analytics API 的实施计划。
 - [Phase 4 Design](phase-4-design.md)：Dashboard、Analytics API Query Client 和完整 Dashboard workflow 的实施计划。
-- [Analytics API OpenAPI Contract](analytics-api.openapi.json)：Phase 3 Analytics API v1 的机器可读契约。
+- [Analytics API OpenAPI Contract](analytics-api.openapi.json)：Phase 3 Analytics API v1 和 Phase 5 draft analytics paths 的机器可读契约。
 - [Ingest Key Guide](ingest-key.md)：Ingest Key 的生成、配置、Website 使用、Origin 关联和轮换流程。
 
 `AGENTS.md` 位于仓库根目录，作为整个项目的协作和开发规则入口。

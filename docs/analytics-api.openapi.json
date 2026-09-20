@@ -3,7 +3,7 @@
   "info": {
     "title": "Web Analytics API",
     "version": "1.0.0",
-    "description": "Minimal read API for Phase 3 page view aggregates."
+    "description": "Read API for Phase 3 page view aggregates. Phase 5 analytics paths are draft contracts and are not enabled in the production API."
   },
   "servers": [{ "url": "http://localhost:4002" }],
   "paths": {
@@ -103,6 +103,83 @@
           "500": { "$ref": "#/components/responses/AnalyticsApiError" }
         }
       }
+    },
+    "/v1/sites/{site_id}/reports/{from}/{to}/visitors": {
+      "get": {
+        "operationId": "getVisitorsDraft",
+        "x-phase": 5,
+        "x-lifecycle": "draft-not-enabled",
+        "description": "Draft Phase 5 contract. This route is not registered by the current Analytics API. Items are ordered by day ascending.",
+        "parameters": [
+          { "$ref": "#/components/parameters/SiteId" },
+          { "$ref": "#/components/parameters/FromPath" },
+          { "$ref": "#/components/parameters/ToPath" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Visitor and session metrics by UTC day.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/VisitorSessionReportResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/InvalidQuery" },
+          "500": { "$ref": "#/components/responses/AnalyticsApiError" }
+        }
+      }
+    },
+    "/v1/sites/{site_id}/reports/{from}/{to}/sessions": {
+      "get": {
+        "operationId": "getSessionsDraft",
+        "x-phase": 5,
+        "x-lifecycle": "draft-not-enabled",
+        "description": "Draft Phase 5 contract. This route is not registered by the current Analytics API. Items are ordered by day ascending.",
+        "parameters": [
+          { "$ref": "#/components/parameters/SiteId" },
+          { "$ref": "#/components/parameters/FromPath" },
+          { "$ref": "#/components/parameters/ToPath" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session and visitor metrics by UTC day.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/VisitorSessionReportResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/InvalidQuery" },
+          "500": { "$ref": "#/components/responses/AnalyticsApiError" }
+        }
+      }
+    },
+    "/v1/sites/{site_id}/reports/{from}/{to}/dimensions/{dimension}": {
+      "get": {
+        "operationId": "getDimensionReportDraft",
+        "x-phase": 5,
+        "x-lifecycle": "draft-not-enabled",
+        "description": "Draft Phase 5 contract. This route is not registered by the current Analytics API. Items are ordered by page_views descending, then value ascending.",
+        "parameters": [
+          { "$ref": "#/components/parameters/SiteId" },
+          { "$ref": "#/components/parameters/FromPath" },
+          { "$ref": "#/components/parameters/ToPath" },
+          { "$ref": "#/components/parameters/Dimension" },
+          { "$ref": "#/components/parameters/Limit" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dimension metrics for the inclusive UTC date range, ordered by page_views descending and value ascending.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DimensionReportResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/InvalidQuery" },
+          "500": { "$ref": "#/components/responses/AnalyticsApiError" }
+        }
+      }
     }
   },
   "components": {
@@ -132,6 +209,12 @@
         "in": "query",
         "required": false,
         "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+      },
+      "Dimension": {
+        "name": "dimension",
+        "in": "path",
+        "required": true,
+        "schema": { "$ref": "#/components/schemas/DimensionName" }
       }
     },
     "responses": {
@@ -271,6 +354,103 @@
           "from": { "type": "string", "format": "date" },
           "to": { "type": "string", "format": "date" },
           "items": { "type": "array", "items": { "$ref": "#/components/schemas/PageItem" } }
+        },
+        "additionalProperties": false
+      },
+      "DimensionName": {
+        "type": "string",
+        "enum": [
+          "language",
+          "timezone",
+          "utm_source",
+          "utm_medium",
+          "utm_campaign",
+          "utm_term",
+          "utm_content",
+          "referrer_host",
+          "device",
+          "browser",
+          "os"
+        ]
+      },
+      "VisitorSessionItem": {
+        "type": "object",
+        "required": ["day", "page_views", "unique_visitors", "sessions"],
+        "properties": {
+          "day": { "type": "string", "format": "date" },
+          "page_views": { "type": "integer", "minimum": 0 },
+          "unique_visitors": { "type": "integer", "minimum": 0 },
+          "sessions": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": false
+      },
+      "VisitorSessionReportResponse": {
+        "type": "object",
+        "required": [
+          "site_id",
+          "from",
+          "to",
+          "page_views",
+          "unique_visitors",
+          "sessions",
+          "items",
+          "data_as_of",
+          "aggregation_version"
+        ],
+        "properties": {
+          "site_id": { "type": "string" },
+          "from": { "type": "string", "format": "date" },
+          "to": { "type": "string", "format": "date" },
+          "page_views": { "type": "integer", "minimum": 0 },
+          "unique_visitors": { "type": "integer", "minimum": 0 },
+          "sessions": { "type": "integer", "minimum": 0 },
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/VisitorSessionItem" }
+          },
+          "data_as_of": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Common processed_received watermark across all aggregates contributing to the response; null when there is no matching input."
+          },
+          "aggregation_version": { "type": "integer", "minimum": 1 }
+        },
+        "additionalProperties": false
+      },
+      "DimensionItem": {
+        "type": "object",
+        "required": ["value", "page_views", "unique_visitors", "sessions"],
+        "properties": {
+          "value": { "type": "string", "minLength": 1 },
+          "page_views": { "type": "integer", "minimum": 0 },
+          "unique_visitors": { "type": "integer", "minimum": 0 },
+          "sessions": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": false
+      },
+      "DimensionReportResponse": {
+        "type": "object",
+        "required": [
+          "site_id",
+          "from",
+          "to",
+          "dimension",
+          "items",
+          "data_as_of",
+          "aggregation_version"
+        ],
+        "properties": {
+          "site_id": { "type": "string" },
+          "from": { "type": "string", "format": "date" },
+          "to": { "type": "string", "format": "date" },
+          "dimension": { "$ref": "#/components/schemas/DimensionName" },
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/DimensionItem" } },
+          "data_as_of": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Common processed_received watermark across all aggregates contributing to the response; null when there is no matching input."
+          },
+          "aggregation_version": { "type": "integer", "minimum": 1 }
         },
         "additionalProperties": false
       }

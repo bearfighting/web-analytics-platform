@@ -145,7 +145,7 @@ Phase 4 退出前通过 `pnpm e2e:dashboard` 验证 Collector → PostgreSQL →
 
 详细设计方案见：[phase-5-design.md](phase-5-design.md)。
 
-当前状态：设计中。
+当前状态：PR1–PR3 契约与实施计划已完成；Phase 6 生产实现尚未开始。
 
 目标：在实现 Visitor、Session 和浏览器维度之前，先完成指标语义、匿名身份和数据生命周期设计。
 

@@ -8,6 +8,7 @@ cargo test --workspace
 
 pnpm protocol:validate
 pnpm protocol:phase5:validate
+pnpm analytics:contract:validate
 pnpm http:validate
 pnpm --filter @web-analytics/protocol-ts test
 pnpm --filter @web-analytics/observer-core test

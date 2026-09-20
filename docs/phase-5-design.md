@@ -1,6 +1,6 @@
 # Phase 5 Design — Analytics Semantics and Identity
 
-> Status: PR2 contract fixtures complete; Phase 5 implementation work not started
+> Status: PR3 API contract and Phase 6 implementation plan complete; Phase 6 not started
 > Scope: Visitor、Session、时间语义、Browser Context 和 Analytics Dimensions 的契约设计
 
 ## 1. Phase 5 定义
@@ -49,7 +49,7 @@ Visitor 和 Session 是 Page View 之上的新维度，不能改变现有 Page V
 
 ### 4.2 Phase 3/4 兼容性边界
 
-Phase 5 PR1 不改变已经交付的 Page View 行为：
+Phase 5 不改变已经交付的 Page View 行为：
 
 - Protocol V1 事件继续使用现有的 `site_id + event_id` 幂等规则。
 - `occurred_at` 仍是 Page View 行为时间，日报日期仍按 UTC calendar date 计算。
@@ -58,7 +58,7 @@ Phase 5 PR1 不改变已经交付的 Page View 行为：
 - V1 事件即使没有 Visitor ID，也必须继续计入 Page Views，但不得被合并到任意共享的 anonymous fallback Visitor。
 - Phase 6 新增的 Visitor、Session 和 Dimension 聚合只能作为派生能力接入，不能要求 Phase 3/4 立即修改生产表或 API。
 
-Phase 5 PR1 只冻结实现边界；Protocol V2、canonical fixtures、migration 和新的 API endpoint 分别留给后续 PR。
+Phase 5 PR1 只冻结实现边界；Protocol V2 和 canonical fixtures 在 PR2 完成，API response contract 和 Phase 6 migration plan 在 PR3 完成。生产 migration、Processor 扩展和新的 API endpoint 实现仍然留给 Phase 6。
 
 ### 4.3 身份是匿名且站点隔离的
 
@@ -242,28 +242,40 @@ Phase 6 允许的第一批维度定义如下：
 
 ## 9. Processing and Storage Design Boundary
 
-Phase 5 只固定设计，不创建正式 migration。Phase 6 实现时至少需要评估：
+Phase 5 不创建正式 migration，但 PR3 为 Phase 6 冻结以下事件级事实和可重建聚合基线：
 
     raw_events
-      + visitor_id / context_schema_version / parsed_context_version
+      → normalized event context
+      → session event facts
+      → session records
+      → visitor/session/dimension daily aggregates
+      → Analytics API
 
-    visitor_daily or visitor aggregates
-    session records or session aggregates
-    dimension aggregates
+Phase 6 migration 采用 additive 方式：
 
-具体采用事件级 Session 表、Visitor 级重建表还是按日聚合表，必须满足：
+- `raw_events` 增加可空的 `visitor_id`、`context_schema_version` 等索引元数据。
+- 增加与 Raw Event 一对一的 normalized context 派生事实，保存规范化字段和 `parser_version`。
+- 增加 Session record 与 event-to-session mapping；不能只维护不可逆的 Session counter。
+- 增加 Visitor、Session、Dimension 的按日聚合，并保存 `aggregation_version`。
+- 为 Page View 和新增派生聚合保存可比较的 `processed_received_watermark`；它表示该聚合已处理到的最新 `received_at`。
+- 所有派生结果都必须能从 `raw_events` 重建；Raw Event 始终是事实源。
+- 不修改现有 Page View aggregate 的计数语义或现有 API。
 
-- 可从 Raw Event 重建。
-- 重复处理幂等。
-- 迟到事件的受影响范围可识别。
-- parser 版本变更后可以重新解析。
-- 不改变现有 Page View 聚合和 API contract。
+Processor 规则：
 
-Processor 仍然负责统计转换，Collector 只做验证、接收和持久化。Collector 不生成 Session，不访问 Browser Context 以外的身份信息，也不执行复杂聚合。
+- 继续沿用 `site_id + event_id` 去重。
+- Session 按 `site_id + visitor_id + occurred_at + event_id` 确定性计算。
+- 没有 Visitor ID 的事件不创建 fallback identity，也不进入 Visitor/Session 聚合。
+- 24 小时 arrival-delay 窗口内的迟到事件触发受影响 Visitor 的自动重建。
+- 超过 24 小时的事件保留在 Raw Event 中，并进入显式 backfill/rebuild 流程。
+- 重建使用 generation 或 rebuild run 标记，完成后原子切换 active generation，避免半成品结果被 API 读取。
+- 现有 Page View 处理路径继续独立工作。
+
+Processor 负责统计转换，Collector 只负责验证、接收和持久化。Collector 不生成 Session、不访问 Browser Context 之外的身份信息，也不执行复杂聚合。
 
 ## 10. Analytics API and Dashboard Contract
 
-Phase 5 冻结 API contract，Phase 6 实现 endpoint。新增 API 必须延续现有路径结构、站点隔离和 UTC 日期范围：
+Phase 5 冻结 API contract，Phase 6 实现 endpoint。新增 API 必须延续现有路径结构、站点隔离和 UTC 日期范围。OpenAPI 中的新增路径标记为 `x-lifecycle: draft-not-enabled`，不代表当前 Rust API 已注册这些路由：
 
     GET /v1/sites/{site_id}/reports/{from}/{to}/visitors
     GET /v1/sites/{site_id}/reports/{from}/{to}/sessions
@@ -301,13 +313,14 @@ Dimension API 的响应固定为：
 
 API 规则：
 
-- unique visitors
-- sessions
 - items 按日期升序；Dimension items 按 page_views desc, value asc 排序。
 - Dimension 默认 limit 为 20，最大 limit 为 100；Phase 6 不实现分页。
-- data_as_of 表示构成本响应全部数值的最新 processed received_at，使用 UTC RFC 3339。
+- `data_as_of` 表示构成本响应全部数值的共同 freshness watermark：取 Page View、Visitor、Session 和 Dimension 等参与数据源的 `processed_received_watermark` 最小值，使用 UTC RFC 3339。这样不会用较新的 Page View 聚合时间掩盖较旧的 Visitor/Session 聚合。
+- 没有任何匹配输入时仍返回 `data_as_of` 字段，值为 `null`；不使用请求范围之外的时间伪造 freshness。
 - aggregation_version 表示 Visitor/Session/Dimension 计算语义版本。
 - 空结果返回 200 和空 items；未知分类使用 unknown，无 Referrer 使用 direct。
+
+第一批 Dimension allowlist 固定为：`language`、`timezone`、`utm_source`、`utm_medium`、`utm_campaign`、`utm_term`、`utm_content`、`referrer_host`、`device`、`browser` 和 `os`。
 
 API 不返回 Visitor ID、原始 User-Agent、原始 IP 或单个 Visitor 的逐事件轨迹。Dashboard 只消费 API，并且必须明确展示数据范围和可能的延迟语义。
 
@@ -353,6 +366,7 @@ Phase 5 必须新增与现有 Phase 3 fixtures 分离的语义 fixtures。至少
 PR2 的 V2 draft contract 位于 `protocol/phase-5/`，不会替换当前 `protocol/schemas/` 中的生产 V1 Schema。验证命令为：
 
     pnpm protocol:phase5:validate
+    pnpm analytics:contract:validate
 
 ### PR3 — API and Phase 6 Implementation Plan
 
@@ -362,6 +376,31 @@ PR2 的 V2 draft contract 位于 `protocol/phase-5/`，不会替换当前 `proto
 - Storage/Processor migration plan。
 - 数据新鲜度、重建、parser version 和回滚策略。
 - Phase 6 的实现拆分、验收命令和 E2E workflow 设计。
+
+PR3 同步更新现有 OpenAPI，使未来 response contract 可机器校验，但不新增 Rust route、数据库 migration、Collector 能力或 Dashboard 行为。
+
+Phase 6 实施顺序固定为：
+
+1. Browser SDK Visitor ID 与 Protocol V2 production enablement。
+2. Collector 对 V2 的兼容接收和 Raw Event metadata 持久化。
+3. Browser Context normalization 与 parser version。
+4. Session facts、Visitor/Session rebuild pipeline。
+5. Dimension aggregates 与 freshness metadata。
+6. Analytics API endpoint。
+7. Dashboard 展示。
+8. PostgreSQL、浏览器和完整 E2E 回归。
+
+每一步都必须包含对应 fixture、单元/集成测试和 rollback 验证。
+
+Phase 6 的 freshness、parser 和 rollback 语义固定如下：
+
+- `data_as_of` 是构成本次响应数据的最新 `processed received_at`。
+- 每条 normalized context 保存 `parser_version`；派生聚合保存 `aggregation_version`。
+- 新 parser 先 shadow/rebuild 验证，验证通过后切换 active generation。
+- parser 升级不改变 Raw Event；出现问题时恢复旧 generation，不直接覆盖旧结果。
+- migration 必须 additive，Phase 3/4 API 可以独立回滚。
+- 新 API 在派生聚合未启用前不注册生产路由。
+- rollback 通过关闭新 processor/API feature、恢复旧 active generation 并保留 Raw Event 完成。
 
 ## 13. 测试策略
 
@@ -395,7 +434,7 @@ Phase 5 不要求新的生产 E2E 服务，但必须能运行：
     pnpm check
     git diff --check
 
-Phase 6 开始前，还必须完成新 fixtures 的跨 TypeScript/Rust 读取验证，并由实现 PR 补充数据库和浏览器 E2E。
+Phase 6 开始前，还必须完成新 fixtures 的跨 TypeScript/Rust 读取验证，并由实现 PR 补充数据库、浏览器和完整 E2E。PR3 还必须验证 OpenAPI 中的 draft endpoint、response schema、nullable `data_as_of`、Dimension enum 和排序/limit 约束。
 
 ## 14. Phase 5 退出条件
 
@@ -412,8 +451,4 @@ Phase 5 结束后进入 Phase 6：Browser and Analytics Dimensions。
 
 ## 15. Phase 6 前置决策
 
-以下内容不属于 Phase 5 PR1 的稳定生产 contract，必须在 Phase 6 实现前单独决定：
-
-- User-Agent parser 的实现、版本锁定、升级和历史重解析策略。
-
-在该决策冻结前，Phase 6 只能实现测试 fixture 或实验代码，不能把某个 parser 或版本当作稳定的生产 contract。该开放项不阻塞本 PR，因为 PR1 已经冻结了 User-Agent 原文不进入 Dashboard/API、派生值必须带 parser/version 语义以及未知值归入 `unknown` 的边界。
+User-Agent parser 的具体实现库和初始版本仍必须在 Phase 6 实现前单独决定；但 PR3 已冻结其运行机制：每条 normalized context 带 `parser_version`，parser 升级可 shadow/rebuild，聚合通过 generation 切换并可回滚，Raw Event 永不被覆盖。Phase 6 在该库版本决策完成前只能实现 fixture 或实验代码，不能把未审阅的 parser 当作稳定生产 contract。
