@@ -6,6 +6,7 @@
     {
       "id": "v1-missing-visitor-id",
       "schema_version": 1,
+      "versions": { "event": 1, "context": null, "parser": "not-applicable" },
       "events": [
         {
           "event_id": "01J00000000000000000000000",
@@ -17,12 +18,18 @@
       "expected": {
         "page_views": 1,
         "visitor_session_eligible": 0,
-        "shared_fallback_identity": false
+        "shared_fallback_identity": false,
+        "unique_visitors": 0,
+        "sessions": 0,
+        "dedupe_key": "site_id+event_id",
+        "late_event_handling": "not-applicable",
+        "derived_dimensions": { "allowed": [], "forbidden": [] }
       }
     },
     {
       "id": "v2-identified-page-view",
       "schema_version": 2,
+      "versions": { "event": 2, "context": 1, "parser": "deferred-to-phase-6" },
       "events": [
         {
           "event_id": "01J00000000000000000000001",
@@ -32,11 +39,20 @@
         }
       ],
       "received_order": ["01J00000000000000000000001"],
-      "expected": { "page_views": 1, "visitor_session_eligible": 1 }
+      "expected": {
+        "page_views": 1,
+        "visitor_session_eligible": 1,
+        "unique_visitors": 1,
+        "sessions": 1,
+        "dedupe_key": "site_id+event_id",
+        "late_event_handling": "not-applicable",
+        "derived_dimensions": { "allowed": [], "forbidden": [] }
+      }
     },
     {
       "id": "single-visitor-session",
       "schema_version": 2,
+      "versions": { "event": 2, "context": 1, "parser": "deferred-to-phase-6" },
       "events": [
         {
           "event_id": "01J00000000000000000000002",
@@ -52,11 +68,20 @@
         }
       ],
       "received_order": ["01J00000000000000000000002", "01J00000000000000000000003"],
-      "expected": { "page_views": 2, "unique_visitors": 1, "sessions": 1 }
+      "expected": {
+        "page_views": 2,
+        "visitor_session_eligible": 2,
+        "unique_visitors": 1,
+        "sessions": 1,
+        "dedupe_key": "site_id+event_id",
+        "late_event_handling": "not-applicable",
+        "derived_dimensions": { "allowed": [], "forbidden": [] }
+      }
     },
     {
       "id": "session-timeout-boundaries",
       "schema_version": 2,
+      "versions": { "event": 2, "context": 1, "parser": "deferred-to-phase-6" },
       "events": [
         {
           "event_id": "01J00000000000000000000004",
@@ -83,15 +108,22 @@
         "01J00000000000000000000006"
       ],
       "expected": {
+        "page_views": 3,
+        "visitor_session_eligible": 3,
+        "unique_visitors": 1,
         "session_timeout_ms": 1800000,
         "same_session_before_timeout": true,
         "new_session_at_or_after_timeout": true,
-        "sessions": 3
+        "sessions": 3,
+        "dedupe_key": "site_id+event_id",
+        "late_event_handling": "not-applicable",
+        "derived_dimensions": { "allowed": [], "forbidden": [] }
       }
     },
     {
       "id": "midnight-split",
       "schema_version": 2,
+      "versions": { "event": 2, "context": 1, "parser": "deferred-to-phase-6" },
       "events": [
         {
           "event_id": "01J00000000000000000000007",
@@ -107,11 +139,21 @@
         }
       ],
       "received_order": ["01J00000000000000000000007", "01J00000000000000000000008"],
-      "expected": { "utc_midnight_splits_session": true, "sessions": 2 }
+      "expected": {
+        "page_views": 2,
+        "visitor_session_eligible": 2,
+        "unique_visitors": 1,
+        "utc_midnight_splits_session": true,
+        "sessions": 2,
+        "dedupe_key": "site_id+event_id",
+        "late_event_handling": "not-applicable",
+        "derived_dimensions": { "allowed": [], "forbidden": [] }
+      }
     },
     {
       "id": "multi-tab-shared-visitor",
       "schema_version": 2,
+      "versions": { "event": 2, "context": 1, "parser": "deferred-to-phase-6" },
       "events": [
         {
           "event_id": "01J00000000000000000000009",
@@ -129,11 +171,21 @@
         }
       ],
       "received_order": ["01J0000000000000000000000A", "01J00000000000000000000009"],
-      "expected": { "unique_visitors": 1, "sessions": 1, "split_by_tab": false }
+      "expected": {
+        "page_views": 2,
+        "visitor_session_eligible": 2,
+        "unique_visitors": 1,
+        "sessions": 1,
+        "split_by_tab": false,
+        "dedupe_key": "site_id+event_id",
+        "late_event_handling": "not-applicable",
+        "derived_dimensions": { "allowed": [], "forbidden": [] }
+      }
     },
     {
       "id": "duplicate-and-late-events",
       "schema_version": 2,
+      "versions": { "event": 2, "context": 1, "parser": "deferred-to-phase-6" },
       "events": [
         {
           "event_id": "01J0000000000000000000000B",
@@ -164,15 +216,23 @@
       ],
       "expected": {
         "unique_events": 2,
+        "reconstructed_sessions": 2,
+        "page_views": 2,
+        "visitor_session_eligible": 2,
+        "unique_visitors": 1,
+        "sessions": 2,
         "dedupe_key": "site_id+event_id",
         "session_ordering": "occurred_at",
         "automatic_rebuild_within_ms": 86400000,
-        "late_event_requires_rebuild": true
+        "late_event_requires_rebuild": true,
+        "late_event_handling": "automatic_rebuild",
+        "derived_dimensions": { "allowed": [], "forbidden": [] }
       }
     },
     {
       "id": "future-event-boundary",
       "schema_version": 2,
+      "versions": { "event": 2, "context": 1, "parser": "deferred-to-phase-6" },
       "events": [
         {
           "event_id": "01J0000000000000000000000D",
@@ -191,14 +251,22 @@
       ],
       "received_order": ["01J0000000000000000000000D", "01J0000000000000000000000E"],
       "expected": {
+        "page_views": 1,
+        "visitor_session_eligible": 1,
+        "unique_visitors": 1,
+        "sessions": 1,
         "max_client_clock_lead_ms": 300000,
         "five_minute_boundary_allowed": true,
-        "over_boundary_rejected": true
+        "over_boundary_rejected": true,
+        "dedupe_key": "site_id+event_id",
+        "late_event_handling": "invalid_occurred_at",
+        "derived_dimensions": { "allowed": [], "forbidden": [] }
       }
     },
     {
       "id": "site-isolated-visitor",
       "schema_version": 2,
+      "versions": { "event": 2, "context": 1, "parser": "deferred-to-phase-6" },
       "events": [
         {
           "event_id": "01J0000000000000000000000F",
@@ -215,14 +283,22 @@
       ],
       "received_order": ["01J0000000000000000000000F", "01J0000000000000000000000G"],
       "expected": {
+        "page_views": 2,
+        "visitor_session_eligible": 2,
+        "unique_visitors": 2,
+        "sessions": 2,
         "site_scope_isolation": true,
         "unique_visitors_per_site": 1,
-        "cross_site_identity_link": false
+        "cross_site_identity_link": false,
+        "dedupe_key": "site_id+event_id",
+        "late_event_handling": "not-applicable",
+        "derived_dimensions": { "allowed": [], "forbidden": [] }
       }
     },
     {
       "id": "browser-context-normalization",
       "schema_version": 2,
+      "versions": { "event": 2, "context": 1, "parser": "deferred-to-phase-6" },
       "events": [
         {
           "event_id": "01J0000000000000000000000H",
@@ -252,11 +328,24 @@
         "user_agent": "unknown",
         "utm_source_omitted": true,
         "ip_omitted": true
+      },
+      "expected": {
+        "page_views": 1,
+        "visitor_session_eligible": 0,
+        "unique_visitors": 0,
+        "sessions": 0,
+        "dedupe_key": "site_id+event_id",
+        "late_event_handling": "not-applicable",
+        "derived_dimensions": {
+          "allowed": ["language", "timezone", "viewport", "screen", "user_agent"],
+          "forbidden": ["ip", "utm_source"]
+        }
       }
     },
     {
       "id": "privacy-boundary",
       "schema_version": 2,
+      "versions": { "event": 2, "context": 1, "parser": "deferred-to-phase-6" },
       "events": [
         {
           "event_id": "01J0000000000000000000000J",
@@ -276,8 +365,27 @@
         "session_id"
       ],
       "expected": {
+        "page_views": 1,
+        "visitor_session_eligible": 0,
+        "unique_visitors": 0,
+        "sessions": 0,
         "forbidden_fields_are_not_contract_fields": true,
-        "visitor_identity_source": "visitor_id_only"
+        "visitor_identity_source": "visitor_id_only",
+        "dedupe_key": "site_id+event_id",
+        "late_event_handling": "not-applicable",
+        "derived_dimensions": {
+          "allowed": [],
+          "forbidden": [
+            "ip",
+            "geo",
+            "latitude",
+            "longitude",
+            "canvas_fingerprint",
+            "fonts",
+            "hardware_concurrency",
+            "session_id"
+          ]
+        }
       }
     }
   ]

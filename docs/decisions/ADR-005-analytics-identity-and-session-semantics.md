@@ -1,6 +1,6 @@
 # ADR-005：Visitor 和 Session 采用站点隔离的匿名身份与确定性服务端 Sessionization
 
-- Status: Accepted (Phase 5 PR1)
+- Status: Accepted (Phase 5)
 - Date: 2026-09-20
 
 ## Context
@@ -46,11 +46,11 @@ Phase 5 先固定以下设计方向，Phase 6 再实现：
 
 - Page View 统计保持向后兼容，Visitor/Session 可以在新字段逐步覆盖后启用。
 - 迟到事件需要可重建的 Session 结果，不能只依赖不可逆的累计计数器。
-- 24 小时窗口之外的迟到事件需要显式 backfill/rebuild，API 需要在 Phase 6 说明数据 freshness。
+- 24 小时窗口之外的迟到事件需要显式 backfill/rebuild；API 的 `data_as_of` 在 Phase 5 PR3 固定为所有参与聚合的共同 processed watermark。
 - API 使用固定的日期/维度响应结构、20 默认 limit、100 最大 limit 和 aggregation_version。
 - Browser SDK 需要第一方站点存储和随机 ID 生成能力，但不需要登录系统或跨站追踪。
 - localStorage 方案不要求 Collector 或 Dashboard 读取浏览器存储；未来跨子域或服务端协作需要单独评估 Cookie。
-- Phase 6 仍需要定义 parser version、migration、backfill/rebuild 命令和 freshness contract。
+- Phase 6 仍需要选择具体的 User-Agent parser、执行 additive migration，并实现 backfill/rebuild 命令；parser version、generation rollback 和 freshness contract 已在 Phase 5 PR3 冻结。
 - 现阶段的 30 分钟、UTC 午夜和缺失 Visitor 语义已经冻结，后续实现不能隐式修改。
 
 ## Compatibility boundary

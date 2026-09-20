@@ -87,6 +87,7 @@ assert(
   "parser version must remain explicitly deferred",
 );
 const semanticIds = new Set();
+const ingestedEventsByScenario = new Map();
 const eventIdPattern = /^[0-9A-HJKMNP-TV-Z]{26}$/;
 
 function countValues(events, selector) {
@@ -100,6 +101,35 @@ function assertReceivedOrder(scenario) {
     JSON.stringify(actual) === JSON.stringify(expected),
     `${scenario.id}: received_order must be a permutation of event IDs`,
   );
+}
+
+function ingestByReceivedOrder(scenario) {
+  const pendingById = new Map();
+  for (const event of scenario.events) {
+    const pending = pendingById.get(event.event_id) ?? [];
+    pending.push(event);
+    pendingById.set(event.event_id, pending);
+  }
+
+  const accepted = [];
+  const seen = new Set();
+  for (const eventId of scenario.received_order) {
+    const event = pendingById.get(eventId)?.shift();
+    if (!event) {
+      assert(false, `${scenario.id}: received_order references an unknown event`);
+      continue;
+    }
+    const dedupeKey = `${event.site_id}:${event.event_id}`;
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    if (
+      typeof event.received_at === "number" &&
+      event.occurred_at - event.received_at > 5 * 60 * 1000
+    )
+      continue;
+    accepted.push(event);
+  }
+  return accepted;
 }
 
 function countSessions(events) {
@@ -189,7 +219,62 @@ for (const scenario of semantic.cases) {
     scenario.events.every((event) => typeof event.occurred_at === "number"),
     `${scenario.id}: every event needs occurred_at`,
   );
+  assert(
+    scenario.versions?.event === scenario.schema_version,
+    `${scenario.id}: versions.event must match schema_version`,
+  );
+  assert(
+    scenario.versions?.context === null || scenario.versions?.context === 1,
+    `${scenario.id}: versions.context must be null or 1`,
+  );
+  assert(
+    typeof scenario.versions?.parser === "string",
+    `${scenario.id}: versions.parser is required`,
+  );
+  const expected = scenario.expected;
+  for (const field of ["page_views", "visitor_session_eligible", "unique_visitors", "sessions"]) {
+    assert(
+      Number.isInteger(expected?.[field]) && expected[field] >= 0,
+      `${scenario.id}: expected.${field} is required`,
+    );
+  }
+  assert(
+    expected?.dedupe_key === "site_id+event_id",
+    `${scenario.id}: expected.dedupe_key is required`,
+  );
+  assert(
+    typeof expected?.late_event_handling === "string",
+    `${scenario.id}: expected.late_event_handling is required`,
+  );
+  assert(
+    Array.isArray(expected?.derived_dimensions?.allowed),
+    `${scenario.id}: derived_dimensions.allowed is required`,
+  );
+  assert(
+    Array.isArray(expected?.derived_dimensions?.forbidden),
+    `${scenario.id}: derived_dimensions.forbidden is required`,
+  );
   assertReceivedOrder(scenario);
+  ingestedEventsByScenario.set(scenario.id, ingestByReceivedOrder(scenario));
+  const ingested = ingestedEventsByScenario.get(scenario.id);
+  const eligible = ingested.filter((event) => typeof event.visitor_id === "string");
+  assert(
+    expected.page_views === ingested.length,
+    `${scenario.id}: expected.page_views does not match ingestion`,
+  );
+  assert(
+    expected.visitor_session_eligible === eligible.length,
+    `${scenario.id}: expected.visitor_session_eligible does not match ingestion`,
+  );
+  assert(
+    expected.unique_visitors ===
+      new Set(eligible.map((event) => `${event.site_id}:${event.visitor_id}`)).size,
+    `${scenario.id}: expected.unique_visitors does not match ingestion`,
+  );
+  assert(
+    expected.sessions === countSessions(ingested),
+    `${scenario.id}: expected.sessions does not match sessionization`,
+  );
 }
 
 const byId = (id) => semantic.cases.find((scenario) => scenario.id === id);
@@ -203,27 +288,29 @@ assert(
   "30-minute boundary must start a new Session",
 );
 assert(
-  countSessions(timeout.events) === timeout.expected.sessions,
+  countSessions(ingestedEventsByScenario.get(timeout.id)) === timeout.expected.sessions,
   "timeout fixture session count must match its events",
 );
 assert(
-  countSessions(byId("single-visitor-session").events) === 1,
+  countSessions(ingestedEventsByScenario.get("single-visitor-session")) === 1,
   "single visitor fixture must produce one Session",
 );
 assert(
-  countSessions(byId("midnight-split").events) === 2,
+  countSessions(ingestedEventsByScenario.get("midnight-split")) === 2,
   "midnight fixture must produce two Sessions",
 );
 assert(
-  countSessions(byId("multi-tab-shared-visitor").events) === 1,
+  countSessions(ingestedEventsByScenario.get("multi-tab-shared-visitor")) === 1,
   "multi-tab fixture must produce one Session",
 );
 const duplicateLate = byId("duplicate-and-late-events");
+const ingestedDuplicateLate = ingestedEventsByScenario.get(duplicateLate.id);
 const uniqueEventKeys = new Set(
-  duplicateLate.events.map((event) => `${event.site_id}:${event.event_id}`),
+  ingestedDuplicateLate.map((event) => `${event.site_id}:${event.event_id}`),
 );
 assert(
-  uniqueEventKeys.size === duplicateLate.expected.unique_events,
+  ingestedDuplicateLate.length === duplicateLate.expected.unique_events &&
+    uniqueEventKeys.size === duplicateLate.expected.unique_events,
   "duplicate fixture must deduplicate by site and event ID",
 );
 assert(
@@ -233,6 +320,21 @@ assert(
 assert(
   duplicateLate.expected.session_ordering === "occurred_at",
   "Session ordering must use occurred_at",
+);
+const receivedUniqueOrder = ingestedDuplicateLate.map((event) => event.event_id);
+const occurredOrder = [...ingestedDuplicateLate]
+  .sort(
+    (left, right) =>
+      left.occurred_at - right.occurred_at || left.event_id.localeCompare(right.event_id),
+  )
+  .map((event) => event.event_id);
+assert(
+  receivedUniqueOrder.join(",") !== occurredOrder.join(","),
+  "late-event fixture must distinguish received order from occurred_at order",
+);
+assert(
+  countSessions(ingestedDuplicateLate) === duplicateLate.expected.reconstructed_sessions,
+  "late events must be sessionized from occurred_at order after ingestion",
 );
 assert(
   duplicateLate.expected.automatic_rebuild_within_ms === 24 * 60 * 60 * 1000,
@@ -297,6 +399,12 @@ assert(
   privacy.expected.visitor_identity_source === "visitor_id_only",
   "Visitor identity must come only from visitor_id",
 );
+for (const field of privacy.forbidden_fields) {
+  assert(
+    !Object.hasOwn(contextSchema.properties, field),
+    `privacy fixture field '${field}' must not be a Browser Context contract field`,
+  );
+}
 
 if (errors.length > 0) {
   for (const error of errors) console.error(`FAIL ${error}`);

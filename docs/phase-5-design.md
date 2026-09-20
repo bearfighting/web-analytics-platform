@@ -394,7 +394,7 @@ Phase 6 实施顺序固定为：
 
 Phase 6 的 freshness、parser 和 rollback 语义固定如下：
 
-- `data_as_of` 是构成本次响应数据的最新 `processed received_at`。
+- `data_as_of` 是构成本次响应数据的共同 freshness watermark：取所有参与聚合的 `processed_received_watermark` 最小值。
 - 每条 normalized context 保存 `parser_version`；派生聚合保存 `aggregation_version`。
 - 新 parser 先 shadow/rebuild 验证，验证通过后切换 active generation。
 - parser 升级不改变 Raw Event；出现问题时恢复旧 generation，不直接覆盖旧结果。
