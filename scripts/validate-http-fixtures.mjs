@@ -4,7 +4,15 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
-const fixturesDirectory = path.join(scriptDirectory, "..", "protocol", "http", "fixtures");
+const fixturesDirectory = path.join(
+  scriptDirectory,
+  "..",
+  "protocol",
+  "contracts",
+  "http-ingestion",
+  "v1",
+  "fixtures",
+);
 const allowedStatuses = new Set([200, 202, 204, 400, 401, 403, 413, 415, 429, 500]);
 const requiredRequestFields = ["method", "path", "headers", "body"];
 const requiredFixtureIds = new Set([

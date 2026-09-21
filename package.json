@@ -23,9 +23,9 @@
     "docker:processing": "./scripts/docker-processing.sh",
     "db:migrate": "./scripts/db-migrate.sh",
     "protocol:validate": "node ./scripts/validate-protocol.mjs",
-    "protocol:phase5:validate": "node ./scripts/validate-phase5-contract.mjs",
+    "protocol:v2:validate": "node ./scripts/validate-event-protocol-v2.mjs",
     "http:validate": "node ./scripts/validate-http-fixtures.mjs",
-    "analytics:contract:validate": "node ./scripts/validate-phase3-contract.mjs",
+    "analytics:contract:validate": "node ./scripts/validate-analytics-api-contract.mjs",
     "dashboard:validate": "pnpm --filter @web-analytics/dashboard test",
     "build:packages": "pnpm --filter @web-analytics/protocol-ts --filter @web-analytics/observer-core --filter @web-analytics/observer-next --filter @web-analytics/analytics-core --filter @web-analytics/analytics-browser --filter @web-analytics/transport build"
   },

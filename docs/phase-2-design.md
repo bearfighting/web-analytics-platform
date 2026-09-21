@@ -203,7 +203,7 @@ Collector 需要支持浏览器 Fetch：
 
 浏览器 POST 缺失 `Origin` 时返回 `403 origin_not_allowed`。具体 response headers 在 PR1 contract fixtures 中固定。
 
-HTTP fixture 使用统一的 scenario JSON 结构，放在 `protocol/http/fixtures/`。每个 fixture 包含唯一 `id`、原始 request（包括字符串形式的 body）和 expected response；POST fixture 还包含 `setup.config`，需要特殊服务状态的 fixture 可以声明 `setup.rate_limit` 或 `setup.sink`。这样可以同时表达合法 JSON、非法 JSON、边界 payload 和可重放的安全/错误场景。`pnpm http:validate` 校验 fixture 结构和关键语义，不启动 Collector。
+HTTP fixture 使用统一的 scenario JSON 结构，放在 `protocol/contracts/http-ingestion/v1/fixtures/`。每个 fixture 包含唯一 `id`、原始 request（包括字符串形式的 body）和 expected response；POST fixture 还包含 `setup.config`，需要特殊服务状态的 fixture 可以声明 `setup.rate_limit` 或 `setup.sink`。这样可以同时表达合法 JSON、非法 JSON、边界 payload 和可重放的安全/错误场景。`pnpm http:validate` 校验 fixture 结构和关键语义，不启动 Collector。
 
 最终请求错误优先级固定为：Content-Type 检查 → body 大小检查 → JSON 解析 → batch/site 一致性检查 → site 配置检查 → Origin 检查 → Ingest Key 检查 → rate limit → 完整 Event Protocol Schema 校验 → EventSink。PR5 完成 Origin、CORS 和单进程限流；错误优先级和 CORS 行为由对应 fixtures 覆盖。
 
@@ -333,9 +333,9 @@ services/
 | Error             | thiserror / anyhow                 |
 | CORS              | tower-http                         |
 
-Rust validator 必须以 `protocol/schemas/` 为输入来源，不能单独维护一套不一致的事件规则。
+Rust validator 必须以 `protocol/events/` 和 `protocol/contexts/` 为输入来源，不能单独维护一套不一致的事件规则。
 
-Collector 将 Event Protocol V1 的两个 schema 在编译时作为资源嵌入，并解析 schema `$ref`；运行时不依赖当前工作目录中的 schema 文件。Rust 测试同时遍历 `protocol/fixtures/valid` 和 `protocol/fixtures/invalid`，确保跨语言校验使用同一组 canonical fixtures。
+Collector 将 Event Protocol V1 的两个 schema 在编译时作为资源嵌入，并解析 schema `$ref`；运行时不依赖当前工作目录中的 schema 文件。Rust 测试同时遍历 `protocol/events/v1/fixtures/valid` 和 `protocol/events/v1/fixtures/invalid`，确保跨语言校验使用同一组 canonical fixtures。
 
 ## 9. FetchTransport
 

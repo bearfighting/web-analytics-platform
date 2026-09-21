@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://web-analytics-platform.dev/schemas/page-view-event.schema.json",
+  "$id": "https://web-analytics-platform.dev/schemas/events/v1/page-view-event.schema.json",
   "title": "Page View Event",
   "type": "object",
   "properties": {

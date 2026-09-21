@@ -7,18 +7,22 @@ import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const contractRoot = resolve(root, "protocol/phase-5/contract");
-const schemaRoot = resolve(contractRoot, "schemas");
-const fixtureRoot = resolve(contractRoot, "../fixtures");
+const schemaRoot = resolve(root, "protocol/events/v2/schemas");
+const fixtureRoot = resolve(root, "protocol/events/v2/fixtures");
+const v1SchemaRoot = resolve(root, "protocol/events/v1/schemas");
+const compatibilityRoot = resolve(root, "protocol/events/compatibility/v1-to-v2");
+const semanticRoot = resolve(root, "protocol/scenarios/analytics-semantics/v1");
 
 const readJson = async (path) => JSON.parse(await readFile(path, "utf8"));
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 addFormats(ajv);
 
-const contextSchema = await readJson(resolve(schemaRoot, "browser-context-v1.schema.json"));
-const eventSchema = await readJson(resolve(schemaRoot, "page-view-event-v2.schema.json"));
-const batchSchema = await readJson(resolve(schemaRoot, "event-batch-v2.schema.json"));
-const v1EventSchema = await readJson(resolve(root, "protocol/schemas/page-view-event.schema.json"));
+const contextSchema = await readJson(
+  resolve(root, "protocol/contexts/v1/browser-context.schema.json"),
+);
+const eventSchema = await readJson(resolve(schemaRoot, "page-view-event.schema.json"));
+const batchSchema = await readJson(resolve(schemaRoot, "event-batch.schema.json"));
+const v1EventSchema = await readJson(resolve(v1SchemaRoot, "page-view-event.schema.json"));
 ajv.addSchema(contextSchema);
 ajv.addSchema(eventSchema);
 ajv.addSchema(v1EventSchema);
@@ -47,7 +51,7 @@ async function validateSchemaFixtures(directory, expectedValid, label) {
 await validateSchemaFixtures(resolve(fixtureRoot, "valid"), true, "valid");
 await validateSchemaFixtures(resolve(fixtureRoot, "invalid"), false, "invalid");
 
-const v1Compatibility = await readJson(resolve(contractRoot, "../examples/v1-compatibility.json"));
+const v1Compatibility = await readJson(resolve(compatibilityRoot, "v1-compatibility.json"));
 assert(
   validateV1Event(v1Compatibility.v1_event),
   "V1 compatibility event must pass the active V1 schema",
@@ -63,7 +67,7 @@ assert(
   "V1 compatibility must not use a shared fallback",
 );
 
-const v2Migration = await readJson(resolve(contractRoot, "../examples/v2-migration.json"));
+const v2Migration = await readJson(resolve(compatibilityRoot, "v2-migration.json"));
 assert(
   validateV1Event(v2Migration.v1_event),
   "V2 migration V1 event must pass the active V1 schema",
@@ -78,13 +82,13 @@ assert(
   "V2 migration must identify only the V2 event",
 );
 
-const semantic = await readJson(resolve(fixtureRoot, "semantic/cases.json"));
+const semantic = await readJson(resolve(semanticRoot, "cases.json"));
 assert(semantic.schema_versions.event_v1 === 1, "semantic fixture must declare Event V1 version");
 assert(semantic.schema_versions.event_v2 === 2, "semantic fixture must declare Event V2 version");
 assert(semantic.schema_versions.context === 1, "semantic fixture must declare Context V1 version");
 assert(
-  semantic.parser_version === "deferred-to-phase-6",
-  "parser version must remain explicitly deferred",
+  semantic.parser_version === "woothee-0.13.0",
+  "semantic scenarios must declare the active parser version",
 );
 const semanticIds = new Set();
 const ingestedEventsByScenario = new Map();
@@ -410,5 +414,5 @@ if (errors.length > 0) {
   for (const error of errors) console.error(`FAIL ${error}`);
   process.exitCode = 1;
 } else {
-  console.log(`Phase 5 contract validated: ${semantic.cases.length} semantic cases.`);
+  console.log(`Event Protocol V2 contract validated: ${semantic.cases.length} semantic cases.`);
 }

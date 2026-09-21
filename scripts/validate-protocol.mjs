@@ -8,8 +8,8 @@ import addFormats from "ajv-formats";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const protocolRoot = resolve(repositoryRoot, "protocol");
-const schemaRoot = resolve(protocolRoot, "schemas");
-const fixtureRoot = resolve(protocolRoot, "fixtures");
+const schemaRoot = resolve(protocolRoot, "events/v1/schemas");
+const fixtureRoot = resolve(protocolRoot, "events/v1/fixtures");
 
 const pageViewSchema = JSON.parse(
   await readFile(resolve(schemaRoot, "page-view-event.schema.json"), "utf8"),

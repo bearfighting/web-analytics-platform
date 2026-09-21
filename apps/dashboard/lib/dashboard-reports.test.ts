@@ -51,7 +51,7 @@ function createClient(overrides: Partial<AnalyticsApiClient> = {}): AnalyticsApi
 function readFixture(filename = "multi-page-navigation.json") {
   const value = JSON.parse(
     readFileSync(
-      new URL(`../../../protocol/phase-3/fixtures/${filename}`, import.meta.url),
+      new URL(`../../../protocol/contracts/analytics-api/v1/fixtures/${filename}`, import.meta.url),
       "utf8",
     ),
   ) as {

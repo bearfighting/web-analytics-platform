@@ -43,7 +43,7 @@ describe("protocol types", () => {
     expect(invalidBatch.events).toHaveLength(1);
   });
 
-  it("models the isolated Phase 5 V2 contract without changing V1 types", () => {
+  it("models the active V2 contract without changing V1 types", () => {
     const context: BrowserContextV1 = {
       language: "en-CA",
       timezone: "America/Toronto",

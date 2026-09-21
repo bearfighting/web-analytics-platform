@@ -14,8 +14,15 @@ const dashboardUrl = `http://127.0.0.1:${process.env.DASHBOARD_PORT ?? "13000"}`
 const errorDashboardPort = process.env.DASHBOARD_ERROR_E2E_PORT ?? "13001";
 const errorContainer = `${project}-dashboard-error`;
 const collectorUrl = `http://127.0.0.1:${process.env.E2E_COLLECTOR_PORT ?? "14001"}`;
-const fixturesDirectory = path.join(root, "protocol", "phase-3", "fixtures");
-const phase6FixturesDirectory = path.join(root, "protocol", "phase-6", "fixtures");
+const fixturesDirectory = path.join(
+  root,
+  "protocol",
+  "contracts",
+  "analytics-api",
+  "v1",
+  "fixtures",
+);
+const phase6FixturesDirectory = path.join(root, "tests", "fixtures", "dashboard");
 const keys = {
   site_playground: "e2e-test-key",
   site_alpha: "e2e-test-key-alpha",

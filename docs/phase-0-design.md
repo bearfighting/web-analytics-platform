@@ -275,12 +275,7 @@ Phase 0 只定义契约，不创建 `observer-core` package。
 建议契约：
 
 ```ts
-export type NavigationType =
-  | "initial"
-  | "push"
-  | "replace"
-  | "pop"
-  | "unknown";
+export type NavigationType = "initial" | "push" | "replace" | "pop" | "unknown";
 
 export interface NavigationEvent {
   url: string;
@@ -292,9 +287,7 @@ export interface NavigationEvent {
 }
 
 export interface NavigationObserver {
-  subscribe(
-    listener: (event: NavigationEvent) => void
-  ): () => void;
+  subscribe(listener: (event: NavigationEvent) => void): () => void;
 }
 ```
 
@@ -331,9 +324,9 @@ Checklist：
 创建：
 
 ```text
-protocol/schemas/
-protocol/examples/
-protocol/fixtures/
+protocol/events/v1/schemas/
+protocol/events/v1/examples/
+protocol/events/v1/fixtures/
 ```
 
 第一版只定义 Page View 相关协议：

@@ -363,9 +363,10 @@ Phase 5 必须新增与现有 Phase 3 fixtures 分离的语义 fixtures。至少
 
 本 PR 只添加契约、示例和验证，不生成生产 Visitor ID 或 Session。
 
-PR2 的 V2 draft contract 位于 `protocol/phase-5/`，不会替换当前 `protocol/schemas/` 中的生产 V1 Schema。验证命令为：
+PR2 的 V2 contract 位于 `protocol/events/v2/`，Browser Context V1 位于
+`protocol/contexts/v1/`，不会改变 V1 Schema 的兼容语义。验证命令为：
 
-    pnpm protocol:phase5:validate
+    pnpm protocol:v2:validate
     pnpm analytics:contract:validate
 
 ### PR3 — API and Phase 6 Implementation Plan

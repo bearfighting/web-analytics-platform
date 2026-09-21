@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://web-analytics-platform.dev/schemas/phase-5/browser-context-v1.schema.json",
+  "$id": "https://web-analytics-platform.dev/schemas/contexts/v1/browser-context.schema.json",
   "title": "Browser Context V1",
   "type": "object",
   "properties": {

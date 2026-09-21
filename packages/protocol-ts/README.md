@@ -1,6 +1,6 @@
 # @web-analytics/protocol-ts
 
-TypeScript interfaces mirroring the active Event Protocol V1 and the isolated Phase 5 V2 draft contract. JSON Schema remains the protocol source of truth.
+TypeScript interfaces mirroring the active Event Protocol V1/V2 and Browser Context V1 contracts. JSON Schema remains the protocol source of truth.
 
 This package contains no runtime browser or framework dependencies.
 

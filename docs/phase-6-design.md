@@ -26,7 +26,7 @@ Phase 6 的实现必须保持 Phase 3/4 Page View workflow 可独立运行。Vis
 - Browser SDK 在获得 consent 后，为每个站点生成并复用匿名 UUID v4 Visitor ID。
 - Collector 可以在 feature flag 开启后接收 Protocol V2，同时继续兼容 Protocol V1。
 - V1/V2 事件都继续产生 Page View；没有 Visitor ID 的事件不产生 Visitor/Session 指标。
-- Browser Context 按 Phase 5 contract 规范化，非法字段不会导致整条事件失败。
+- Browser Context 按 `protocol/contexts/v1/` contract 规范化，非法字段不会导致整条事件失败。
 - User-Agent 派生值带 parser version，原始 User-Agent 不进入 API 或 Dashboard。
 - Processor 可以按 `occurred_at`、UTC 午夜和 30 分钟规则重建 Session。
 - 24 小时 lateness window 内的迟到事件可以自动重建；窗口外事件通过显式 backfill/rebuild 处理。
@@ -575,7 +575,7 @@ Rollback 顺序：
 
 ```text
 pnpm protocol:validate
-pnpm protocol:phase5:validate
+pnpm protocol:v2:validate
 pnpm analytics:contract:validate
 pnpm test
 pnpm check

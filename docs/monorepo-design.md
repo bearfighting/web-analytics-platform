@@ -32,10 +32,12 @@ web-analytics-platform/
 │   ├── analytics-storage/
 │   └── storage-postgres/
 ├── protocol/
-│   ├── schemas/
-│   ├── examples/
-│   ├── fixtures/
-│   └── phase-3/fixtures/          # Storage / Processor / Analytics API contract fixtures
+│   ├── events/                     # Versioned event envelope contracts
+│   │   ├── v1/
+│   │   └── v2/
+│   ├── contexts/                   # Versioned nested context contracts
+│   ├── contracts/                  # HTTP and Analytics API service contracts
+│   └── scenarios/                  # Cross-service semantic scenarios
 ├── tests/
 │   ├── integration/
 │   └── e2e/
@@ -169,7 +171,7 @@ scripts/generate-protocol.sh
 推荐流程：
 
 ```text
-protocol/schemas/*.json
+protocol/events/*/schemas/*.json
   → TypeScript types
   → Rust types
   → validation tests

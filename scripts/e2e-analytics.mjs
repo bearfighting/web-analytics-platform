@@ -9,7 +9,14 @@ const project = `web-analytics-e2e-${process.pid}`;
 const collectorUrl = `http://127.0.0.1:${process.env.E2E_COLLECTOR_PORT ?? "14001"}`;
 const analyticsUrl = `http://127.0.0.1:${process.env.E2E_ANALYTICS_API_PORT ?? "14002"}`;
 const origin = "http://localhost:3000";
-const fixturesDirectory = path.join(root, "protocol", "phase-3", "fixtures");
+const fixturesDirectory = path.join(
+  root,
+  "protocol",
+  "contracts",
+  "analytics-api",
+  "v1",
+  "fixtures",
+);
 const fixtureNames = [
   "single-page-view.json",
   "multi-page-navigation.json",

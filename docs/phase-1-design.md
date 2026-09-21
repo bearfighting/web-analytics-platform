@@ -65,7 +65,7 @@ Protocol TypeScript types
 
 ### 3.2 JSON Schema 是协议事实来源
 
-`protocol/schemas/` 继续作为跨语言协议的事实来源。`protocol-ts` 只提供 TypeScript 消费类型，不替代 JSON Schema，也不改变协议字段语义。
+`protocol/events/` 和 `protocol/contexts/` 继续作为跨语言协议的事实来源。`protocol-ts` 只提供 TypeScript 消费类型，不替代 JSON Schema，也不改变协议字段语义。
 
 ### 3.3 Observer 不负责 Analytics
 

@@ -5,7 +5,7 @@ services:
 
   collector:
     environment:
-      COLLECTOR_CONFIG: /workspace/protocol/http/config/collector.e2e.toml
+      COLLECTOR_CONFIG: /workspace/protocol/contracts/http-ingestion/v1/config/collector.e2e.toml
     ports: !override
       - "${E2E_COLLECTOR_PORT:-14001}:4001"
     depends_on:

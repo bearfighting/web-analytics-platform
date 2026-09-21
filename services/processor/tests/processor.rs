@@ -887,8 +887,8 @@ async fn failed_aggregate_update_leaves_event_unprocessed() {
 #[tokio::test]
 #[ignore = "requires PostgreSQL; run pnpm test:integration"]
 async fn canonical_fixtures_match_processor_aggregates() {
-    let fixture_dir =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../protocol/phase-3/fixtures");
+    let fixture_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../protocol/contracts/analytics-api/v1/fixtures");
     let mut fixture_paths = std::fs::read_dir(fixture_dir)
         .unwrap()
         .map(|entry| entry.unwrap().path())

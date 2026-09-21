@@ -4,8 +4,9 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const openapiPath = path.join(root, "docs", "analytics-api.openapi.json");
-const fixturesDirectory = path.join(root, "protocol", "phase-3", "fixtures");
-const queryCasesPath = path.join(root, "protocol", "phase-3", "api-contract-cases.json");
+const contractRoot = path.join(root, "protocol", "contracts", "analytics-api", "v1");
+const fixturesDirectory = path.join(contractRoot, "fixtures");
+const queryCasesPath = path.join(contractRoot, "api-contract-cases.json");
 const requiredIds = new Set([
   "single-page-view",
   "multi-page-navigation",
@@ -198,7 +199,7 @@ function validateOpenApi(document) {
   ];
   const actualDimensionNames = document.components?.schemas?.DimensionName?.enum;
   if (JSON.stringify(actualDimensionNames) !== JSON.stringify(dimensionNames))
-    errors.push("DimensionName enum does not match the Phase 5 allowlist");
+    errors.push("DimensionName enum does not match the analytics dimension allowlist");
 
   for (const schemaName of ["VisitorSessionReportResponse", "DimensionReportResponse"]) {
     const schema = document.components?.schemas?.[schemaName];
@@ -221,14 +222,14 @@ function validateOpenApi(document) {
       JSON.stringify(freshnessStatus.enum) !==
         JSON.stringify(["current", "stale", "rebuilding", "failed"])
     )
-      errors.push(`${schemaName}.freshness_status must expose the Phase 6 status enum`);
+      errors.push(`${schemaName}.freshness_status must expose the analytics freshness status enum`);
   }
 
   const dimensionResponse = dimensionPath?.responses?.["200"];
   if (!dimensionResponse?.description?.includes("UTC date range"))
     errors.push("Dimension response must document its UTC date range");
   if (!document.info?.description?.includes("Phase 6"))
-    errors.push("OpenAPI info must identify Phase 6 report paths");
+    errors.push("OpenAPI info must identify analytics report paths");
 }
 
 function validateQueryCases(document) {

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://web-analytics-platform.dev/schemas/event-batch.schema.json",
+  "$id": "https://web-analytics-platform.dev/schemas/events/v1/event-batch.schema.json",
   "title": "Event Batch",
   "type": "object",
   "properties": {

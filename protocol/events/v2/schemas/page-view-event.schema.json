@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://web-analytics-platform.dev/schemas/phase-5/page-view-event-v2.schema.json",
-  "title": "Page View Event V2 Draft",
+  "$id": "https://web-analytics-platform.dev/schemas/events/v2/page-view-event.schema.json",
+  "title": "Page View Event V2",
   "type": "object",
   "properties": {
     "schema_version": { "const": 2 },
@@ -19,7 +19,7 @@
     "title": { "type": "string", "maxLength": 512 },
     "referrer": { "type": "string", "format": "uri-reference", "maxLength": 4096 },
     "session_id": false,
-    "context": { "$ref": "browser-context-v1.schema.json" }
+    "context": { "$ref": "../../contexts/v1/browser-context.schema.json" }
   },
   "required": ["schema_version", "event_id", "type", "site_id", "occurred_at", "path"],
   "allOf": [

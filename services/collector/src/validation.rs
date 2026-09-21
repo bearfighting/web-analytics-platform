@@ -19,15 +19,16 @@ pub struct ValidatedEvent {
     pub payload: Value,
 }
 
-const EVENT_BATCH_SCHEMA: &str = include_str!("../../../protocol/schemas/event-batch.schema.json");
+const EVENT_BATCH_SCHEMA: &str =
+    include_str!("../../../protocol/events/v1/schemas/event-batch.schema.json");
 const PAGE_VIEW_SCHEMA: &str =
-    include_str!("../../../protocol/schemas/page-view-event.schema.json");
+    include_str!("../../../protocol/events/v1/schemas/page-view-event.schema.json");
 const EVENT_BATCH_V2_SCHEMA: &str =
-    include_str!("../../../protocol/phase-5/contract/schemas/event-batch-v2.schema.json");
+    include_str!("../../../protocol/events/v2/schemas/event-batch.schema.json");
 const PAGE_VIEW_V2_SCHEMA: &str =
-    include_str!("../../../protocol/phase-5/contract/schemas/page-view-event-v2.schema.json");
+    include_str!("../../../protocol/events/v2/schemas/page-view-event.schema.json");
 const CONTEXT_V2_SCHEMA: &str =
-    include_str!("../../../protocol/phase-5/contract/schemas/browser-context-v1.schema.json");
+    include_str!("../../../protocol/contexts/v1/browser-context.schema.json");
 
 #[derive(Debug, Error)]
 pub enum ValidationError {
@@ -166,14 +167,15 @@ impl SchemaResolver for EmbeddedResolver {
         url: &Url,
         _original_reference: &str,
     ) -> Result<Arc<Value>, SchemaResolverError> {
-        if url.as_str() == "https://web-analytics-platform.dev/schemas/page-view-event.schema.json"
+        if url.as_str()
+            == "https://web-analytics-platform.dev/schemas/events/v1/page-view-event.schema.json"
             || url.as_str()
-                == "https://web-analytics-platform.dev/schemas/phase-5/page-view-event-v2.schema.json"
+                == "https://web-analytics-platform.dev/schemas/events/v2/page-view-event.schema.json"
         {
             return Ok(Arc::new(self.page_view_schema.clone()));
         }
         if url.as_str()
-            == "https://web-analytics-platform.dev/schemas/phase-5/browser-context-v1.schema.json"
+            == "https://web-analytics-platform.dev/schemas/contexts/v1/browser-context.schema.json"
             && let Some(schema) = &self.context_schema
         {
             return Ok(Arc::new(schema.clone()));
@@ -262,13 +264,13 @@ mod tests {
 
     fn fixture_directory(kind: &str) -> std::path::PathBuf {
         std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../protocol/fixtures")
+            .join("../../protocol/events/v1/fixtures")
             .join(kind)
     }
 
     fn phase5_fixture_directory(kind: &str) -> std::path::PathBuf {
         std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../protocol/phase-5/fixtures")
+            .join("../../protocol/events/v2/fixtures")
             .join(kind)
     }
 }

@@ -53,7 +53,9 @@ Batch 必须非空，且每一项都必须符合 PageViewEvent V1。Batch 顶层
 
 ## 文件与校验
 
-正式 Schema 位于 `protocol/schemas/`，示例位于 `protocol/examples/`，合法和非法测试数据位于 `protocol/fixtures/`。
+正式 Schema 位于 `protocol/events/v1/schemas/`，示例位于
+`protocol/events/v1/examples/`，合法和非法测试数据位于
+`protocol/events/v1/fixtures/`。
 
 运行协议校验：
 

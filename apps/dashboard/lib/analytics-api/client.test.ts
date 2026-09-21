@@ -53,7 +53,10 @@ function jsonResponse(body: unknown, status = 200): Response {
 function readCanonicalApi() {
   const fixture = JSON.parse(
     readFileSync(
-      new URL("../../../../protocol/phase-3/fixtures/single-page-view.json", import.meta.url),
+      new URL(
+        "../../../../protocol/contracts/analytics-api/v1/fixtures/single-page-view.json",
+        import.meta.url,
+      ),
       "utf8",
     ),
   ) as {

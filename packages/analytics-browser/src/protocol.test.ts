@@ -16,16 +16,13 @@ interface MockTransport {
 
 async function loadPageViewValidator() {
   const schemaUrl = new URL(
-    "../../../protocol/phase-5/contract/schemas/page-view-event-v2.schema.json",
+    "../../../protocol/events/v2/schemas/page-view-event.schema.json",
     import.meta.url,
   );
   const schema = JSON.parse(await readFile(schemaUrl, "utf8"));
   const contextSchema = JSON.parse(
     await readFile(
-      new URL(
-        "../../../protocol/phase-5/contract/schemas/browser-context-v1.schema.json",
-        import.meta.url,
-      ),
+      new URL("../../../protocol/contexts/v1/browser-context.schema.json", import.meta.url),
       "utf8",
     ),
   );
