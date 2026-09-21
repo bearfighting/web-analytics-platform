@@ -13,6 +13,7 @@ RUN mkdir -p services/analytics-api/src services/collector/src services/processo
   && printf 'fn main() {}\n' > services/analytics-api/src/main.rs \
   && printf 'fn main() {}\n' > services/collector/src/main.rs \
   && printf 'fn main() {}\n' > services/processor/src/main.rs \
+  && printf 'fn main() {}\n' > tools/db-migrator/src/main.rs \
   && cargo fetch --locked
 
 COPY tools/db-migrator/src tools/db-migrator/src
