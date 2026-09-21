@@ -15,7 +15,11 @@ async fn setup() -> (Processor, PgPool) {
         .await
         .expect("integration database should be reachable");
     sqlx::query(
-        "TRUNCATE raw_events, page_view_daily, page_view_routes, page_view_totals RESTART IDENTITY",
+        "TRUNCATE analytics_rebuild_queue, normalized_event_context,
+            session_events, sessions, visitor_event_facts, session_daily,
+            visitor_daily, analytics_watermarks, analytics_generations,
+            analytics_feature_flags, raw_events, page_view_daily,
+            page_view_routes, page_view_totals RESTART IDENTITY CASCADE",
     )
     .execute(&pool)
     .await
@@ -54,6 +58,50 @@ async fn insert_raw_event(
     .execute(pool)
     .await
     .expect("raw event should be insertable");
+}
+
+async fn insert_v2_event(
+    pool: &PgPool,
+    id: &str,
+    site_id: &str,
+    visitor_id: &str,
+    occurred_at: DateTime<Utc>,
+    path: &str,
+) {
+    sqlx::query(
+        "INSERT INTO raw_events
+            (site_id, event_id, schema_version, event_type, occurred_at,
+             received_at, path, payload, visitor_id, context_schema_version)
+         VALUES ($1, $2, 2, 'page_view', $3, $3 + INTERVAL '1 minute', $4, $5, $6::uuid, 1)",
+    )
+    .bind(site_id)
+    .bind(id)
+    .bind(occurred_at)
+    .bind(path)
+    .bind(json!({
+        "schema_version": 2,
+        "event_id": id,
+        "type": "page_view",
+        "site_id": site_id,
+        "visitor_id": visitor_id,
+        "occurred_at": occurred_at.timestamp_millis(),
+        "path": path,
+        "context_schema_version": 1,
+        "context": {
+            "language": "en-CA",
+            "timezone": "America/Toronto",
+            "viewport_width": 1280,
+            "viewport_height": 720,
+            "screen_width": 1920,
+            "screen_height": 1080,
+            "referrer": "https://example.com/previous",
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0"
+        }
+    }))
+    .bind(visitor_id)
+    .execute(pool)
+    .await
+    .expect("v2 raw event should be insertable");
 }
 
 async fn cleanup_phase6_metadata(pool: &PgPool) {
@@ -126,6 +174,414 @@ async fn rollback_generation_is_atomic_and_selects_only_retired_targets() {
     assert_eq!(active_count, 1);
 
     cleanup_phase6_metadata(&pool).await;
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL; run pnpm test:integration"]
+async fn rebuild_writes_generation_facts_without_mutating_raw_payload() {
+    let (processor, pool) = setup().await;
+    let site_id = "site_phase6_processor";
+    let visitor_id = "550e8400-e29b-41d4-a716-446655440000";
+    let second_visitor_id = "550e8400-e29b-41d4-a716-446655440001";
+    sqlx::query(
+        "INSERT INTO analytics_feature_flags (site_id, analytics_enabled)
+         VALUES ($1, TRUE)",
+    )
+    .bind(site_id)
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let first = DateTime::parse_from_rfc3339("2026-09-18T23:30:00Z")
+        .unwrap()
+        .with_timezone(&Utc);
+    insert_v2_event(
+        &pool,
+        "01J00000000000000000000020",
+        site_id,
+        visitor_id,
+        first,
+        "/first",
+    )
+    .await;
+    insert_v2_event(
+        &pool,
+        "01J00000000000000000000021",
+        site_id,
+        visitor_id,
+        first + chrono::Duration::minutes(10),
+        "/same-session",
+    )
+    .await;
+    insert_v2_event(
+        &pool,
+        "01J00000000000000000000022",
+        site_id,
+        visitor_id,
+        first + chrono::Duration::minutes(40),
+        "/new-session",
+    )
+    .await;
+    insert_v2_event(
+        &pool,
+        "01J00000000000000000000025",
+        site_id,
+        second_visitor_id,
+        first + chrono::Duration::minutes(5),
+        "/second-visitor",
+    )
+    .await;
+
+    let original_payload = sqlx::query_scalar::<_, serde_json::Value>(
+        "SELECT payload FROM raw_events WHERE site_id = $1 AND event_id = $2",
+    )
+    .bind(site_id)
+    .bind("01J00000000000000000000020")
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(processor.process_all_once().await.unwrap(), 4);
+
+    let generation_id = sqlx::query_scalar::<_, String>(
+        "SELECT generation_id::text FROM analytics_generations
+         WHERE site_id = $1 AND status = 'active'",
+    )
+    .bind(site_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let visitor_facts = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM visitor_event_facts WHERE generation_id = $1::uuid",
+    )
+    .bind(&generation_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let session_count = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM sessions WHERE generation_id = $1::uuid",
+    )
+    .bind(&generation_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let normalized_count = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM normalized_event_context WHERE generation_id = $1::uuid",
+    )
+    .bind(&generation_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(visitor_facts, 4);
+    assert_eq!(session_count, 3);
+    assert_eq!(normalized_count, 4);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT unique_visitors FROM visitor_daily
+             WHERE generation_id = $1::uuid AND site_id = $2 AND day = $3",
+        )
+        .bind(&generation_id)
+        .bind(site_id)
+        .bind(first.date_naive())
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        2
+    );
+    assert!(
+        sqlx::query_scalar::<_, serde_json::Value>(
+            "SELECT source_watermark FROM analytics_generations
+             WHERE generation_id = $1::uuid",
+        )
+        .bind(&generation_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap()
+        .get("visitor_session")
+        .is_some()
+    );
+
+    let payload_after = sqlx::query_scalar::<_, serde_json::Value>(
+        "SELECT payload FROM raw_events WHERE site_id = $1 AND event_id = $2",
+    )
+    .bind(site_id)
+    .bind("01J00000000000000000000020")
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(payload_after, original_payload);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM analytics_generations
+             WHERE site_id = $1 AND status = 'active'",
+        )
+        .bind(site_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        1
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL; run pnpm test:integration"]
+async fn analytics_disabled_keeps_page_view_workflow_without_rebuild_queue() {
+    let (processor, pool) = setup().await;
+    insert_raw_event(
+        &pool,
+        "01J00000000000000000000023",
+        "site_phase6_disabled",
+        "2026-09-18T12:00:00Z".parse().unwrap(),
+        "/legacy",
+    )
+    .await;
+
+    assert_eq!(processor.process_all_once().await.unwrap(), 1);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT page_views FROM page_view_totals WHERE site_id = $1",)
+            .bind("site_phase6_disabled")
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM analytics_rebuild_queue")
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        0
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL; run pnpm test:integration"]
+async fn disabled_analytics_pauses_pending_rebuild_without_activation() {
+    let (processor, pool) = setup().await;
+    let site_id = "site_paused_queue";
+    let day = NaiveDate::from_ymd_opt(2026, 9, 18).unwrap();
+
+    sqlx::query(
+        "INSERT INTO analytics_feature_flags (site_id, analytics_enabled)
+         VALUES ($1, FALSE)",
+    )
+    .bind(site_id)
+    .execute(&pool)
+    .await
+    .unwrap();
+    processor
+        .enqueue_rebuild(site_id, day, day, "incremental", "woothee-0.13.0")
+        .await
+        .unwrap();
+
+    assert!(!processor.process_rebuild_queue_once().await.unwrap());
+    assert_eq!(
+        sqlx::query_scalar::<_, String>(
+            "SELECT status FROM analytics_rebuild_queue WHERE site_id = $1",
+        )
+        .bind(site_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        "pending"
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM analytics_generations WHERE site_id = $1",
+        )
+        .bind(site_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        0
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL; run pnpm test:integration"]
+async fn rebuild_queue_deduplicates_same_site_scope() {
+    let (processor, pool) = setup().await;
+    let day = NaiveDate::from_ymd_opt(2026, 9, 18).unwrap();
+    processor
+        .enqueue_rebuild("site_queue", day, day, "incremental", "woothee-0.13.0")
+        .await
+        .unwrap();
+    processor
+        .enqueue_rebuild("site_queue", day, day, "backfill", "woothee-0.13.0")
+        .await
+        .unwrap();
+    processor
+        .enqueue_rebuild("site_queue", day, day, "incremental", "woothee-0.13.0")
+        .await
+        .unwrap();
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM analytics_rebuild_queue
+             WHERE site_id = 'site_queue'",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        1
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, String>(
+            "SELECT rebuild_reason FROM analytics_rebuild_queue
+             WHERE site_id = 'site_queue'",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        "backfill"
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL; run pnpm test:integration"]
+async fn concurrent_queue_workers_publish_one_generation_without_failed_duplicate() {
+    let (processor, pool) = setup().await;
+    let second_processor = Processor::connect(&database_url()).await.unwrap();
+    let site_id = "site_concurrent_queue";
+    let visitor_id = "550e8400-e29b-41d4-a716-446655440000";
+    let occurred_at: DateTime<Utc> = "2026-09-18T12:00:00Z".parse().unwrap();
+
+    sqlx::query(
+        "INSERT INTO analytics_feature_flags (site_id, analytics_enabled)
+         VALUES ($1, TRUE)",
+    )
+    .bind(site_id)
+    .execute(&pool)
+    .await
+    .unwrap();
+    insert_v2_event(
+        &pool,
+        "01J00000000000000000000026",
+        site_id,
+        visitor_id,
+        occurred_at,
+        "/concurrent",
+    )
+    .await;
+
+    assert_eq!(processor.process_one().await.unwrap(), true);
+    let (left, right) = tokio::join!(
+        processor.process_rebuild_queue_once(),
+        second_processor.process_rebuild_queue_once()
+    );
+    let left = left.unwrap();
+    let right = right.unwrap();
+    assert!(left || right);
+
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM analytics_generations
+             WHERE site_id = $1 AND status = 'active'",
+        )
+        .bind(site_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        1
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM analytics_generations
+             WHERE site_id = $1 AND status = 'failed'",
+        )
+        .bind(site_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        0
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, String>(
+            "SELECT status FROM analytics_rebuild_queue WHERE site_id = $1",
+        )
+        .bind(site_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        "completed"
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL; run pnpm test:integration"]
+async fn late_events_over_24_hours_wait_for_explicit_backfill() {
+    let (processor, pool) = setup().await;
+    let site_id = "site_backfill";
+    let visitor_id = "550e8400-e29b-41d4-a716-446655440000";
+    sqlx::query(
+        "INSERT INTO analytics_feature_flags (site_id, analytics_enabled)
+         VALUES ($1, TRUE)",
+    )
+    .bind(site_id)
+    .execute(&pool)
+    .await
+    .unwrap();
+    insert_v2_event(
+        &pool,
+        "01J00000000000000000000024",
+        site_id,
+        visitor_id,
+        "2026-09-18T12:00:00Z".parse().unwrap(),
+        "/late",
+    )
+    .await;
+    sqlx::query(
+        "UPDATE raw_events
+         SET received_at = occurred_at + INTERVAL '25 hours'
+         WHERE site_id = $1",
+    )
+    .bind(site_id)
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(processor.process_all_once().await.unwrap(), 1);
+    assert_eq!(
+        sqlx::query_scalar::<_, String>(
+            "SELECT rebuild_reason FROM analytics_rebuild_queue WHERE site_id = $1",
+        )
+        .bind(site_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        "backfill"
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM analytics_generations WHERE site_id = $1",
+        )
+        .bind(site_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        0
+    );
+
+    processor
+        .rebuild_site(
+            site_id,
+            NaiveDate::from_ymd_opt(2026, 9, 18).unwrap(),
+            NaiveDate::from_ymd_opt(2026, 9, 18).unwrap(),
+            "backfill",
+            "woothee-0.13.0",
+            false,
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        sqlx::query_scalar::<_, String>(
+            "SELECT status FROM analytics_rebuild_queue WHERE site_id = $1",
+        )
+        .bind(site_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        "completed"
+    );
 }
 
 #[tokio::test]

@@ -24,13 +24,20 @@ async fn pool() -> PgPool {
 
 async fn cleanup(pool: &PgPool) {
     for table in [
+        "analytics_rebuild_queue",
+        "normalized_event_context",
+        "session_events",
+        "sessions",
+        "visitor_event_facts",
+        "session_daily",
+        "visitor_daily",
         "analytics_watermarks",
-        "analytics_generations",
-        "analytics_feature_flags",
         "raw_events",
         "page_view_daily",
         "page_view_routes",
         "page_view_totals",
+        "analytics_generations",
+        "analytics_feature_flags",
     ] {
         sqlx::query(&format!("DELETE FROM {table}"))
             .execute(pool)
@@ -44,6 +51,29 @@ async fn cleanup(pool: &PgPool) {
 async fn phase6_metadata_migration_is_additive_and_supports_rollback() {
     let pool = pool().await;
     cleanup(&pool).await;
+
+    let phase6_indexes = sqlx::query_scalar::<_, String>(
+        "SELECT indexname
+         FROM pg_indexes
+         WHERE schemaname = current_schema()
+           AND indexname IN (
+               'normalized_context_generation_site_raw_idx',
+               'visitor_event_facts_generation_site_occurred_idx',
+               'session_events_generation_site_occurred_idx'
+           )
+         ORDER BY indexname",
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("phase 6 query indexes should be inspectable");
+    assert_eq!(
+        phase6_indexes,
+        vec![
+            "normalized_context_generation_site_raw_idx",
+            "session_events_generation_site_occurred_idx",
+            "visitor_event_facts_generation_site_occurred_idx",
+        ]
+    );
 
     let raw_event_columns = sqlx::query(
         "SELECT column_name FROM information_schema.columns

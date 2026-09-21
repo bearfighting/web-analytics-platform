@@ -18,4 +18,14 @@ pub enum ProcessorError {
         generation_id: String,
         status: String,
     },
+    #[error("analytics is disabled for site {site_id}")]
+    AnalyticsDisabled { site_id: String },
+    #[error("unsupported parser version {0}")]
+    UnsupportedParserVersion(String),
+    #[error("rebuild scope starts after it ends")]
+    InvalidRebuildScope,
+    #[error("rebuild queue {0} was already completed or failed")]
+    RebuildQueueAlreadyHandled(i64),
+    #[error("rebuild queue {0} is paused because analytics is disabled")]
+    RebuildQueuePaused(i64),
 }

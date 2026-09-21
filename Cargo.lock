@@ -1541,11 +1541,13 @@ dependencies = [
  "chrono",
  "clap",
  "serde_json",
+ "sha2",
  "sqlx",
  "thiserror",
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "url",
  "woothee",
 ]
 

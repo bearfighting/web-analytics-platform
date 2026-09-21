@@ -1,4 +1,5 @@
 use chrono::{DateTime, NaiveDate, Utc};
+use serde_json::Value;
 use sqlx::{PgConnection, Postgres, Transaction};
 
 use crate::models::RawEvent;
@@ -6,8 +7,23 @@ use crate::models::RawEvent;
 pub(crate) async fn claim_next_event(
     transaction: &mut Transaction<'_, Postgres>,
 ) -> Result<Option<RawEvent>, sqlx::Error> {
-    sqlx::query_as::<_, (i64, String, DateTime<Utc>, String)>(
-        "SELECT id, site_id, occurred_at, path
+    sqlx::query_as::<
+        _,
+        (
+            i64,
+            String,
+            String,
+            DateTime<Utc>,
+            DateTime<Utc>,
+            String,
+            i32,
+            Option<String>,
+            Option<i32>,
+            Value,
+        ),
+    >(
+        "SELECT id, event_id, site_id, occurred_at, received_at, path,
+                schema_version, visitor_id::text, context_schema_version, payload
          FROM raw_events
          WHERE processed_at IS NULL
          ORDER BY id
@@ -17,12 +33,31 @@ pub(crate) async fn claim_next_event(
     .fetch_optional(&mut **transaction)
     .await
     .map(|event| {
-        event.map(|(id, site_id, occurred_at, path)| RawEvent {
-            id,
-            site_id,
-            occurred_at,
-            path,
-        })
+        event.map(
+            |(
+                id,
+                event_id,
+                site_id,
+                occurred_at,
+                received_at,
+                path,
+                schema_version,
+                visitor_id,
+                context_schema_version,
+                payload,
+            )| RawEvent {
+                id,
+                event_id,
+                site_id,
+                occurred_at,
+                received_at,
+                path,
+                schema_version,
+                visitor_id,
+                context_schema_version,
+                payload,
+            },
+        )
     })
 }
 
@@ -93,4 +128,54 @@ pub(crate) async fn mark_processed(
     .execute(&mut *connection)
     .await?;
     Ok(result.rows_affected() == 1)
+}
+
+pub(crate) async fn phase6_enabled(
+    connection: &mut PgConnection,
+    site_id: &str,
+) -> Result<bool, sqlx::Error> {
+    Ok(sqlx::query_scalar::<_, bool>(
+        "SELECT analytics_enabled
+         FROM analytics_feature_flags
+         WHERE site_id = $1",
+    )
+    .bind(site_id)
+    .fetch_optional(&mut *connection)
+    .await?
+    .unwrap_or(false))
+}
+
+pub(crate) async fn enqueue_rebuild(
+    connection: &mut PgConnection,
+    site_id: &str,
+    visitor_id: &str,
+    day: NaiveDate,
+    rebuild_reason: &str,
+    parser_version: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "INSERT INTO analytics_rebuild_queue
+            (site_id, visitor_id, scope_from, scope_to, aggregation_version,
+             parser_version, rebuild_reason)
+         VALUES ($1, $2::uuid, $3, $3, 1, $5, $4)
+         ON CONFLICT (site_id, visitor_id, aggregation_version, scope_from, scope_to)
+             WHERE status IN ('pending', 'running')
+             DO UPDATE SET
+                 rebuild_reason = CASE
+                     WHEN analytics_rebuild_queue.rebuild_reason = 'backfill'
+                       OR EXCLUDED.rebuild_reason = 'backfill'
+                     THEN 'backfill'
+                     ELSE analytics_rebuild_queue.rebuild_reason
+                 END,
+                 parser_version = EXCLUDED.parser_version,
+                 updated_at = NOW()",
+    )
+    .bind(site_id)
+    .bind(visitor_id)
+    .bind(day)
+    .bind(rebuild_reason)
+    .bind(parser_version)
+    .execute(&mut *connection)
+    .await?;
+    Ok(())
 }

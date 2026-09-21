@@ -30,10 +30,16 @@ async fn setup() -> (PostgresSink, PgPool) {
         .connect(&url)
         .await
         .expect("integration database should be reachable");
-    sqlx::query("TRUNCATE raw_events, page_view_totals RESTART IDENTITY")
-        .execute(&pool)
-        .await
-        .expect("integration tables should be writable");
+    sqlx::query(
+        "TRUNCATE analytics_rebuild_queue, normalized_event_context,
+            session_events, sessions, visitor_event_facts, session_daily,
+            visitor_daily, analytics_watermarks, analytics_generations,
+            analytics_feature_flags, raw_events, page_view_daily,
+            page_view_routes, page_view_totals RESTART IDENTITY CASCADE",
+    )
+    .execute(&pool)
+    .await
+    .expect("integration tables should be writable");
     sqlx::query("DELETE FROM analytics_feature_flags")
         .execute(&pool)
         .await

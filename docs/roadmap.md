@@ -145,7 +145,7 @@ Phase 4 退出前通过 `pnpm e2e:dashboard` 验证 Collector → PostgreSQL →
 
 详细设计方案见：[phase-5-design.md](phase-5-design.md)。
 
-当前状态：PR1–PR3 契约与实施计划已完成；Phase 6 生产实现尚未开始。
+当前状态：Phase 5 设计已完成。
 
 目标：在实现 Visitor、Session 和浏览器维度之前，先完成指标语义、匿名身份和数据生命周期设计。
 
@@ -168,6 +168,8 @@ Country / IP、指纹识别和跨设备识别不属于本阶段设计目标。
 详细实施方案见：[phase-6-design.md](phase-6-design.md)。
 
 目标：根据 Phase 5 已确认的语义，实现浏览器上下文、匿名 Visitor、Session 和对应查询能力。
+
+当前状态：Phase 6 PR1、PR2、PR3 已完成，PR4/PR5 尚未开始。
 
 交付：
 

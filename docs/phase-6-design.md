@@ -134,10 +134,11 @@ context_schema_version  integer null
 
 ### 6.2 Normalized Context
 
-`normalized_event_context` 一条 Raw Event 最多一行：
+`normalized_event_context` 按 generation 保存；同一个 Raw Event 可以在不同 parser generation 中拥有不同的派生结果：
 
 ```text
-raw_event_id       bigint primary key references raw_events(id)
+generation_id      uuid not null references analytics_generations(generation_id)
+raw_event_id       bigint not null references raw_events(id)
 site_id            varchar(64) not null
 context_version    integer not null
 parser_version     varchar(64) not null
@@ -154,6 +155,8 @@ browser             text not null
 os                  text not null
 normalized_at      timestamptz not null
 ```
+
+主键为 `(generation_id, raw_event_id)`。尺寸字段使用 nullable integer 表示 `unknown`；原始 User-Agent 不写入该表，只从 Raw Event payload 受限读取并转换为 `device`、`browser` 和 `os`。
 
 Raw User-Agent 只保留在受限的 Raw Event payload/存储边界中，不从该表或 API 返回。normalized context 的唯一输入是允许的 Browser Context。
 
@@ -236,7 +239,8 @@ sessions
 - PRIMARY KEY (generation_id, session_id)
 
 normalized_event_context
-- PRIMARY KEY (raw_event_id)
+- PRIMARY KEY (generation_id, raw_event_id)
+- FOREIGN KEY (generation_id, raw_event_id) → analytics_generations, raw_events
 ```
 
 一个成功去重的 Raw Event 在同一 generation 中最多对应一个 Session Event。`session_id` 是 generation 内部标识，不对外公开；生成算法必须使用固定的字节编码和 hash/UUID 规则，并在 Processor 的跨语言 fixture 中验证。不同 generation 可以为同一 Raw Event 产生不同的 `session_id`。
@@ -249,15 +253,34 @@ Generation 激活必须在单个事务中完成：锁定 site 的 active generat
 
 ### 7.1 Normal processing
 
-单个事件的 Phase 6 处理顺序为：
+现有 Page View 处理保持不变。`analytics_enabled` 开启后，Processor 在同一事务中为带 Visitor ID 的事件合并 `analytics_rebuild_queue`；事件本身仍先写入既有 Page View aggregate 并设置 `processed_at`。Queue worker 读取 pending incremental task，重建整个 site 的派生 generation，完成后再原子切换 active generation。这样不会把单个 Visitor 的半成品结果发布为全站 active generation。
+
+`received_at - occurred_at <= 24h` 的事件进入自动 incremental queue；超过 24 小时的事件只进入 backfill queue，不由普通 worker 自动激活。缺少或关闭 `analytics_enabled` 时不创建新 queue，旧 Page View workflow 继续运行。
+
+Raw Event processing 和 generation rebuild 使用相同的 site-level advisory lock，避免 rebuild 读取输入后又有事件在激活前改变 source watermark。相同 queue key 的 reason 按 `backfill > incremental` 升级；worker 会回收超过 5 分钟未更新的 running task。Generation 的 `source_watermark` JSONB 和 `analytics_watermarks` 必须保存同一个实际连续 `processed_received_watermark`。
+
+PR3 的 generation 是完整 site generation。`--from/--to` 会写入 rebuild scope、用于 backfill queue 去重和结果审计，但当前实现仍读取完整 site 历史，以保证替换 active generation 时不丢失范围外事实；后续如需性能优化，必须通过复制旧 generation 的范围外事实并验证边界 Session 后再改为真正的范围重建。
+
+单个事件的 Phase 6 处理分为两个事务阶段。Raw Event 处理事务保持现有 Page View 语义：
 
 ```text
 claim Raw Event
-  → normalize Context
-  → write event-level derived fact
-  → update affected Visitor/rebuild queue
-  → preserve existing Page View processing
-  → advance source watermark after successful commit
+  → update Page View daily/route/total
+  → update affected Visitor rebuild queue when applicable
+  → set processed_at
+  → commit
+```
+
+随后由 queue worker 在独立的 generation rebuild transaction 中读取该 site 的完整已处理历史：
+
+```text
+lock site and rebuild queue
+  → normalize Browser Context
+  → write generation-scoped event/session facts
+  → sessionize and write daily Visitor/Session aggregates
+  → write the continuous source watermark
+  → atomically activate the new generation
+  → commit
 ```
 
 Collector 不执行 Sessionization；Processor 负责 Context normalization 后的统计转换。事件处理失败时事务回滚，Raw Event 保留并可重试。
@@ -276,6 +299,10 @@ Collector 不执行 Sessionization；Processor 负责 Context normalization 后�
 
 - `received_at - occurred_at <= 24h` 的合法迟到事件标记受影响 Visitor、UTC 日期和相关 Dimension，自动触发 rebuild。
 - 超过 24h 的事件仍写入 Raw Event，但进入显式 backfill queue，不自动修改稳定 generation。
+
+没有 Visitor ID 的 V2 事件不创建 Visitor/Session queue，也不会触发自动 generation rebuild；它们不会进入当前 active generation 的派生事实，直到下一次 site-wide initial/backfill/reparse rebuild。发生 rebuild 时，合法的 V2 Context 仍会写入 generation-scoped `normalized_event_context`，但不会写入 Visitor、Session 或对应 daily facts。这样可以保持“没有 Visitor ID 不创建 Visitor/Session”的约定，同时避免为无法参与 Sessionization 的事件频繁触发全站 rebuild。
+
+Queue worker 遇到失败任务后不会自动重试 `failed` row。需要通过相同的 site、scope、aggregation version 和 parser version 重新 enqueue，创建新的 pending task；超过 5 分钟未更新的 `running` task 才会被 worker 自动回收。并发 worker 对同一 task 最终只允许一个 active generation，重复 worker 不会创建额外 failed generation。
 - 未来事件最多领先 5 分钟；超过则拒绝。
 - rebuild 以 `site_id + visitor_id + aggregation_version + date scope` 去重，重复请求合并。
 - 同一 site 的 generation rebuild 串行切换；不同 site 可以并行。
