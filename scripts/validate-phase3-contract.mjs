@@ -72,9 +72,9 @@ function validateOpenApi(document) {
     "/v1/sites/{site_id}/reports/{from}/{to}/overview": ["200", "400", "500"],
     "/v1/sites/{site_id}/reports/{from}/{to}/timeline": ["200", "400", "500"],
     "/v1/sites/{site_id}/reports/{from}/{to}/pages": ["200", "400", "500"],
-    "/v1/sites/{site_id}/reports/{from}/{to}/visitors": ["200", "400", "500"],
-    "/v1/sites/{site_id}/reports/{from}/{to}/sessions": ["200", "400", "500"],
-    "/v1/sites/{site_id}/reports/{from}/{to}/dimensions/{dimension}": ["200", "400", "500"],
+    "/v1/sites/{site_id}/reports/{from}/{to}/visitors": ["200", "400", "404", "500"],
+    "/v1/sites/{site_id}/reports/{from}/{to}/sessions": ["200", "400", "404", "500"],
+    "/v1/sites/{site_id}/reports/{from}/{to}/dimensions/{dimension}": ["200", "400", "404", "500"],
   };
   for (const [pathName, statuses] of Object.entries(expectedResponses)) {
     for (const status of statuses) {
@@ -108,6 +108,8 @@ function validateOpenApi(document) {
     "invalid_date_range",
     "date_range_too_large",
     "invalid_limit",
+    "invalid_dimension",
+    "analytics_not_enabled",
     "analytics_api_error",
   ]) {
     if (!errorCodes?.includes(code)) errors.push(`OpenAPI contract is missing error code ${code}`);
@@ -133,9 +135,9 @@ function validateOpenApi(document) {
     "/v1/sites/{site_id}/reports/{from}/{to}/dimensions/{dimension}",
   ]) {
     const operation = document.paths?.[pathName]?.get;
-    if (operation?.["x-phase"] !== 5) errors.push(`${pathName} must be marked with x-phase 5`);
-    if (operation?.["x-lifecycle"] !== "draft-not-enabled")
-      errors.push(`${pathName} must be marked draft-not-enabled`);
+    if (operation?.["x-phase"] !== 6) errors.push(`${pathName} must be marked with x-phase 6`);
+    if (operation?.["x-lifecycle"] !== "enabled-behind-feature-flag")
+      errors.push(`${pathName} must be marked enabled-behind-feature-flag`);
   }
 
   const dimensionParameter = document.components?.parameters?.Dimension;
@@ -166,8 +168,8 @@ function validateOpenApi(document) {
       errors.push(`Dimension endpoint must require ${parameter}`);
   }
 
-  if (!dimensionPath?.description?.toLowerCase().includes("draft"))
-    errors.push("Dimension endpoint must document its draft status");
+  if (!dimensionPath?.description?.toLowerCase().includes("feature flag"))
+    errors.push("Dimension endpoint must document its feature flag requirement");
   if (!dimensionPath?.description?.includes("page_views descending"))
     errors.push("Dimension endpoint must document page_views descending ordering");
   if (!dimensionPath?.description?.includes("value ascending"))
@@ -216,8 +218,8 @@ function validateOpenApi(document) {
   const dimensionResponse = dimensionPath?.responses?.["200"];
   if (!dimensionResponse?.description?.includes("UTC date range"))
     errors.push("Dimension response must document its UTC date range");
-  if (!document.info?.description?.includes("draft contracts"))
-    errors.push("OpenAPI info must identify Phase 5 paths as draft contracts");
+  if (!document.info?.description?.includes("Phase 6"))
+    errors.push("OpenAPI info must identify Phase 6 report paths");
 }
 
 function validateQueryCases(document) {

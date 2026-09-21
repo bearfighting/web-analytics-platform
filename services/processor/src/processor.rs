@@ -15,6 +15,8 @@ use crate::{
 };
 
 const AGGREGATION_VERSION: i32 = 1;
+type DimensionDailyKey = (String, NaiveDate, String, String);
+type DimensionDailyCounts = (i64, HashSet<String>, HashSet<String>);
 
 #[derive(Clone)]
 pub struct Processor {
@@ -72,7 +74,8 @@ impl Processor {
     pub async fn process_rebuild_queue_once(&self) -> Result<bool, ProcessorError> {
         let mut transaction = self.pool.begin().await?;
         let request = sqlx::query_as::<_, (i64, String, NaiveDate, NaiveDate, String, String)>(
-            "SELECT queue_id, site_id, scope_from, scope_to, parser_version, rebuild_reason
+            "SELECT queue_id, site_id, scope_from, scope_to,
+                    parser_version, rebuild_reason
              FROM analytics_rebuild_queue
              WHERE rebuild_reason = 'incremental'
                AND (
@@ -321,6 +324,37 @@ impl Processor {
                 .bind(error.to_string())
                 .execute(&self.pool)
                 .await;
+                let _ = if let Some(queue_id) = request.queue_id {
+                    sqlx::query(
+                        "UPDATE analytics_rebuild_queue
+                         SET status = 'failed', failure_reason = $2, updated_at = NOW()
+                         WHERE queue_id = $1
+                           AND status IN ('pending', 'running')",
+                    )
+                    .bind(queue_id)
+                    .bind(error.to_string())
+                    .execute(&self.pool)
+                    .await
+                } else {
+                    sqlx::query(
+                        "UPDATE analytics_rebuild_queue
+                         SET status = 'failed', failure_reason = $4, updated_at = NOW()
+                        WHERE site_id = $1
+                           AND scope_from = $2
+                           AND scope_to = $3
+                           AND rebuild_reason = $5
+                           AND parser_version = $6
+                           AND status IN ('pending', 'running')",
+                    )
+                    .bind(&request.site_id)
+                    .bind(request.scope_from)
+                    .bind(request.scope_to)
+                    .bind(error.to_string())
+                    .bind(&request.rebuild_reason)
+                    .bind(&request.parser_version)
+                    .execute(&self.pool)
+                    .await
+                };
                 Err(error)
             }
         }
@@ -374,6 +408,11 @@ impl Processor {
                 return Err(ProcessorError::RebuildQueuePaused(queue_id));
             }
         }
+        // A generation is a complete site snapshot. Session IDs include the
+        // generation ID, so copying unaffected sessions from the previous
+        // generation would create invalid cross-generation references. Until
+        // scoped generation merge is implemented, every activation must build
+        // the full site history to avoid publishing partial aggregates.
         let events = load_site_events(&self.pool, &request.site_id).await?;
         let watermark = match events.iter().map(|event| event.received_at).max() {
             Some(max_received_at) => {
@@ -396,7 +435,8 @@ impl Processor {
         .bind(request.scope_to)
         .bind(&request.rebuild_reason)
         .bind(json!({
-            "visitor_session": watermark.map(|value| value.to_rfc3339())
+            "visitor_session": watermark.map(|value| value.to_rfc3339()),
+            "dimensions": watermark.map(|value| value.to_rfc3339())
         }))
         .execute(&mut *transaction)
         .await?;
@@ -408,6 +448,19 @@ impl Processor {
                 "INSERT INTO analytics_watermarks
                     (site_id, generation_id, source_name, processed_received_watermark)
                  VALUES ($1, $2::uuid, 'visitor_session', $3)
+                 ON CONFLICT (site_id, generation_id, source_name)
+                 DO UPDATE SET processed_received_watermark = EXCLUDED.processed_received_watermark,
+                               updated_at = NOW()",
+            )
+            .bind(&request.site_id)
+            .bind(generation_id)
+            .bind(watermark)
+            .execute(&mut *transaction)
+            .await?;
+            sqlx::query(
+                "INSERT INTO analytics_watermarks
+                    (site_id, generation_id, source_name, processed_received_watermark)
+                 VALUES ($1, $2::uuid, 'dimensions', $3)
                  ON CONFLICT (site_id, generation_id, source_name)
                  DO UPDATE SET processed_received_watermark = EXCLUDED.processed_received_watermark,
                                updated_at = NOW()",
@@ -448,13 +501,15 @@ impl Processor {
         .bind(generation_id)
         .execute(&mut *transaction)
         .await?;
-        if let Some(queue_id) = request.queue_id {
+        if request.queue_id.is_some() {
             sqlx::query(
                 "UPDATE analytics_rebuild_queue
                  SET status = 'completed', updated_at = NOW()
-                 WHERE queue_id = $1",
+                 WHERE site_id = $1
+                   AND rebuild_reason = 'incremental'
+                   AND status IN ('pending', 'running')",
             )
-            .bind(queue_id)
+            .bind(&request.site_id)
             .execute(&mut *transaction)
             .await?;
         } else if request.rebuild_reason == "backfill" {
@@ -534,6 +589,8 @@ async fn process_event(
     if !queries::mark_processed(transaction, event.id).await? {
         return Err(ProcessorError::RawEventNotUpdated(event.id));
     }
+    lock_site(transaction, &event.site_id).await?;
+    queries::advance_page_view_watermark(transaction, &event.site_id).await?;
     Ok(())
 }
 
@@ -606,6 +663,7 @@ async fn write_derived_results(
     events: &[RawEvent],
     parser: &impl UserAgentParser,
 ) -> Result<(), ProcessorError> {
+    let mut normalized_by_event_id: HashMap<i64, NormalizedContext> = HashMap::new();
     for event in events
         .iter()
         .filter(|event| event.schema_version == 2 && event.context_schema_version.unwrap_or(1) == 1)
@@ -617,6 +675,7 @@ async fn write_derived_results(
             .unwrap_or("unknown");
         let normalized = normalize_context(context, user_agent, parser);
         insert_normalized_context(transaction, generation_id, event, &normalized).await?;
+        normalized_by_event_id.insert(event.id, normalized);
     }
 
     let visitor_events: Vec<&RawEvent> = events
@@ -662,6 +721,7 @@ async fn write_derived_results(
         .iter()
         .map(|event| (event.event_id.as_str(), *event))
         .collect();
+    let mut session_by_event_id: HashMap<String, String> = HashMap::new();
 
     for session in &sessions {
         sqlx::query(
@@ -680,6 +740,7 @@ async fn write_derived_results(
         .await?;
 
         for session_event in &session.events {
+            session_by_event_id.insert(session_event.event_id.clone(), session.session_id.clone());
             let event = event_lookup
                 .get(session_event.event_id.as_str())
                 .expect("session event must reference raw event");
@@ -699,6 +760,15 @@ async fn write_derived_results(
             .await?;
         }
     }
+
+    write_dimension_results(
+        transaction,
+        generation_id,
+        events,
+        &normalized_by_event_id,
+        &session_by_event_id,
+    )
+    .await?;
 
     let mut visitor_daily: BTreeMap<(String, NaiveDate), (HashSet<String>, i64)> = BTreeMap::new();
     for event in &visitor_events {
@@ -748,6 +818,104 @@ async fn write_derived_results(
         .await?;
     }
     Ok(())
+}
+
+async fn write_dimension_results(
+    transaction: &mut Transaction<'_, Postgres>,
+    generation_id: &str,
+    events: &[RawEvent],
+    normalized_by_event_id: &HashMap<i64, NormalizedContext>,
+    session_by_event_id: &HashMap<String, String>,
+) -> Result<(), ProcessorError> {
+    let mut daily: BTreeMap<DimensionDailyKey, DimensionDailyCounts> = BTreeMap::new();
+
+    for event in events {
+        let Some(context) = normalized_by_event_id.get(&event.id) else {
+            continue;
+        };
+        let visitor_id = event.visitor_id.clone();
+        let session_id = visitor_id
+            .as_ref()
+            .and_then(|_| session_by_event_id.get(&event.event_id).cloned());
+        for (dimension, value) in context_dimensions(context) {
+            sqlx::query(
+                "INSERT INTO dimension_event_facts
+                    (generation_id, raw_event_id, site_id, visitor_id, session_id,
+                     dimension, value, occurred_at, day)
+                 VALUES ($1::uuid, $2, $3, $4::uuid, $5::uuid, $6, $7, $8, $9)",
+            )
+            .bind(generation_id)
+            .bind(event.id)
+            .bind(&event.site_id)
+            .bind(visitor_id.as_deref())
+            .bind(session_id.as_deref())
+            .bind(dimension)
+            .bind(value)
+            .bind(event.occurred_at)
+            .bind(event.occurred_at.date_naive())
+            .execute(&mut **transaction)
+            .await?;
+
+            let entry = daily
+                .entry((
+                    event.site_id.clone(),
+                    event.occurred_at.date_naive(),
+                    dimension.to_owned(),
+                    value.to_owned(),
+                ))
+                .or_default();
+            entry.0 += 1;
+            if let Some(visitor_id) = visitor_id.as_ref() {
+                entry.1.insert(visitor_id.clone());
+            }
+            if let Some(session_id) = session_id.as_ref() {
+                entry.2.insert(session_id.clone());
+            }
+        }
+    }
+
+    for ((site_id, day, dimension, value), (page_views, visitors, sessions)) in daily {
+        sqlx::query(
+            "INSERT INTO dimension_daily
+                (generation_id, site_id, day, dimension, value,
+                 page_views, unique_visitors, sessions)
+             VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8)",
+        )
+        .bind(generation_id)
+        .bind(site_id)
+        .bind(day)
+        .bind(dimension)
+        .bind(value)
+        .bind(page_views)
+        .bind(visitors.len() as i64)
+        .bind(sessions.len() as i64)
+        .execute(&mut **transaction)
+        .await?;
+    }
+    Ok(())
+}
+
+fn context_dimensions(context: &NormalizedContext) -> Vec<(&'static str, &str)> {
+    let mut dimensions = vec![
+        ("language", context.language.as_str()),
+        ("timezone", context.timezone.as_str()),
+        ("referrer_host", context.referrer_host.as_str()),
+        ("device", context.device.as_str()),
+        ("browser", context.browser.as_str()),
+        ("os", context.os.as_str()),
+    ];
+    for (dimension, value) in [
+        ("utm_source", context.utm_source.as_deref()),
+        ("utm_medium", context.utm_medium.as_deref()),
+        ("utm_campaign", context.utm_campaign.as_deref()),
+        ("utm_term", context.utm_term.as_deref()),
+        ("utm_content", context.utm_content.as_deref()),
+    ] {
+        if let Some(value) = value {
+            dimensions.push((dimension, value));
+        }
+    }
+    dimensions
 }
 
 async fn insert_normalized_context(

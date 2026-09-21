@@ -21,5 +21,17 @@ pub(crate) fn router(state: AppState) -> Router {
             "/v1/sites/{site_id}/reports/{from}/{to}/pages",
             get(handlers::reports::pages),
         )
+        .route(
+            "/v1/sites/{site_id}/reports/{from}/{to}/visitors",
+            get(handlers::phase6::visitors),
+        )
+        .route(
+            "/v1/sites/{site_id}/reports/{from}/{to}/sessions",
+            get(handlers::phase6::sessions),
+        )
+        .route(
+            "/v1/sites/{site_id}/reports/{from}/{to}/dimensions/{dimension}",
+            get(handlers::phase6::dimensions),
+        )
         .with_state(state)
 }

@@ -169,7 +169,7 @@ Country / IP、指纹识别和跨设备识别不属于本阶段设计目标。
 
 目标：根据 Phase 5 已确认的语义，实现浏览器上下文、匿名 Visitor、Session 和对应查询能力。
 
-当前状态：Phase 6 PR1、PR2、PR3 已完成，PR4/PR5 尚未开始。
+当前状态：Phase 6 PR1、PR2、PR3、PR4 已完成，PR5 尚未开始。
 
 交付：
 

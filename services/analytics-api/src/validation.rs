@@ -6,6 +6,19 @@ use crate::{errors::RequestError, models::DateRange};
 const DEFAULT_LIMIT: i64 = 20;
 const MAX_LIMIT: i64 = 100;
 const MAX_RANGE_SPAN_DAYS: i64 = 365;
+pub(crate) const DIMENSIONS: [&str; 11] = [
+    "language",
+    "timezone",
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+    "utm_term",
+    "utm_content",
+    "referrer_host",
+    "device",
+    "browser",
+    "os",
+];
 
 pub(crate) fn parse_range(from: &str, to: &str) -> Result<DateRange, RequestError> {
     let from_date = parse_date(from)?;
@@ -56,6 +69,13 @@ pub(crate) fn parse_limit_query(query: Option<&str>) -> Result<i64, RequestError
         }
     }
     parse_limit(limit.as_deref())
+}
+
+pub(crate) fn validate_dimension(value: &str) -> Result<(), RequestError> {
+    DIMENSIONS
+        .contains(&value)
+        .then_some(())
+        .ok_or(RequestError::InvalidDimension)
 }
 
 #[cfg(test)]

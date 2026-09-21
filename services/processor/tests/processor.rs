@@ -15,7 +15,8 @@ async fn setup() -> (Processor, PgPool) {
         .await
         .expect("integration database should be reachable");
     sqlx::query(
-        "TRUNCATE analytics_rebuild_queue, normalized_event_context,
+        "TRUNCATE analytics_rebuild_queue, dimension_event_facts, dimension_daily,
+            normalized_event_context,
             session_events, sessions, visitor_event_facts, session_daily,
             visitor_daily, analytics_watermarks, analytics_generations,
             analytics_feature_flags, raw_events, page_view_daily,
@@ -272,9 +273,31 @@ async fn rebuild_writes_generation_facts_without_mutating_raw_payload() {
     .fetch_one(&pool)
     .await
     .unwrap();
+    let dimension_fact_count = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM dimension_event_facts WHERE generation_id = $1::uuid",
+    )
+    .bind(&generation_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
     assert_eq!(visitor_facts, 4);
     assert_eq!(session_count, 3);
     assert_eq!(normalized_count, 4);
+    assert_eq!(dimension_fact_count, 24);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT page_views FROM dimension_daily
+             WHERE generation_id = $1::uuid AND site_id = $2
+               AND day = $3 AND dimension = 'browser' AND value = 'unknown'",
+        )
+        .bind(&generation_id)
+        .bind(site_id)
+        .bind(first.date_naive())
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        3
+    );
     assert_eq!(
         sqlx::query_scalar::<_, i64>(
             "SELECT unique_visitors FROM visitor_daily
@@ -299,6 +322,29 @@ async fn rebuild_writes_generation_facts_without_mutating_raw_payload() {
         .unwrap()
         .get("visitor_session")
         .is_some()
+    );
+    assert!(
+        sqlx::query_scalar::<_, serde_json::Value>(
+            "SELECT source_watermark FROM analytics_generations
+             WHERE generation_id = $1::uuid",
+        )
+        .bind(&generation_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap()
+        .get("dimensions")
+        .is_some()
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM analytics_watermarks
+             WHERE site_id = $1 AND generation_id IS NULL AND source_name = 'page_views'",
+        )
+        .bind(site_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        1
     );
 
     let payload_after = sqlx::query_scalar::<_, serde_json::Value>(
@@ -350,6 +396,117 @@ async fn analytics_disabled_keeps_page_view_workflow_without_rebuild_queue() {
             .fetch_one(&pool)
             .await
             .unwrap(),
+        0
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL; run pnpm test:integration"]
+async fn no_visitor_v2_event_contributes_dimensions_only_after_site_rebuild() {
+    let (processor, pool) = setup().await;
+    let site_id = "site_phase6_no_visitor";
+    let occurred_at: DateTime<Utc> = "2026-09-18T12:00:00Z".parse().unwrap();
+    sqlx::query(
+        "INSERT INTO analytics_feature_flags (site_id, analytics_enabled)
+         VALUES ($1, TRUE)",
+    )
+    .bind(site_id)
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO raw_events
+            (site_id, event_id, schema_version, event_type, occurred_at,
+             received_at, path, payload, context_schema_version)
+         VALUES ($1, $2, 2, 'page_view', $3, $3 + INTERVAL '1 minute', '/', $4, 1)",
+    )
+    .bind(site_id)
+    .bind("01J00000000000000000000030")
+    .bind(occurred_at)
+    .bind(json!({
+        "schema_version": 2,
+        "event_id": "01J00000000000000000000030",
+        "type": "page_view",
+        "site_id": site_id,
+        "occurred_at": occurred_at.timestamp_millis(),
+        "path": "/",
+        "context_schema_version": 1,
+        "context": {
+            "language": "en-CA",
+            "timezone": "America/Toronto",
+            "referrer": "https://example.com/previous",
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0"
+        }
+    }))
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(processor.process_all_once().await.unwrap(), 1);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM analytics_rebuild_queue WHERE site_id = $1",
+        )
+        .bind(site_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        0
+    );
+
+    processor
+        .rebuild_site(
+            site_id,
+            occurred_at.date_naive(),
+            occurred_at.date_naive(),
+            "initial",
+            "woothee-0.13.0",
+            false,
+        )
+        .await
+        .unwrap();
+    let generation_id = sqlx::query_scalar::<_, String>(
+        "SELECT generation_id::text FROM analytics_generations
+         WHERE site_id = $1 AND status = 'active'",
+    )
+    .bind(site_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM dimension_event_facts
+             WHERE generation_id = $1::uuid AND site_id = $2",
+        )
+        .bind(&generation_id)
+        .bind(site_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        6
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM visitor_event_facts
+             WHERE generation_id = $1::uuid AND site_id = $2",
+        )
+        .bind(&generation_id)
+        .bind(site_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        0
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM session_events
+             WHERE generation_id = $1::uuid AND site_id = $2",
+        )
+        .bind(&generation_id)
+        .bind(site_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
         0
     );
 }
@@ -463,7 +620,7 @@ async fn concurrent_queue_workers_publish_one_generation_without_failed_duplicat
     )
     .await;
 
-    assert_eq!(processor.process_one().await.unwrap(), true);
+    assert!(processor.process_one().await.unwrap());
     let (left, right) = tokio::join!(
         processor.process_rebuild_queue_once(),
         second_processor.process_rebuild_queue_once()

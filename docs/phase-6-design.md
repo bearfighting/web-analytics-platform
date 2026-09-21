@@ -209,6 +209,11 @@ dimension_daily
 - generation_id, site_id, day, dimension, value
 - page_views, unique_visitors, sessions
 
+dimension_event_facts
+- generation_id, raw_event_id, site_id, visitor_id nullable, session_id nullable
+- dimension, value, occurred_at, day
+- 每个 Page View 对每个非空 Dimension/value 最多一行
+
 analytics_watermarks
 - site_id, generation_id nullable, source_name, processed_received_watermark
 ```
@@ -303,6 +308,7 @@ Collector 不执行 Sessionization；Processor 负责 Context normalization 后�
 没有 Visitor ID 的 V2 事件不创建 Visitor/Session queue，也不会触发自动 generation rebuild；它们不会进入当前 active generation 的派生事实，直到下一次 site-wide initial/backfill/reparse rebuild。发生 rebuild 时，合法的 V2 Context 仍会写入 generation-scoped `normalized_event_context`，但不会写入 Visitor、Session 或对应 daily facts。这样可以保持“没有 Visitor ID 不创建 Visitor/Session”的约定，同时避免为无法参与 Sessionization 的事件频繁触发全站 rebuild。
 
 Queue worker 遇到失败任务后不会自动重试 `failed` row。需要通过相同的 site、scope、aggregation version 和 parser version 重新 enqueue，创建新的 pending task；超过 5 分钟未更新的 `running` task 才会被 worker 自动回收。并发 worker 对同一 task 最终只允许一个 active generation，重复 worker 不会创建额外 failed generation。
+
 - 未来事件最多领先 5 分钟；超过则拒绝。
 - rebuild 以 `site_id + visitor_id + aggregation_version + date scope` 去重，重复请求合并。
 - 同一 site 的 generation rebuild 串行切换；不同 site 可以并行。
@@ -320,7 +326,9 @@ occurred_at - received_at > 5m → rejected as invalid_occurred_at
 
 边界值包含在允许范围内。Collector 的数据库/服务端时间是 `received_at` 的唯一来源；测试 fixture 可以显式注入固定的 received time。未来事件不会进入 late-event queue。
 
-Rebuild 的日期范围必须包含 Session 边界上下文。实现可以选择重建 Visitor 的完整历史，或至少读取请求范围前后 30 分钟的事件；发布聚合时只写入请求范围。若 rebuild 触及范围外已有 Session，必须同时替换受影响的相邻日期结果，不能只更新范围内的一侧。
+当前 generation rebuild 使用完整 site snapshot：即使命令带有 `--from/--to`，也会读取该 site 的全部已处理 Raw Event，再整体生成并原子激活新 generation。这样可以保证 generation-scoped Session ID、Visitor facts、Dimension facts 和 daily aggregates 在 active generation 中保持完整。`--from/--to` 仍用于 queue 去重、generation scope metadata、dry-run 和结果审计。
+
+未来若要实现真正的范围重建，必须先实现旧 generation 范围外事实复制，并验证跨日期 Session 边界；不能只写入请求范围后直接激活，否则会发布不完整 generation。
 
 命令接口固定为：
 
@@ -520,6 +528,9 @@ Rollback 顺序：
 - 实现 Referrer/UTM/Language/Timezone/Device/Browser/OS aggregates。
 - 启用 Visitors、Sessions、Dimensions API。
 - 验证共同 watermark、range distinct、limit、排序和 empty response。
+- `analytics_enabled` 关闭或缺少时，新 API 返回统一 404 `analytics_not_enabled`；既有 Page View API 不读取该 flag。
+- Page View 使用 `generation_id = NULL` 的 legacy `page_views` watermark；Visitor/Session 使用 `visitor_session`，Dimension 使用 `dimensions` generation watermark。
+- API 只读取 active generation，并在单次 repeatable-read transaction 中计算 response 和 `data_as_of`。
 
 ### PR5 — Dashboard and End-to-end Rollout
 

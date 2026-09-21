@@ -31,7 +31,8 @@ async fn setup() -> (PostgresSink, PgPool) {
         .await
         .expect("integration database should be reachable");
     sqlx::query(
-        "TRUNCATE analytics_rebuild_queue, normalized_event_context,
+        "TRUNCATE analytics_rebuild_queue, dimension_event_facts, dimension_daily,
+            normalized_event_context,
             session_events, sessions, visitor_event_facts, session_daily,
             visitor_daily, analytics_watermarks, analytics_generations,
             analytics_feature_flags, raw_events, page_view_daily,

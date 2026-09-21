@@ -1,5 +1,6 @@
 use analytics_api::{router, state};
 use axum::{body::to_bytes, http::Request};
+use chrono::{DateTime, Utc};
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::env;
 use tower::ServiceExt;
@@ -21,6 +22,31 @@ async fn body(response: axum::response::Response) -> serde_json::Value {
 
 async fn reset(pool: &PgPool, site_id: &str) {
     for table in ["page_view_routes", "page_view_daily", "page_view_totals"] {
+        sqlx::query(&format!("DELETE FROM {table} WHERE site_id = $1"))
+            .bind(site_id)
+            .execute(pool)
+            .await
+            .unwrap();
+    }
+}
+
+async fn reset_phase6(pool: &PgPool, site_id: &str) {
+    for table in [
+        "dimension_event_facts",
+        "dimension_daily",
+        "session_events",
+        "sessions",
+        "visitor_event_facts",
+        "visitor_daily",
+        "session_daily",
+        "analytics_watermarks",
+        "analytics_generations",
+        "analytics_feature_flags",
+        "raw_events",
+        "page_view_daily",
+        "page_view_routes",
+        "page_view_totals",
+    ] {
         sqlx::query(&format!("DELETE FROM {table} WHERE site_id = $1"))
             .bind(site_id)
             .execute(pool)
@@ -250,6 +276,248 @@ async fn analytics_http_contract_returns_aggregates_and_validates_queries() {
     assert_eq!(response.status(), 200);
     assert_eq!(body(response).await["page_views"], 0);
     reset(&pool, site).await;
+}
+
+#[tokio::test]
+#[ignore = "requires DATABASE_URL and PostgreSQL"]
+async fn phase6_reports_use_active_generation_distincts_and_watermarks() {
+    let pool = pool().await;
+    let site = "analytics_api_phase6";
+    reset_phase6(&pool, site).await;
+
+    let generation = "00000000-0000-4000-8000-000000000101";
+    let visitor_a = "550e8400-e29b-41d4-a716-446655440000";
+    let visitor_b = "550e8400-e29b-41d4-a716-446655440001";
+    let session_a = "00000000-0000-4000-8000-000000000201";
+    let session_b = "00000000-0000-4000-8000-000000000202";
+    let first_day = "2026-09-18";
+    let second_day = "2026-09-19";
+
+    sqlx::query(
+        "INSERT INTO analytics_feature_flags (site_id, analytics_enabled)
+         VALUES ($1, TRUE)",
+    )
+    .bind(site)
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO analytics_generations
+            (generation_id, site_id, aggregation_version, parser_version,
+             rebuild_reason, status)
+         VALUES ($1::uuid, $2, 1, 'woothee-0.13.0', 'initial', 'active')",
+    )
+    .bind(generation)
+    .bind(site)
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    sqlx::query(
+        "INSERT INTO page_view_daily (site_id, day, page_views)
+         VALUES ($1, $2::date, 2), ($1, $3::date, 1)",
+    )
+    .bind(site)
+    .bind(first_day)
+    .bind(second_day)
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO visitor_daily
+            (generation_id, site_id, day, unique_visitors, page_views)
+         VALUES ($1::uuid, $2, $3::date, 1, 1), ($1::uuid, $2, $4::date, 2, 2)",
+    )
+    .bind(generation)
+    .bind(site)
+    .bind(first_day)
+    .bind(second_day)
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO session_daily
+            (generation_id, site_id, day, sessions, page_views)
+         VALUES ($1::uuid, $2, $3::date, 1, 1), ($1::uuid, $2, $4::date, 1, 2)",
+    )
+    .bind(generation)
+    .bind(site)
+    .bind(first_day)
+    .bind(second_day)
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO sessions
+            (generation_id, session_id, site_id, visitor_id, started_at, ended_at, page_views)
+         VALUES
+            ($1::uuid, $2::uuid, $3, $4::uuid, '2026-09-18T10:00:00Z', '2026-09-18T10:01:00Z', 1),
+            ($1::uuid, $5::uuid, $3, $6::uuid, '2026-09-19T10:00:00Z', '2026-09-19T10:01:00Z', 2)",
+    )
+    .bind(generation)
+    .bind(session_a)
+    .bind(site)
+    .bind(visitor_a)
+    .bind(session_b)
+    .bind(visitor_b)
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let mut raw_ids = Vec::new();
+    for (event_id, occurred_at) in [
+        ("01J00000000000000000000101", "2026-09-18T10:00:00Z"),
+        ("01J00000000000000000000102", "2026-09-19T10:00:00Z"),
+        ("01J00000000000000000000103", "2026-09-19T10:01:00Z"),
+    ] {
+        let occurred_at = occurred_at.parse::<DateTime<Utc>>().unwrap();
+        let id = sqlx::query_scalar::<_, i64>(
+            "INSERT INTO raw_events
+                (site_id, event_id, schema_version, event_type, occurred_at, received_at, path, payload, processed_at)
+             VALUES ($1, $2, 2, 'page_view', $3, $3, '/', '{}'::jsonb, NOW())
+             RETURNING id",
+        )
+        .bind(site)
+        .bind(event_id)
+        .bind(occurred_at)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        raw_ids.push(id);
+    }
+    sqlx::query(
+        "INSERT INTO visitor_event_facts
+            (generation_id, raw_event_id, site_id, visitor_id, occurred_at, day)
+         VALUES ($1::uuid, $2, $3, $4::uuid, '2026-09-18T10:00:00Z', $5::date),
+                ($1::uuid, $6, $3, $4::uuid, '2026-09-19T10:00:00Z', $7::date),
+                ($1::uuid, $8, $3, $9::uuid, '2026-09-19T10:01:00Z', $7::date)",
+    )
+    .bind(generation)
+    .bind(raw_ids[0])
+    .bind(site)
+    .bind(visitor_a)
+    .bind(first_day)
+    .bind(raw_ids[1])
+    .bind(second_day)
+    .bind(raw_ids[2])
+    .bind(visitor_b)
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO session_events
+            (generation_id, raw_event_id, site_id, visitor_id, session_id, occurred_at, day)
+         VALUES ($1::uuid, $2, $3, $4::uuid, $5::uuid, '2026-09-18T10:00:00Z', $6::date),
+                ($1::uuid, $7, $3, $4::uuid, $5::uuid, '2026-09-19T10:00:00Z', $8::date),
+                ($1::uuid, $9, $3, $10::uuid, $11::uuid, '2026-09-19T10:01:00Z', $8::date)",
+    )
+    .bind(generation)
+    .bind(raw_ids[0])
+    .bind(site)
+    .bind(visitor_a)
+    .bind(session_a)
+    .bind(first_day)
+    .bind(raw_ids[1])
+    .bind(second_day)
+    .bind(raw_ids[2])
+    .bind(visitor_b)
+    .bind(session_b)
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO dimension_event_facts
+            (generation_id, raw_event_id, site_id, visitor_id, session_id, dimension, value, occurred_at, day)
+         VALUES
+            ($1::uuid, $2, $3, $4::uuid, $5::uuid, 'browser', 'Chrome:120', '2026-09-18T10:00:00Z', $6::date),
+            ($1::uuid, $7, $3, $4::uuid, $5::uuid, 'browser', 'Chrome:120', '2026-09-19T10:00:00Z', $8::date),
+            ($1::uuid, $9, $3, $10::uuid, $11::uuid, 'browser', 'Chrome:120', '2026-09-19T10:01:00Z', $8::date)",
+    )
+    .bind(generation)
+    .bind(raw_ids[0])
+    .bind(site)
+    .bind(visitor_a)
+    .bind(session_a)
+    .bind(first_day)
+    .bind(raw_ids[1])
+    .bind(second_day)
+    .bind(raw_ids[2])
+    .bind(visitor_b)
+    .bind(session_b)
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO analytics_watermarks
+            (site_id, generation_id, source_name, processed_received_watermark)
+         VALUES ($1, NULL, 'page_views', '2026-09-19T12:00:00Z'),
+                ($1, $2::uuid, 'visitor_session', '2026-09-19T11:00:00Z'),
+                ($1, $2::uuid, 'dimensions', '2026-09-19T10:00:00Z')",
+    )
+    .bind(site)
+    .bind(generation)
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let response = app(pool.clone())
+        .oneshot(
+            Request::get(format!(
+                "/v1/sites/{site}/reports/2026-09-18/2026-09-19/visitors"
+            ))
+            .body(axum::body::Body::empty())
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let visitor_body = body(response).await;
+    assert_eq!(visitor_body["page_views"], 3);
+    assert_eq!(visitor_body["unique_visitors"], 2);
+    assert_eq!(visitor_body["sessions"], 2);
+    assert_eq!(visitor_body["data_as_of"], "2026-09-19T11:00:00Z");
+    assert_eq!(visitor_body["items"].as_array().unwrap().len(), 2);
+
+    let response = app(pool.clone())
+        .oneshot(
+            Request::get(format!(
+                "/v1/sites/{site}/reports/2026-09-18/2026-09-19/dimensions/browser"
+            ))
+            .body(axum::body::Body::empty())
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let dimension_body = body(response).await;
+    assert_eq!(dimension_body["items"][0]["value"], "Chrome:120");
+    assert_eq!(dimension_body["items"][0]["page_views"], 3);
+    assert_eq!(dimension_body["items"][0]["unique_visitors"], 2);
+    assert_eq!(dimension_body["items"][0]["sessions"], 2);
+    assert_eq!(dimension_body["data_as_of"], "2026-09-19T10:00:00Z");
+}
+
+#[tokio::test]
+#[ignore = "requires DATABASE_URL and PostgreSQL"]
+async fn phase6_reports_return_not_enabled_without_flag() {
+    let pool = pool().await;
+    let site = "analytics_api_phase6_disabled";
+    reset_phase6(&pool, site).await;
+    let response = app(pool)
+        .oneshot(
+            Request::get(format!(
+                "/v1/sites/{site}/reports/2026-09-18/2026-09-18/visitors"
+            ))
+            .body(axum::body::Body::empty())
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 404);
+    assert_eq!(
+        body(response).await["error"]["code"],
+        "analytics_not_enabled"
+    );
 }
 
 #[tokio::test]

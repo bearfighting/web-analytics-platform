@@ -25,6 +25,8 @@ async fn pool() -> PgPool {
 async fn cleanup(pool: &PgPool) {
     for table in [
         "analytics_rebuild_queue",
+        "dimension_event_facts",
+        "dimension_daily",
         "normalized_event_context",
         "session_events",
         "sessions",
@@ -59,7 +61,12 @@ async fn phase6_metadata_migration_is_additive_and_supports_rollback() {
            AND indexname IN (
                'normalized_context_generation_site_raw_idx',
                'visitor_event_facts_generation_site_occurred_idx',
-               'session_events_generation_site_occurred_idx'
+               'session_events_generation_site_occurred_idx',
+               'dimension_event_facts_generation_site_occurred_idx',
+               'dimension_event_facts_generation_dimension_value_idx',
+               'dimension_event_facts_generation_visitor_occurred_idx',
+               'dimension_event_facts_generation_session_occurred_idx',
+               'dimension_daily_generation_lookup_idx'
            )
          ORDER BY indexname",
     )
@@ -69,6 +76,11 @@ async fn phase6_metadata_migration_is_additive_and_supports_rollback() {
     assert_eq!(
         phase6_indexes,
         vec![
+            "dimension_daily_generation_lookup_idx",
+            "dimension_event_facts_generation_dimension_value_idx",
+            "dimension_event_facts_generation_session_occurred_idx",
+            "dimension_event_facts_generation_site_occurred_idx",
+            "dimension_event_facts_generation_visitor_occurred_idx",
             "normalized_context_generation_site_raw_idx",
             "session_events_generation_site_occurred_idx",
             "visitor_event_facts_generation_site_occurred_idx",
@@ -181,6 +193,44 @@ async fn phase6_metadata_migration_is_additive_and_supports_rollback() {
     .execute(&pool)
     .await;
     assert!(invalid_generation.is_err());
+
+    let raw_event_id = sqlx::query_scalar::<_, i64>(
+        "SELECT id FROM raw_events WHERE site_id = 'site_pr1' AND event_id = '01J00000000000000000000090'",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("raw event id should be available for dimension constraints");
+    sqlx::query(
+        "INSERT INTO dimension_event_facts
+            (generation_id, raw_event_id, site_id, dimension, value, occurred_at, day)
+         VALUES ($1::uuid, $2, 'site_pr1', 'language', 'en-CA', NOW(), CURRENT_DATE)",
+    )
+    .bind(first_generation)
+    .bind(raw_event_id)
+    .execute(&pool)
+    .await
+    .expect("dimension fact without visitor should be valid");
+    let invalid_dimension = sqlx::query(
+        "INSERT INTO dimension_event_facts
+            (generation_id, raw_event_id, site_id, dimension, value, occurred_at, day)
+         VALUES ($1::uuid, $2, 'site_pr1', 'unsupported', 'value', NOW(), CURRENT_DATE)",
+    )
+    .bind(first_generation)
+    .bind(raw_event_id)
+    .execute(&pool)
+    .await;
+    assert!(invalid_dimension.is_err());
+    let invalid_session_without_visitor = sqlx::query(
+        "INSERT INTO dimension_event_facts
+            (generation_id, raw_event_id, site_id, session_id, dimension, value, occurred_at, day)
+         VALUES ($1::uuid, $2, 'site_pr1', $3::uuid, 'timezone', 'UTC', NOW(), CURRENT_DATE)",
+    )
+    .bind(first_generation)
+    .bind(raw_event_id)
+    .bind("00000000-0000-4000-8000-000000000099")
+    .execute(&pool)
+    .await;
+    assert!(invalid_session_without_visitor.is_err());
 
     sqlx::query(
         "UPDATE analytics_generations

@@ -23,6 +23,7 @@ pub(crate) enum RequestError {
     InvalidDateRange(&'static str),
     DateRangeTooLarge,
     InvalidLimit,
+    InvalidDimension,
 }
 
 impl IntoResponse for RequestError {
@@ -34,6 +35,7 @@ impl IntoResponse for RequestError {
                 "date range must not exceed 366 days",
             ),
             Self::InvalidLimit => ("invalid_limit", "limit must be between 1 and 100"),
+            Self::InvalidDimension => ("invalid_dimension", "dimension is not supported"),
         };
         (
             StatusCode::BAD_REQUEST,
@@ -71,6 +73,24 @@ impl IntoResponse for ApiError {
 }
 
 #[derive(Debug)]
+pub(crate) struct AnalyticsNotEnabled;
+
+impl IntoResponse for AnalyticsNotEnabled {
+    fn into_response(self) -> Response {
+        (
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: ErrorBody {
+                    code: "analytics_not_enabled",
+                    message: "analytics report is not enabled",
+                },
+            }),
+        )
+            .into_response()
+    }
+}
+
+#[derive(Debug)]
 pub(crate) struct HealthError;
 
 impl HealthError {
@@ -99,11 +119,18 @@ impl IntoResponse for HealthError {
 pub(crate) enum HandlerError {
     Request(RequestError),
     Api(ApiError),
+    AnalyticsNotEnabled,
 }
 
 impl From<RequestError> for HandlerError {
     fn from(error: RequestError) -> Self {
         Self::Request(error)
+    }
+}
+
+impl From<AnalyticsNotEnabled> for HandlerError {
+    fn from(_: AnalyticsNotEnabled) -> Self {
+        Self::AnalyticsNotEnabled
     }
 }
 
@@ -118,6 +145,7 @@ impl IntoResponse for HandlerError {
         match self {
             Self::Request(error) => error.into_response(),
             Self::Api(error) => error.into_response(),
+            Self::AnalyticsNotEnabled => AnalyticsNotEnabled.into_response(),
         }
     }
 }

@@ -3,7 +3,7 @@
   "info": {
     "title": "Web Analytics API",
     "version": "1.0.0",
-    "description": "Read API for Phase 3 page view aggregates. Phase 5 analytics paths are draft contracts and are not enabled in the production API."
+    "description": "Read API for Phase 3 page view aggregates and Phase 6 visitor, session, and dimension reports."
   },
   "servers": [{ "url": "http://localhost:4002" }],
   "paths": {
@@ -106,10 +106,10 @@
     },
     "/v1/sites/{site_id}/reports/{from}/{to}/visitors": {
       "get": {
-        "operationId": "getVisitorsDraft",
-        "x-phase": 5,
-        "x-lifecycle": "draft-not-enabled",
-        "description": "Draft Phase 5 contract. This route is not registered by the current Analytics API. Items are ordered by day ascending.",
+        "operationId": "getVisitors",
+        "x-phase": 6,
+        "x-lifecycle": "enabled-behind-feature-flag",
+        "description": "Visitor and session metrics by UTC day, ordered by day ascending. Requires the site analytics feature flag.",
         "parameters": [
           { "$ref": "#/components/parameters/SiteId" },
           { "$ref": "#/components/parameters/FromPath" },
@@ -125,16 +125,17 @@
             }
           },
           "400": { "$ref": "#/components/responses/InvalidQuery" },
+          "404": { "$ref": "#/components/responses/AnalyticsNotEnabled" },
           "500": { "$ref": "#/components/responses/AnalyticsApiError" }
         }
       }
     },
     "/v1/sites/{site_id}/reports/{from}/{to}/sessions": {
       "get": {
-        "operationId": "getSessionsDraft",
-        "x-phase": 5,
-        "x-lifecycle": "draft-not-enabled",
-        "description": "Draft Phase 5 contract. This route is not registered by the current Analytics API. Items are ordered by day ascending.",
+        "operationId": "getSessions",
+        "x-phase": 6,
+        "x-lifecycle": "enabled-behind-feature-flag",
+        "description": "Session and visitor metrics by UTC day, ordered by day ascending. Requires the site analytics feature flag.",
         "parameters": [
           { "$ref": "#/components/parameters/SiteId" },
           { "$ref": "#/components/parameters/FromPath" },
@@ -150,16 +151,17 @@
             }
           },
           "400": { "$ref": "#/components/responses/InvalidQuery" },
+          "404": { "$ref": "#/components/responses/AnalyticsNotEnabled" },
           "500": { "$ref": "#/components/responses/AnalyticsApiError" }
         }
       }
     },
     "/v1/sites/{site_id}/reports/{from}/{to}/dimensions/{dimension}": {
       "get": {
-        "operationId": "getDimensionReportDraft",
-        "x-phase": 5,
-        "x-lifecycle": "draft-not-enabled",
-        "description": "Draft Phase 5 contract. This route is not registered by the current Analytics API. Items are ordered by page_views descending, then value ascending.",
+        "operationId": "getDimensionReport",
+        "x-phase": 6,
+        "x-lifecycle": "enabled-behind-feature-flag",
+        "description": "Dimension metrics for the inclusive UTC date range, ordered by page_views descending and value ascending. Requires the site analytics feature flag.",
         "parameters": [
           { "$ref": "#/components/parameters/SiteId" },
           { "$ref": "#/components/parameters/FromPath" },
@@ -177,6 +179,7 @@
             }
           },
           "400": { "$ref": "#/components/responses/InvalidQuery" },
+          "404": { "$ref": "#/components/responses/AnalyticsNotEnabled" },
           "500": { "$ref": "#/components/responses/AnalyticsApiError" }
         }
       }
@@ -265,6 +268,20 @@
             }
           }
         }
+      },
+      "AnalyticsNotEnabled": {
+        "description": "The site has not enabled Phase 6 analytics reports.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": {
+              "error": {
+                "code": "analytics_not_enabled",
+                "message": "analytics report is not enabled"
+              }
+            }
+          }
+        }
       }
     },
     "schemas": {
@@ -290,6 +307,8 @@
               "invalid_date_range",
               "date_range_too_large",
               "invalid_limit",
+              "invalid_dimension",
+              "analytics_not_enabled",
               "analytics_api_error"
             ]
           },
