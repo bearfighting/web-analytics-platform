@@ -11,7 +11,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      collector-migrate:
+      db-migrate:
         condition: service_completed_successfully
 
   analytics-api:

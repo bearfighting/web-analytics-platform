@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-use collector::sink::PostgresSink;
 use sqlx::{PgPool, Row, postgres::PgPoolOptions};
 
 fn database_url() -> String {
@@ -9,12 +8,6 @@ fn database_url() -> String {
 
 async fn pool() -> PgPool {
     let url = database_url();
-    PostgresSink::migrate(&url)
-        .await
-        .expect("database migrations should succeed");
-    PostgresSink::migrate(&url)
-        .await
-        .expect("running migrations a second time should be safe");
     PgPoolOptions::new()
         .max_connections(2)
         .connect(&url)

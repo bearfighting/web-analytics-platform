@@ -48,7 +48,7 @@ pnpm docker:backend
 The default `pnpm docker:dev` workflow does not load this override. It keeps
 the Playground on MockTransport and does not require the Collector.
 
-The Collector is available at `http://localhost:4001` and exposes `GET /health`, `POST /v1/events`, and CORS preflight for `/v1/events`. POST requests require both an allowlisted `Origin` and the configured `X-Ingest-Key`; in the PostgreSQL-backed workflow accepted events are stored in `raw_events`. Each `site_id + Origin` is limited to 600 requests per minute.
+The standalone `db-migrate` service runs PostgreSQL migrations before the Collector, Processor, and Analytics API. The services consume the schema but do not migrate it during startup. The Collector is available at `http://localhost:4001` and exposes `GET /health`, `POST /v1/events`, and CORS preflight for `/v1/events`. POST requests require both an allowlisted `Origin` and the configured `X-Ingest-Key`; in the PostgreSQL-backed workflow accepted events are stored in `raw_events`. Each `site_id + Origin` is limited to 600 requests per minute.
 
 Start the PostgreSQL-backed Collector, Processor and Analytics API workflow with:
 

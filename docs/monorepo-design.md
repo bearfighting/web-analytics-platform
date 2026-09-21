@@ -40,6 +40,8 @@ web-analytics-platform/
 │   ├── integration/
 │   └── e2e/
 ├── migrations/
+├── tools/
+│   └── db-migrator/                # Independent PostgreSQL migration runner
 ├── docker/
 │   ├── nextjs-router-playground.Dockerfile
 │   └── README.md

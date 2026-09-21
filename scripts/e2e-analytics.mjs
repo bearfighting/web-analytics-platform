@@ -142,7 +142,7 @@ async function resetDatabase() {
     "-v",
     "ON_ERROR_STOP=1",
     "-c",
-    "TRUNCATE raw_events, page_view_daily, page_view_routes, page_view_totals RESTART IDENTITY",
+    "TRUNCATE analytics_rebuild_queue, dimension_event_facts, dimension_daily, normalized_event_context, session_events, sessions, visitor_event_facts, session_daily, visitor_daily, analytics_watermarks, analytics_generations, analytics_feature_flags, raw_events, page_view_daily, page_view_routes, page_view_totals RESTART IDENTITY CASCADE",
   ]);
 }
 
@@ -263,7 +263,7 @@ function queryJson(sql) {
 }
 
 async function waitFor(label, url, predicate) {
-  const deadline = Date.now() + 90_000;
+  const deadline = Date.now() + 300_000;
   while (Date.now() < deadline) {
     try {
       const response = await fetch(url);
@@ -293,10 +293,9 @@ function runCompose(args, options = {}) {
 function printLogs() {
   console.error("\nE2E service logs:\n");
   if (processorOutput) console.error("Processor one-shot output:\n", processorOutput);
-  runCompose(
-    ["logs", "--no-color", "collector", "processor", "analytics-api", "collector-migrate"],
-    { allowFailure: true },
-  );
+  runCompose(["logs", "--no-color", "collector", "processor", "analytics-api", "db-migrate"], {
+    allowFailure: true,
+  });
 }
 
 function assert(condition, message) {

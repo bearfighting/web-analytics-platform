@@ -25,18 +25,10 @@ async fn run() -> Result<(), CollectorError> {
 
     match cli.command {
         Commands::Serve(args) => serve(args).await,
-        Commands::Migrate => migrate().await,
         Commands::Key {
             command: KeyCommands::Generate(args),
         } => generate_key(args).await,
     }
-}
-
-async fn migrate() -> Result<(), CollectorError> {
-    let database_url =
-        std::env::var("DATABASE_URL").map_err(|_| CollectorError::MissingDatabaseUrl)?;
-    PostgresSink::migrate(&database_url).await?;
-    Ok(())
 }
 
 async fn generate_key(_args: collector::cli::KeyGenerateArgs) -> Result<(), CollectorError> {

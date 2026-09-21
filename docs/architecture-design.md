@@ -1273,7 +1273,7 @@ test.sh
 check.sh
 lint.sh
 generate-protocol.sh
-migrate.sh
+db-migrate.sh
 release.sh
 ```
 

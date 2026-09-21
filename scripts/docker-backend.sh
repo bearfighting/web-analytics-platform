@@ -19,5 +19,5 @@ COMPOSE=(docker compose \
   -f compose.backend.yaml)
 
 "${COMPOSE[@]}" --profile backend --profile storage up -d --wait postgres
-"${COMPOSE[@]}" --profile backend --profile storage run --rm collector-migrate
+"${COMPOSE[@]}" --profile backend --profile storage run --rm db-migrate
 exec "${COMPOSE[@]}" --profile backend --profile storage up --build

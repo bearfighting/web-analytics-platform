@@ -159,6 +159,11 @@ pnpm db:migrate
 DATABASE_URL=postgres://analytics:analytics@localhost:5432/analytics pnpm test:integration
 ```
 
+PostgreSQL migrations are owned by the repository infrastructure and run by
+the standalone `db-migrator`. Collector, Processor, and Analytics API do not
+create or upgrade the schema during startup. Deploy the migration job before
+deploying services that require the schema.
+
 启动 Collector 和 PostgreSQL 的开发 workflow：
 
 ```bash

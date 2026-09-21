@@ -22,9 +22,6 @@ fn database_url() -> String {
 
 async fn setup() -> (PostgresSink, PgPool) {
     let url = database_url();
-    PostgresSink::migrate(&url)
-        .await
-        .expect("database migrations should succeed");
     let pool = PgPoolOptions::new()
         .max_connections(2)
         .connect(&url)

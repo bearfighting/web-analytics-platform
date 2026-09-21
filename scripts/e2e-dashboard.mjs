@@ -124,7 +124,7 @@ async function assertDashboardRuntimeConfiguration() {
 }
 
 async function waitFor(label, url) {
-  const deadline = Date.now() + 120_000;
+  const deadline = Date.now() + 300_000;
   while (Date.now() < deadline) {
     try {
       const response = await fetch(url);

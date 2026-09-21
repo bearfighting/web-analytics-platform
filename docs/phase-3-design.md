@@ -311,7 +311,7 @@ PR1 交付全量 Overview、Reports API、`page_view_totals` contract、OpenAPI 
 - 实现 `(site_id, event_id)` 幂等写入。
 - 保留 InMemory Sink，增加 Storage integration tests。
 - 使用单一事务整批写入，保留完整原始 payload。
-- `pnpm db:migrate` 执行 SQLx migrations；`pnpm test:integration` 执行 PostgreSQL 集成测试。
+- `pnpm db:migrate` 通过独立 `db-migrator` 执行根目录 `migrations/` 下的 SQLx migrations；`pnpm test:integration` 执行 PostgreSQL 集成测试。Collector、Processor 和 Analytics API 不在启动时执行 migration。
 
 验收：`FetchTransport → Collector → PostgreSQL raw_events`。
 

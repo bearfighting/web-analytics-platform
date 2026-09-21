@@ -21,7 +21,7 @@
     "docker:dev": "./scripts/docker-dev.sh",
     "docker:backend": "./scripts/docker-backend.sh",
     "docker:processing": "./scripts/docker-processing.sh",
-    "db:migrate": "cargo run -p collector -- migrate",
+    "db:migrate": "./scripts/db-migrate.sh",
     "protocol:validate": "node ./scripts/validate-protocol.mjs",
     "protocol:phase5:validate": "node ./scripts/validate-phase5-contract.mjs",
     "http:validate": "node ./scripts/validate-http-fixtures.mjs",

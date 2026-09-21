@@ -23,8 +23,6 @@ pub enum SinkError {
     InvalidTimestamp,
     #[error("event sink database operation failed: {0}")]
     Database(#[from] sqlx::Error),
-    #[error("database migration failed: {0}")]
-    Migration(#[from] sqlx::migrate::MigrateError),
     #[error("event sink failed")]
     Failed,
 }
@@ -73,16 +71,6 @@ impl PostgresSink {
             .connect(database_url)
             .await?;
         Ok(Self { pool })
-    }
-
-    pub async fn migrate(database_url: &str) -> Result<(), SinkError> {
-        let pool = PgPoolOptions::new()
-            .max_connections(1)
-            .connect(database_url)
-            .await?;
-        sqlx::migrate!("./migrations").run(&pool).await?;
-        pool.close().await;
-        Ok(())
     }
 }
 
