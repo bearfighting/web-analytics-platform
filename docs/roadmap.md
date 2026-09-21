@@ -165,6 +165,8 @@ Country / IP、指纹识别和跨设备识别不属于本阶段设计目标。
 
 ## Phase 6 — Browser and Analytics Dimensions
 
+详细实施方案见：[phase-6-design.md](phase-6-design.md)。
+
 目标：根据 Phase 5 已确认的语义，实现浏览器上下文、匿名 Visitor、Session 和对应查询能力。
 
 交付：
