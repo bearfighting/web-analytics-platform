@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { Transport } from "@web-analytics/analytics-core";
 import type { NavigationEvent } from "@web-analytics/observer-core";
-import type { PageViewEvent } from "@web-analytics/protocol-ts";
+import type { AnalyticsEvent } from "@web-analytics/protocol-ts";
 
 type NavigationLogEntry = NavigationEvent & {
   timestamp: string;
@@ -19,9 +19,9 @@ type NavigationLogEntry = NavigationEvent & {
 const MAX_LOG_ENTRIES = 20;
 
 class PlaygroundMockTransport implements Transport {
-  constructor(private readonly onSend: (events: readonly PageViewEvent[]) => void) {}
+  constructor(private readonly onSend: (events: readonly AnalyticsEvent[]) => void) {}
 
-  async sendBatch(events: readonly PageViewEvent[]) {
+  async sendBatch(events: readonly AnalyticsEvent[]) {
     this.onSend(events);
   }
 }
@@ -86,7 +86,7 @@ export function NavigationDebugPanel() {
   }, []);
 
   useEffect(() => {
-    const onSend = (events: readonly PageViewEvent[]) => {
+    const onSend = (events: readonly AnalyticsEvent[]) => {
       setWorkflow((current) => ({
         ...current,
         sentBatches: current.sentBatches + 1,
@@ -109,6 +109,7 @@ export function NavigationDebugPanel() {
     }
 
     const analytics = createAnalytics({
+      consent: "granted",
       siteId: process.env.NEXT_PUBLIC_ANALYTICS_SITE_ID || "site_playground",
       transport,
       onBufferChange: (bufferedEvents) =>
@@ -186,7 +187,7 @@ export function NavigationDebugPanel() {
   );
 }
 
-function createPlaygroundTransport(onSend: (events: readonly PageViewEvent[]) => void): Transport {
+function createPlaygroundTransport(onSend: (events: readonly AnalyticsEvent[]) => void): Transport {
   const mode = process.env.NEXT_PUBLIC_ANALYTICS_TRANSPORT || "mock";
   if (mode === "mock") {
     return new PlaygroundMockTransport(onSend);

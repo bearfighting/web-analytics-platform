@@ -7,6 +7,7 @@ use sqlx::{PgPool, postgres::PgPoolOptions};
 use thiserror::Error;
 use tokio::sync::RwLock;
 
+use crate::feature_flags::{FeatureFlagError, FeatureFlagStore};
 use crate::protocol::{EventType, PageViewEvent};
 
 #[derive(Debug, Clone)]
@@ -99,9 +100,10 @@ impl EventSink for PostgresSink {
 
             sqlx::query(
                 "INSERT INTO raw_events
-                    (site_id, event_id, schema_version, event_type, occurred_at,
-                     received_at, path, url, title, referrer, payload)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                (site_id, event_id, schema_version, event_type, occurred_at,
+                     received_at, path, url, title, referrer, visitor_id,
+                     context_schema_version, payload)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::uuid, $12, $13)
                  ON CONFLICT (site_id, event_id) DO NOTHING",
             )
             .bind(stored.event.site_id)
@@ -114,6 +116,8 @@ impl EventSink for PostgresSink {
             .bind(stored.event.url)
             .bind(stored.event.title)
             .bind(stored.event.referrer)
+            .bind(stored.event.visitor_id)
+            .bind(stored.event.context_schema_version)
             .bind(stored.payload)
             .execute(&mut *transaction)
             .await?;
@@ -121,5 +125,19 @@ impl EventSink for PostgresSink {
 
         transaction.commit().await?;
         Ok(())
+    }
+}
+
+#[async_trait]
+impl FeatureFlagStore for PostgresSink {
+    async fn protocol_v2_enabled(&self, site_id: &str) -> Result<bool, FeatureFlagError> {
+        let enabled = sqlx::query_scalar::<_, bool>(
+            "SELECT protocol_v2_enabled FROM analytics_feature_flags WHERE site_id = $1",
+        )
+        .bind(site_id)
+        .fetch_optional(&self.pool)
+        .await?
+        .unwrap_or(false);
+        Ok(enabled)
     }
 }

@@ -1,12 +1,12 @@
 import { createPageViewEvent, type PageViewEventFactoryOptions } from "./event-factory";
 
 import type { NavigationEvent } from "@web-analytics/observer-core";
-import type { PageViewEvent } from "@web-analytics/protocol-ts";
+import type { AnalyticsEvent } from "@web-analytics/protocol-ts";
 
-export type BeforeSend = (event: PageViewEvent) => PageViewEvent | null;
+export type BeforeSend = (event: AnalyticsEvent) => AnalyticsEvent | null;
 
 export interface Transport {
-  sendBatch(events: readonly PageViewEvent[]): Promise<void>;
+  sendBatch(events: readonly AnalyticsEvent[]): Promise<void>;
 }
 
 export interface ProcessNavigationOptions extends PageViewEventFactoryOptions {
@@ -16,16 +16,16 @@ export interface ProcessNavigationOptions extends PageViewEventFactoryOptions {
 export function processNavigation(
   navigation: NavigationEvent,
   options: ProcessNavigationOptions,
-): PageViewEvent | null {
+): AnalyticsEvent | null {
   const event = createPageViewEvent(navigation, options);
 
   return processPageViewEvent(event, options.beforeSend);
 }
 
 export function processPageViewEvent(
-  event: PageViewEvent,
+  event: AnalyticsEvent,
   beforeSend?: BeforeSend,
-): PageViewEvent | null {
+): AnalyticsEvent | null {
   if (!beforeSend) {
     return event;
   }

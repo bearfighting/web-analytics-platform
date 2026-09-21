@@ -104,6 +104,12 @@ PHASE6_PROTOCOL_V2_ENABLED=false
 PHASE6_ANALYTICS_ENABLED=false
 ```
 
+PR1 起，Collector 的 Protocol V2 运行时 flag 以 PostgreSQL
+`analytics_feature_flags.protocol_v2_enabled` 为准；不存在的 site row 等同于关闭。
+上面的环境变量只表示部署默认值/总开关，不复制 Collector TOML site 列表，也不替代
+site-level 数据库配置。V1 请求不读取该表；V2 flag 关闭时返回统一的
+`invalid_event_batch`，不会自动降级为 V1。
+
 - flag 关闭时保持当前 V1 Collector 行为。
 - flag 开启后允许合法 V1 和 V2 Page View 混合接收。
 - V2 envelope、Visitor ID 和 context schema 在 Collector 层校验结构；字段级 unknown/非法 Context 值由 normalizer 处理，不拒绝整条事件。

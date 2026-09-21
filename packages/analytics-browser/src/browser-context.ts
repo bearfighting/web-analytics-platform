@@ -1,72 +1,78 @@
+import type { BrowserContextV1, ContextDimension } from "@web-analytics/protocol-ts";
+
 export interface BrowserContextProvider {
-  getContext(): Record<string, unknown>;
+  getContext(): BrowserContextV1;
 }
 
 const utmKeys = ["source", "medium", "campaign", "term", "content"] as const;
+const unknownDimension: ContextDimension = "unknown";
 
 export function createBrowserContextProvider(): BrowserContextProvider {
   return {
     getContext() {
-      if (typeof window === "undefined" || typeof navigator === "undefined") {
-        return {};
-      }
-
-      const context: Record<string, unknown> = {};
-      const add = (key: string, value: unknown) => {
-        if (value !== undefined && value !== null && value !== "") {
-          context[key] = value;
-        }
+      const context: BrowserContextV1 = {
+        language: "unknown",
+        timezone: "unknown",
+        viewport_width: unknownDimension,
+        viewport_height: unknownDimension,
+        screen_width: unknownDimension,
+        screen_height: unknownDimension,
+        user_agent: "unknown",
       };
-
+      if (typeof window === "undefined" || typeof navigator === "undefined") return context;
       try {
-        add("language", navigator.language);
+        if (navigator.language) context.language = navigator.language;
       } catch {
-        // Language detection is optional.
+        /* optional */
       }
-
       try {
-        add("user_agent", navigator.userAgent);
+        if (navigator.userAgent) context.user_agent = navigator.userAgent;
       } catch {
-        // User-agent detection is optional.
+        /* optional */
       }
-
       try {
-        add("timezone", Intl.DateTimeFormat().resolvedOptions().timeZone);
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (timezone) context.timezone = timezone;
       } catch {
-        // Timezone detection is optional.
+        /* optional */
       }
-
       try {
-        add("viewport_width", window.innerWidth);
+        if (Number.isFinite(window.innerWidth) && window.innerWidth >= 0)
+          context.viewport_width = window.innerWidth;
       } catch {
-        // Viewport width is optional.
+        /* optional */
       }
-
       try {
-        add("viewport_height", window.innerHeight);
+        if (Number.isFinite(window.innerHeight) && window.innerHeight >= 0)
+          context.viewport_height = window.innerHeight;
       } catch {
-        // Viewport height is optional.
+        /* optional */
       }
-
       try {
-        add("screen_width", window.screen?.width);
+        if (Number.isFinite(window.screen?.width) && window.screen.width >= 0)
+          context.screen_width = window.screen.width;
       } catch {
-        // Screen width is optional.
+        /* optional */
       }
-
       try {
-        add("screen_height", window.screen?.height);
+        if (Number.isFinite(window.screen?.height) && window.screen.height >= 0)
+          context.screen_height = window.screen.height;
       } catch {
-        // Screen height is optional.
+        /* optional */
       }
-
+      try {
+        if (document.referrer) context.referrer = document.referrer;
+      } catch {
+        /* optional */
+      }
       try {
         const params = new URL(window.location.href).searchParams;
         for (const key of utmKeys) {
-          add(`utm_${key}`, params.get(`utm_${key}`) ?? undefined);
+          const value = params.get(`utm_${key}`);
+          if (value) context[`utm_${key}`] = value;
         }
       } catch {
-        // Campaign parameters are optional.
+        /* optional */
       }
 
       return context;

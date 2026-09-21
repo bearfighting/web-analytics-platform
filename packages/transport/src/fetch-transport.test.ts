@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { FetchTransportError } from "./errors";
 import { FetchTransport } from "./fetch-transport";
 
-import type { PageViewEvent } from "@web-analytics/protocol-ts";
+import type { AnalyticsEvent, PageViewEvent } from "@web-analytics/protocol-ts";
 
 interface HttpFixture {
   request: {
@@ -36,6 +36,26 @@ function fixtureEvents(fixture: HttpFixture): readonly PageViewEvent[] {
   return (JSON.parse(fixture.request.body) as { events: PageViewEvent[] }).events;
 }
 
+const v2Event: AnalyticsEvent = {
+  schema_version: 2,
+  event_id: "01J00000000000000000000001",
+  type: "page_view",
+  site_id: "site_example",
+  occurred_at: 1760000000000,
+  path: "/v2",
+  visitor_id: "550e8400-e29b-41d4-a716-446655440000",
+  context_schema_version: 1,
+  context: {
+    language: "en-CA",
+    timezone: "unknown",
+    viewport_width: "unknown",
+    viewport_height: "unknown",
+    screen_width: "unknown",
+    screen_height: "unknown",
+    user_agent: "unknown",
+  },
+};
+
 function responseFor(fixture: HttpFixture): Response {
   return new Response(fixture.expected.body, {
     status: fixture.expected.status,
@@ -44,6 +64,21 @@ function responseFor(fixture: HttpFixture): Response {
 }
 
 describe("FetchTransport", () => {
+  it("splits mixed V1 and V2 events into versioned requests", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(responseFor(acceptedFixture));
+    const transport = new FetchTransport({
+      endpoint,
+      ingestKey: "public-key-example",
+      fetch: fetchMock,
+    });
+    await transport.sendBatch([...fixtureEvents(acceptedFixture), v2Event]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(
+      fetchMock.mock.calls.map(([, init]) => JSON.parse(String(init?.body)).schema_version),
+    ).toEqual([1, 2]);
+  });
+
   it("sends the canonical EventBatch request without manually setting Origin", async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(responseFor(acceptedFixture));
     const transport = new FetchTransport({

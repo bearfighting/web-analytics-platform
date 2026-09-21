@@ -1,13 +1,22 @@
+use async_trait::async_trait;
 use axum::{body::Body, body::to_bytes, http::Request};
+use chrono::{Duration, Utc};
 use collector::{
     config::CollectorConfig,
-    http::router,
+    feature_flags::{FeatureFlagError, FeatureFlagStore, StaticFeatureFlagStore},
+    http::{router, router_with_feature_flags},
     rate_limit::RateLimiter,
     security::KeyPolicy,
     sink::{EventSink, InMemorySink},
     validation::Validator,
 };
-use std::path::Path;
+use std::{
+    path::Path,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
+};
 use tower::ServiceExt;
 
 const VALID_EVENT: &str = r#"{"schema_version":1,"event_id":"01J00000000000000000000000","type":"page_view","site_id":"site_example","occurred_at":1760000000000,"path":"/about"}"#;
@@ -41,6 +50,174 @@ fn request(body: &str) -> Request<Body> {
         .header("x-ingest-key", "pr5-production-key")
         .body(Body::from(body.to_owned()))
         .expect("request should build")
+}
+
+#[derive(Clone)]
+struct CountingFeatureFlags {
+    calls: Arc<AtomicUsize>,
+}
+
+#[async_trait]
+impl FeatureFlagStore for CountingFeatureFlags {
+    async fn protocol_v2_enabled(&self, _site_id: &str) -> Result<bool, FeatureFlagError> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        Ok(true)
+    }
+}
+
+struct FailingFeatureFlags;
+
+#[async_trait]
+impl FeatureFlagStore for FailingFeatureFlags {
+    async fn protocol_v2_enabled(&self, _site_id: &str) -> Result<bool, FeatureFlagError> {
+        Err(FeatureFlagError::Database(sqlx::Error::RowNotFound))
+    }
+}
+
+fn app_with_flags<S, F>(sink: S, feature_flags: F) -> axum::Router
+where
+    S: EventSink + 'static,
+    F: FeatureFlagStore + 'static,
+{
+    let config_path =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/collector.pr5.toml");
+    let config = CollectorConfig::load_from_path(&config_path).expect("test config should load");
+    router_with_feature_flags(
+        Validator::new().expect("schemas should compile"),
+        sink,
+        KeyPolicy::new(config.registry().expect("test registry should build")),
+        RateLimiter::new(),
+        feature_flags,
+    )
+}
+
+fn enabled_app(sink: InMemorySink) -> axum::Router {
+    let config_path =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/collector.pr5.toml");
+    let config = CollectorConfig::load_from_path(&config_path).expect("test config should load");
+    router_with_feature_flags(
+        Validator::new().expect("schemas should compile"),
+        sink,
+        KeyPolicy::new(config.registry().expect("test registry should build")),
+        RateLimiter::new(),
+        StaticFeatureFlagStore::enabled(),
+    )
+}
+
+#[tokio::test]
+async fn external_request_test_accepts_enabled_v2_without_visitor_id() {
+    let sink = InMemorySink::new();
+    let response = enabled_app(sink.clone())
+        .oneshot(request(
+            r#"{"schema_version":2,"events":[{"schema_version":2,"event_id":"01J00000000000000000000001","type":"page_view","site_id":"site_example","occurred_at":1760000000000,"path":"/v2"}]}"#,
+        ))
+        .await
+        .expect("request should complete");
+
+    assert_eq!(response.status(), 202);
+    let stored = sink.snapshot().await;
+    assert_eq!(stored.len(), 1);
+    assert_eq!(stored[0].schema_version, 2);
+    assert_eq!(stored[0].visitor_id, None);
+}
+
+#[tokio::test]
+async fn external_request_test_rejects_v2_when_flag_is_disabled() {
+    let response = app(InMemorySink::new())
+        .oneshot(request(
+            r#"{"schema_version":2,"events":[{"schema_version":2,"event_id":"01J00000000000000000000007","type":"page_view","site_id":"site_example","occurred_at":1760000000000,"path":"/v2"}]}"#,
+        ))
+        .await
+        .expect("request should complete");
+
+    assert_eq!(response.status(), 400);
+    assert_eq!(
+        response_json(response).await["error"]["code"],
+        "invalid_event_batch"
+    );
+}
+
+#[tokio::test]
+async fn external_request_test_does_not_query_feature_flags_for_v1() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let response = app_with_flags(
+        InMemorySink::new(),
+        CountingFeatureFlags {
+            calls: calls.clone(),
+        },
+    )
+    .oneshot(request(&format!(
+        r#"{{"schema_version":1,"events":[{VALID_EVENT}]}}"#
+    )))
+    .await
+    .expect("request should complete");
+
+    assert_eq!(response.status(), 202);
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn external_request_test_returns_generic_error_when_v2_flag_lookup_fails() {
+    let response = app_with_flags(InMemorySink::new(), FailingFeatureFlags)
+        .oneshot(request(
+            r#"{"schema_version":2,"events":[{"schema_version":2,"type":"page_view","site_id":"site_example","occurred_at":1760000000000,"path":"/v2"}]}"#,
+        ))
+        .await
+        .expect("request should complete");
+
+    assert_eq!(response.status(), 500);
+    assert_eq!(
+        response_json(response).await["error"]["code"],
+        "collector_error"
+    );
+}
+
+#[tokio::test]
+async fn external_request_test_rejects_v2_events_more_than_five_minutes_ahead() {
+    let occurred_at = (Utc::now() + Duration::minutes(6)).timestamp_millis();
+    let body = serde_json::json!({
+        "schema_version": 2,
+        "events": [{
+            "schema_version": 2,
+            "event_id": "01J00000000000000000000005",
+            "type": "page_view",
+            "site_id": "site_example",
+            "occurred_at": occurred_at,
+            "path": "/future"
+        }]
+    });
+    let response = enabled_app(InMemorySink::new())
+        .oneshot(request(&body.to_string()))
+        .await
+        .expect("request should complete");
+
+    assert_eq!(response.status(), 400);
+    assert_eq!(
+        response_json(response).await["error"]["code"],
+        "invalid_occurred_at"
+    );
+}
+
+#[tokio::test]
+async fn external_request_test_accepts_v2_events_within_five_minutes() {
+    let occurred_at = (Utc::now() + Duration::minutes(4)).timestamp_millis();
+    let body = serde_json::json!({
+        "schema_version": 2,
+        "events": [{
+            "schema_version": 2,
+            "event_id": "01J00000000000000000000006",
+            "type": "page_view",
+            "site_id": "site_example",
+            "occurred_at": occurred_at,
+            "path": "/future"
+        }]
+    });
+    let response = enabled_app(InMemorySink::new())
+        .oneshot(request(&body.to_string()))
+        .await
+        .expect("request should complete");
+
+    assert_eq!(response.status(), 202);
 }
 
 async fn response_json(response: axum::response::Response) -> serde_json::Value {

@@ -37,7 +37,7 @@ async function validateSchemaFixtures(directory, expectedValid, label) {
     .sort()) {
     const path = resolve(directory, filename);
     const fixture = await readJson(path);
-    const validator = filename === "event-batch-v2.json" ? validateBatch : validateEvent;
+    const validator = filename.startsWith("event-batch") ? validateBatch : validateEvent;
     const valid = validator(fixture);
     assert(valid === expectedValid, `${label}/${filename}: unexpected schema result`);
     if (valid !== expectedValid) console.error(validator.errors ?? "no validation details");

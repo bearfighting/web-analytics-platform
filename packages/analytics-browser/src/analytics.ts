@@ -1,5 +1,5 @@
 import {
-  createPageViewEvent,
+  createPageViewEventV2,
   processPageViewEvent,
   type BeforeSend,
   type Transport,
@@ -7,12 +7,21 @@ import {
 
 import { createBrowserContextProvider, type BrowserContextProvider } from "./browser-context";
 import { getCurrentNavigation } from "./navigation";
+import {
+  createVisitorId,
+  createVisitorIdStore,
+  isCanonicalVisitorId,
+  type VisitorIdStore,
+} from "./visitor-id";
 
 import type { NavigationEvent, NavigationObserver } from "@web-analytics/observer-core";
-import type { PageViewEvent } from "@web-analytics/protocol-ts";
+import type { AnalyticsEvent, PageViewEventV2 } from "@web-analytics/protocol-ts";
+
+export type AnalyticsConsent = "denied" | "granted";
 
 export interface AnalyticsOptions {
   siteId: string;
+  consent?: AnalyticsConsent;
   transport?: Transport;
   beforeSend?: BeforeSend;
   contextProvider?: BrowserContextProvider;
@@ -22,6 +31,7 @@ export interface AnalyticsOptions {
   onBufferChange?: (bufferSize: number) => void;
   bufferSize?: number;
   flushIntervalMs?: number;
+  visitorIdStore?: VisitorIdStore;
 }
 
 export interface Analytics {
@@ -29,6 +39,8 @@ export interface Analytics {
   pageview(): void;
   flush(): Promise<void>;
   destroy(): void;
+  setConsent(consent: AnalyticsConsent): void;
+  getConsent(): AnalyticsConsent;
 }
 
 const noOpTransport: Transport = {
@@ -41,12 +53,14 @@ export function createAnalytics(options: AnalyticsOptions): Analytics {
   const now = options.now ?? Date.now;
   const subscriptions = new Set<() => void>();
   const pendingSends = new Set<Promise<void>>();
-  const buffer: PageViewEvent[] = [];
+  const buffer: AnalyticsEvent[] = [];
   const settledErrors: unknown[] = [];
   const bufferSize = normalizePositiveInteger(options.bufferSize, 20);
   const flushIntervalMs = normalizePositiveInteger(options.flushIntervalMs, 5000);
   let flushTimer: ReturnType<typeof setInterval> | undefined;
   let destroyed = false;
+  let consent: AnalyticsConsent = options.consent ?? "denied";
+  const visitorIdStore = options.visitorIdStore ?? createVisitorIdStore(options.siteId);
 
   const notifyBufferChange = () => {
     try {
@@ -78,9 +92,19 @@ export function createAnalytics(options: AnalyticsOptions): Analytics {
     );
   };
 
-  const sendBatch = (events: PageViewEvent[]) => {
+  const sendBatch = (events: AnalyticsEvent[]) => {
+    const refreshed = events.map((event) => {
+      if (event.schema_version !== 2) return event;
+      const visitorId = visitorIdStore.read();
+      if (visitorId && isCanonicalVisitorId(visitorId)) return { ...event, visitor_id: visitorId };
+      const withoutVisitorId = { ...event } as PageViewEventV2;
+
+      delete withoutVisitorId.visitor_id;
+
+      return withoutVisitorId;
+    });
     try {
-      trackSend(Promise.resolve(transport.sendBatch(events)));
+      trackSend(Promise.resolve(transport.sendBatch(refreshed)));
     } catch (error) {
       reportError(error);
     }
@@ -104,7 +128,7 @@ export function createAnalytics(options: AnalyticsOptions): Analytics {
     flushTimer = setInterval(flushBuffer, flushIntervalMs);
   };
 
-  const enqueue = (event: PageViewEvent) => {
+  const enqueue = (event: AnalyticsEvent) => {
     buffer.push(event);
     notifyBufferChange();
 
@@ -114,23 +138,27 @@ export function createAnalytics(options: AnalyticsOptions): Analytics {
   };
 
   const handleNavigation = (navigation: NavigationEvent, occurredAt?: number) => {
-    if (destroyed) {
+    if (destroyed || consent !== "granted") {
       return;
     }
 
     try {
-      const baseEvent = createPageViewEvent(navigation, {
+      const visitorId = createVisitorId(visitorIdStore);
+      const event = createPageViewEventV2(navigation, {
         siteId: options.siteId,
+        visitorId: visitorId ?? undefined,
+        context: normalizeContext(contextProvider.getContext()),
         createEventId: options.createEventId,
         now: occurredAt === undefined ? options.now : () => occurredAt,
       });
-      const context = contextProvider.getContext();
-      const event: PageViewEvent =
-        Object.keys(context).length === 0 ? baseEvent : { ...baseEvent, context };
       const processed = processPageViewEvent(event, options.beforeSend);
 
       if (processed === null) {
         return;
+      }
+
+      if (processed.schema_version !== event.schema_version) {
+        throw new TypeError("beforeSend must preserve schema_version");
       }
 
       enqueue(processed);
@@ -162,7 +190,7 @@ export function createAnalytics(options: AnalyticsOptions): Analytics {
     },
 
     pageview() {
-      if (destroyed) {
+      if (destroyed || consent !== "granted") {
         return;
       }
       ensureFlushTimer();
@@ -170,6 +198,22 @@ export function createAnalytics(options: AnalyticsOptions): Analytics {
       if (navigation) {
         handleNavigation(navigation, navigation.occurredAt);
       }
+    },
+
+    setConsent(nextConsent) {
+      if (destroyed || consent === nextConsent) return;
+      consent = nextConsent;
+      if (consent === "denied") {
+        buffer.splice(0, buffer.length);
+        notifyBufferChange();
+        visitorIdStore.remove();
+      } else {
+        ensureFlushTimer();
+      }
+    },
+
+    getConsent() {
+      return consent;
     },
 
     async flush() {
@@ -202,4 +246,43 @@ export function createAnalytics(options: AnalyticsOptions): Analytics {
 
 function normalizePositiveInteger(value: number | undefined, fallback: number): number {
   return value !== undefined && Number.isInteger(value) && value > 0 ? value : fallback;
+}
+
+function normalizeContext(
+  value: import("@web-analytics/protocol-ts").BrowserContextV1,
+): import("@web-analytics/protocol-ts").BrowserContextV1 {
+  const source = value as unknown as Record<string, unknown>;
+  const dimension = (candidate: unknown) =>
+    typeof candidate === "number" && Number.isFinite(candidate) && candidate >= 0
+      ? candidate
+      : ("unknown" as const);
+  const text = (candidate: unknown, maxLength: number) =>
+    typeof candidate === "string" && candidate.length > 0 && candidate.length <= maxLength
+      ? candidate
+      : "unknown";
+  const context: import("@web-analytics/protocol-ts").BrowserContextV1 = {
+    language: text(source.language, 64),
+    timezone: text(source.timezone, 64),
+    viewport_width: dimension(source.viewport_width),
+    viewport_height: dimension(source.viewport_height),
+    screen_width: dimension(source.screen_width),
+    screen_height: dimension(source.screen_height),
+    user_agent: text(source.user_agent, 1024),
+  };
+  for (const key of [
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+    "utm_term",
+    "utm_content",
+    "referrer",
+  ] as const) {
+    const candidate = source[key];
+    const maxLength = key === "referrer" ? 4096 : 256;
+    if (typeof candidate === "string" && candidate.length > 0 && candidate.length <= maxLength) {
+      context[key] = candidate;
+    }
+  }
+
+  return context;
 }

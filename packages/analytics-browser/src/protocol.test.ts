@@ -7,26 +7,36 @@ import { describe, expect, it } from "vitest";
 
 import { createAnalytics } from "./analytics";
 
-import type { PageViewEvent } from "@web-analytics/protocol-ts";
+import type { AnalyticsEvent } from "@web-analytics/protocol-ts";
 
 interface MockTransport {
-  batches: PageViewEvent[][];
-  sendBatch(events: readonly PageViewEvent[]): Promise<void>;
+  batches: AnalyticsEvent[][];
+  sendBatch(events: readonly AnalyticsEvent[]): Promise<void>;
 }
 
 async function loadPageViewValidator() {
   const schemaUrl = new URL(
-    "../../../protocol/schemas/page-view-event.schema.json",
+    "../../../protocol/phase-5/contract/schemas/page-view-event-v2.schema.json",
     import.meta.url,
   );
   const schema = JSON.parse(await readFile(schemaUrl, "utf8"));
+  const contextSchema = JSON.parse(
+    await readFile(
+      new URL(
+        "../../../protocol/phase-5/contract/schemas/browser-context-v1.schema.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
   const ajv = new Ajv2020({ allErrors: true, strict: true });
   addFormats(ajv);
+  ajv.addSchema(contextSchema);
 
   return ajv.compile(schema);
 }
 
-describe("generated Protocol V1 events", () => {
+describe("generated Protocol V2 events", () => {
   it("validate with the canonical page-view schema", async () => {
     const transport: MockTransport = {
       batches: [],
@@ -36,10 +46,10 @@ describe("generated Protocol V1 events", () => {
     };
     const analytics = createAnalytics({
       siteId: "site_example",
+      consent: "granted",
       transport,
       createEventId: () => "01J00000000000000000000003",
       now: () => 203,
-      contextProvider: { getContext: () => ({ language: "en-CA" }) },
     });
     const observer = new MemoryNavigationObserver();
     analytics.observe(observer);

@@ -18,6 +18,7 @@
     "url": { "type": "string", "format": "uri", "maxLength": 4096 },
     "title": { "type": "string", "maxLength": 512 },
     "referrer": { "type": "string", "format": "uri-reference", "maxLength": 4096 },
+    "session_id": false,
     "context": { "$ref": "browser-context-v1.schema.json" }
   },
   "required": ["schema_version", "event_id", "type", "site_id", "occurred_at", "path"],

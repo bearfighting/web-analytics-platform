@@ -20,6 +20,8 @@ pub struct PageViewEvent {
     pub title: Option<String>,
     pub referrer: Option<String>,
     pub context: Option<Value>,
+    pub visitor_id: Option<String>,
+    pub context_schema_version: Option<i32>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

@@ -9,6 +9,7 @@ use crate::protocol::PageViewEvent;
 
 #[derive(Debug, Clone)]
 pub struct ValidatedBatch {
+    pub schema_version: u8,
     pub events: Vec<ValidatedEvent>,
 }
 
@@ -21,6 +22,12 @@ pub struct ValidatedEvent {
 const EVENT_BATCH_SCHEMA: &str = include_str!("../../../protocol/schemas/event-batch.schema.json");
 const PAGE_VIEW_SCHEMA: &str =
     include_str!("../../../protocol/schemas/page-view-event.schema.json");
+const EVENT_BATCH_V2_SCHEMA: &str =
+    include_str!("../../../protocol/phase-5/contract/schemas/event-batch-v2.schema.json");
+const PAGE_VIEW_V2_SCHEMA: &str =
+    include_str!("../../../protocol/phase-5/contract/schemas/page-view-event-v2.schema.json");
+const CONTEXT_V2_SCHEMA: &str =
+    include_str!("../../../protocol/phase-5/contract/schemas/browser-context-v1.schema.json");
 
 #[derive(Debug, Error)]
 pub enum ValidationError {
@@ -34,9 +41,10 @@ pub enum ValidationError {
 
 #[derive(Debug)]
 pub struct Validator {
-    batch: JSONSchema,
-    #[allow(dead_code)]
-    event: JSONSchema,
+    batch_v1: JSONSchema,
+    event_v1: JSONSchema,
+    batch_v2: JSONSchema,
+    event_v2: JSONSchema,
 }
 
 impl Validator {
@@ -45,26 +53,65 @@ impl Validator {
             serde_json::from_str(EVENT_BATCH_SCHEMA).map_err(ValidationError::BatchSchema)?;
         let page_view_schema: Value =
             serde_json::from_str(PAGE_VIEW_SCHEMA).map_err(ValidationError::PageViewSchema)?;
+        let batch_v2_schema: Value =
+            serde_json::from_str(EVENT_BATCH_V2_SCHEMA).map_err(ValidationError::BatchSchema)?;
+        let page_view_v2_schema: Value =
+            serde_json::from_str(PAGE_VIEW_V2_SCHEMA).map_err(ValidationError::PageViewSchema)?;
+        let context_v2_schema: Value =
+            serde_json::from_str(CONTEXT_V2_SCHEMA).map_err(ValidationError::PageViewSchema)?;
 
-        let batch = JSONSchema::options()
+        let batch_v1 = JSONSchema::options()
             .with_draft(Draft::Draft202012)
             .should_validate_formats(true)
             .with_resolver(EmbeddedResolver {
                 page_view_schema: page_view_schema.clone(),
+                context_schema: None,
             })
             .compile(&batch_schema)
             .map_err(|error| ValidationError::Compile(error.to_string()))?;
-        let event = JSONSchema::options()
+        let event_v1 = JSONSchema::options()
             .with_draft(Draft::Draft202012)
             .should_validate_formats(true)
             .compile(&page_view_schema)
             .map_err(|error| ValidationError::Compile(error.to_string()))?;
+        let batch_v2 = JSONSchema::options()
+            .with_draft(Draft::Draft202012)
+            .should_validate_formats(true)
+            .with_resolver(EmbeddedResolver {
+                page_view_schema: page_view_v2_schema.clone(),
+                context_schema: Some(context_v2_schema.clone()),
+            })
+            .compile(&batch_v2_schema)
+            .map_err(|error| ValidationError::Compile(error.to_string()))?;
+        let event_v2 = JSONSchema::options()
+            .with_draft(Draft::Draft202012)
+            .should_validate_formats(true)
+            .with_resolver(EmbeddedResolver {
+                page_view_schema: page_view_v2_schema,
+                context_schema: Some(context_v2_schema),
+            })
+            .compile(&page_view_v2_schema_for_compile())
+            .map_err(|error| ValidationError::Compile(error.to_string()))?;
 
-        Ok(Self { batch, event })
+        Ok(Self {
+            batch_v1,
+            event_v1,
+            batch_v2,
+            event_v2,
+        })
     }
 
     pub fn validate(&self, value: &Value) -> Result<ValidatedBatch, Vec<String>> {
-        if let Err(errors) = self.batch.validate(value) {
+        let schema_version = value
+            .get("schema_version")
+            .and_then(Value::as_u64)
+            .unwrap_or(0) as u8;
+        let validator = if schema_version == 2 {
+            &self.batch_v2
+        } else {
+            &self.batch_v1
+        };
+        if let Err(errors) = validator.validate(value) {
             return Err(errors.map(|error| error.to_string()).collect());
         }
 
@@ -83,13 +130,23 @@ impl Validator {
         }
 
         Ok(ValidatedBatch {
+            schema_version,
             events: validated_events,
         })
     }
 
     #[allow(dead_code)]
     pub fn validate_event(&self, value: &Value) -> Result<PageViewEvent, Vec<String>> {
-        if let Err(errors) = self.event.validate(value) {
+        let schema_version = value
+            .get("schema_version")
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
+        let validator = if schema_version == 2 {
+            &self.event_v2
+        } else {
+            &self.event_v1
+        };
+        if let Err(errors) = validator.validate(value) {
             return Err(errors.map(|error| error.to_string()).collect());
         }
 
@@ -99,6 +156,7 @@ impl Validator {
 
 struct EmbeddedResolver {
     page_view_schema: Value,
+    context_schema: Option<Value>,
 }
 
 impl SchemaResolver for EmbeddedResolver {
@@ -109,12 +167,25 @@ impl SchemaResolver for EmbeddedResolver {
         _original_reference: &str,
     ) -> Result<Arc<Value>, SchemaResolverError> {
         if url.as_str() == "https://web-analytics-platform.dev/schemas/page-view-event.schema.json"
+            || url.as_str()
+                == "https://web-analytics-platform.dev/schemas/phase-5/page-view-event-v2.schema.json"
         {
             return Ok(Arc::new(self.page_view_schema.clone()));
+        }
+        if url.as_str()
+            == "https://web-analytics-platform.dev/schemas/phase-5/browser-context-v1.schema.json"
+            && let Some(schema) = &self.context_schema
+        {
+            return Ok(Arc::new(schema.clone()));
         }
 
         Err(anyhow::anyhow!("embedded schema not found: {url}"))
     }
+}
+
+fn page_view_v2_schema_for_compile() -> Value {
+    serde_json::from_str(PAGE_VIEW_V2_SCHEMA)
+        .expect("embedded V2 page view schema should be valid JSON")
 }
 
 #[cfg(test)]
@@ -126,62 +197,78 @@ mod tests {
     #[test]
     fn canonical_valid_fixtures_are_accepted() {
         let validator = Validator::new().expect("embedded schemas should compile");
-        let directory = fixture_directory("valid");
+        let directories = [
+            fixture_directory("valid"),
+            phase5_fixture_directory("valid"),
+        ];
 
-        for entry in fs::read_dir(directory).expect("valid fixture directory should exist") {
-            let path = entry.expect("fixture entry should be readable").path();
-            if path.extension().and_then(|value| value.to_str()) != Some("json") {
-                continue;
+        for directory in directories {
+            for entry in fs::read_dir(directory).expect("valid fixture directory should exist") {
+                let path = entry.expect("fixture entry should be readable").path();
+                if path.extension().and_then(|value| value.to_str()) != Some("json") {
+                    continue;
+                }
+
+                let value: serde_json::Value = serde_json::from_str(
+                    &fs::read_to_string(&path).expect("fixture should be readable"),
+                )
+                .expect("valid fixture should be JSON");
+                let result = if value.get("event_id").is_some() {
+                    validator.validate_event(&value).map(|_| ())
+                } else {
+                    validator.validate(&value).map(|_| ())
+                };
+                assert!(
+                    result.is_ok(),
+                    "valid fixture should pass: {}",
+                    path.display()
+                );
             }
-
-            let value: serde_json::Value = serde_json::from_str(
-                &fs::read_to_string(&path).expect("fixture should be readable"),
-            )
-            .expect("valid fixture should be JSON");
-            let result = if value.get("event_id").is_some() {
-                validator.validate_event(&value).map(|_| ())
-            } else {
-                validator.validate(&value).map(|_| ())
-            };
-            assert!(
-                result.is_ok(),
-                "valid fixture should pass: {}",
-                path.display()
-            );
         }
     }
 
     #[test]
     fn canonical_invalid_fixtures_are_rejected() {
         let validator = Validator::new().expect("embedded schemas should compile");
-        let directory = fixture_directory("invalid");
+        let directories = [
+            fixture_directory("invalid"),
+            phase5_fixture_directory("invalid"),
+        ];
 
-        for entry in fs::read_dir(directory).expect("invalid fixture directory should exist") {
-            let path = entry.expect("fixture entry should be readable").path();
-            if path.extension().and_then(|value| value.to_str()) != Some("json") {
-                continue;
+        for directory in directories {
+            for entry in fs::read_dir(directory).expect("invalid fixture directory should exist") {
+                let path = entry.expect("fixture entry should be readable").path();
+                if path.extension().and_then(|value| value.to_str()) != Some("json") {
+                    continue;
+                }
+
+                let value: serde_json::Value = serde_json::from_str(
+                    &fs::read_to_string(&path).expect("fixture should be readable"),
+                )
+                .expect("invalid fixture should still be JSON");
+                let result = if value.get("event_id").is_some() {
+                    validator.validate_event(&value).map(|_| ())
+                } else {
+                    validator.validate(&value).map(|_| ())
+                };
+                assert!(
+                    result.is_err(),
+                    "invalid fixture should fail: {}",
+                    path.display()
+                );
             }
-
-            let value: serde_json::Value = serde_json::from_str(
-                &fs::read_to_string(&path).expect("fixture should be readable"),
-            )
-            .expect("invalid fixture should still be JSON");
-            let result = if value.get("event_id").is_some() {
-                validator.validate_event(&value).map(|_| ())
-            } else {
-                validator.validate(&value).map(|_| ())
-            };
-            assert!(
-                result.is_err(),
-                "invalid fixture should fail: {}",
-                path.display()
-            );
         }
     }
 
     fn fixture_directory(kind: &str) -> std::path::PathBuf {
         std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../protocol/fixtures")
+            .join(kind)
+    }
+
+    fn phase5_fixture_directory(kind: &str) -> std::path::PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../protocol/phase-5/fixtures")
             .join(kind)
     }
 }

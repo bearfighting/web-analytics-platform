@@ -1,7 +1,7 @@
 import { FetchTransportError } from "./errors";
 
 import type { Transport } from "@web-analytics/analytics-core";
-import type { PageViewEvent } from "@web-analytics/protocol-ts";
+import type { AnalyticsEvent } from "@web-analytics/protocol-ts";
 
 export interface FetchTransportOptions {
   endpoint: string;
@@ -32,51 +32,52 @@ export class FetchTransport implements Transport {
     this.injectedFetch = options.fetch;
   }
 
-  async sendBatch(events: readonly PageViewEvent[]): Promise<void> {
+  async sendBatch(events: readonly AnalyticsEvent[]): Promise<void> {
     if (events.length === 0) {
       return;
     }
 
-    let response: Response;
-    try {
-      const request = {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Ingest-Key": this.ingestKey,
-        },
-        body: JSON.stringify({
-          schema_version: 1,
-          events: [...events],
-        }),
-      };
-      response = await (this.injectedFetch
-        ? this.injectedFetch(this.endpoint, request)
-        : globalThis.fetch(this.endpoint, request));
-    } catch (cause) {
-      throw new FetchTransportError(`Fetch request failed: ${errorMessage(cause)}`, {
-        kind: "network",
-        cause,
+    const versions = [1, 2].filter((version) =>
+      events.some((event) => event.schema_version === version),
+    );
+    for (const version of versions) {
+      const versionEvents = events.filter((event) => event.schema_version === version);
+      let response: Response;
+      try {
+        const request = {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Ingest-Key": this.ingestKey,
+          },
+          body: JSON.stringify({ schema_version: version, events: versionEvents }),
+        };
+        response = await (this.injectedFetch
+          ? this.injectedFetch(this.endpoint, request)
+          : globalThis.fetch(this.endpoint, request));
+      } catch (cause) {
+        throw new FetchTransportError(`Fetch request failed: ${errorMessage(cause)}`, {
+          kind: "network",
+          cause,
+        });
+      }
+
+      if (response.status === 202) continue;
+
+      const body = await readErrorBody(response);
+      const code = typeof body?.error?.code === "string" ? body.error.code : undefined;
+      const message =
+        typeof body?.error?.message === "string"
+          ? body.error.message
+          : `Collector returned HTTP ${response.status}`;
+
+      throw new FetchTransportError(message, {
+        kind: code ? "collector" : "http",
+        status: response.status,
+        code,
+        retryAfter: response.headers.get("retry-after") ?? undefined,
       });
     }
-
-    if (response.status === 202) {
-      return;
-    }
-
-    const body = await readErrorBody(response);
-    const code = typeof body?.error?.code === "string" ? body.error.code : undefined;
-    const message =
-      typeof body?.error?.message === "string"
-        ? body.error.message
-        : `Collector returned HTTP ${response.status}`;
-
-    throw new FetchTransportError(message, {
-      kind: code ? "collector" : "http",
-      status: response.status,
-      code,
-      retryAfter: response.headers.get("retry-after") ?? undefined,
-    });
   }
 }
 

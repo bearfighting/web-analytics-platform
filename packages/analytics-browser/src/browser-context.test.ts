@@ -30,8 +30,13 @@ describe("createBrowserContextProvider", () => {
     });
   });
 
-  it("returns an empty context without browser globals", () => {
-    expect(createBrowserContextProvider().getContext()).toEqual({});
+  it("returns unknown values without browser globals", () => {
+    expect(createBrowserContextProvider().getContext()).toMatchObject({
+      language: "unknown",
+      timezone: "unknown",
+      viewport_width: "unknown",
+      user_agent: "unknown",
+    });
   });
 
   it("omits only browser fields whose APIs fail", () => {
@@ -58,7 +63,9 @@ describe("createBrowserContextProvider", () => {
       viewport_height: 800,
       screen_height: 1080,
     });
-    expect(createBrowserContextProvider().getContext()).not.toHaveProperty("viewport_width");
-    expect(createBrowserContextProvider().getContext()).not.toHaveProperty("user_agent");
+    expect(createBrowserContextProvider().getContext()).toMatchObject({
+      viewport_width: "unknown",
+      user_agent: "unknown",
+    });
   });
 });

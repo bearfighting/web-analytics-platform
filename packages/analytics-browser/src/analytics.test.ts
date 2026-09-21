@@ -1,13 +1,13 @@
 import { MemoryNavigationObserver } from "@web-analytics/observer-core";
 import { describe, expect, it, vi } from "vitest";
 
-import { createAnalytics } from "./analytics";
+import { createAnalytics as createAnalyticsImpl, type AnalyticsOptions } from "./analytics";
 
 import type { Transport } from "@web-analytics/analytics-core";
-import type { PageViewEvent } from "@web-analytics/protocol-ts";
+import type { AnalyticsEvent } from "@web-analytics/protocol-ts";
 
 class MockTransport implements Transport {
-  batches: PageViewEvent[][] = [];
+  batches: AnalyticsEvent[][] = [];
 
   async sendBatch(events: Parameters<Transport["sendBatch"]>[0]) {
     this.batches.push([...events]);
@@ -23,7 +23,75 @@ const navigation = {
   occurredAt: 100,
 };
 
+const createAnalytics = (options: AnalyticsOptions) =>
+  createAnalyticsImpl({ consent: "granted", ...options });
+
+const unknownContextProvider = {
+  getContext: () => ({
+    language: "unknown",
+    timezone: "unknown",
+    viewport_width: "unknown" as const,
+    viewport_height: "unknown" as const,
+    screen_width: "unknown" as const,
+    screen_height: "unknown" as const,
+    user_agent: "unknown",
+  }),
+};
+
 describe("createAnalytics", () => {
+  it("defaults to denied and ignores page views", async () => {
+    const transport = new MockTransport();
+    const analytics = createAnalyticsImpl({ siteId: "site_example", transport });
+    const observer = new MemoryNavigationObserver();
+    analytics.observe(observer);
+    observer.emit(navigation);
+    analytics.pageview();
+    await analytics.flush();
+    expect(transport.batches).toHaveLength(0);
+  });
+
+  it("revoking consent clears pending events and removes the visitor id", async () => {
+    const transport = new MockTransport();
+    const store = {
+      value: "550e8400-e29b-41d4-a716-446655440000" as string | null,
+      read() {
+        return this.value;
+      },
+      write(value: string) {
+        this.value = value;
+
+        return true;
+      },
+      remove() {
+        this.value = null;
+      },
+    };
+    const analytics = createAnalyticsImpl({
+      siteId: "site_example",
+      consent: "granted",
+      transport,
+      visitorIdStore: store,
+      contextProvider: {
+        getContext: () => ({
+          language: "en-CA",
+          timezone: "unknown",
+          viewport_width: "unknown",
+          viewport_height: "unknown",
+          screen_width: "unknown",
+          screen_height: "unknown",
+          user_agent: "unknown",
+        }),
+      },
+    });
+    const observer = new MemoryNavigationObserver();
+    analytics.observe(observer);
+    observer.emit(navigation);
+    analytics.setConsent("denied");
+    await analytics.flush();
+    expect(store.value).toBeNull();
+    expect(transport.batches).toHaveLength(0);
+  });
+
   it("creates a manual page view from the browser location", async () => {
     vi.stubGlobal("window", {
       location: { href: "https://example.test/manual?utm_source=test", pathname: "/manual" },
@@ -39,7 +107,7 @@ describe("createAnalytics", () => {
       transport,
       createEventId: () => "01J00000000000000000000002",
       now: clock,
-      contextProvider: { getContext: () => ({}) },
+      contextProvider: unknownContextProvider,
     });
 
     analytics.pageview();
@@ -63,7 +131,12 @@ describe("createAnalytics", () => {
       transport,
       createEventId: () => "01J00000000000000000000000",
       now: () => 200,
-      contextProvider: { getContext: () => ({ language: "en-CA" }) },
+      contextProvider: {
+        getContext: () => ({
+          ...unknownContextProvider.getContext(),
+          language: "en-CA",
+        }),
+      },
     });
     const observer = new MemoryNavigationObserver();
 
@@ -74,7 +147,7 @@ describe("createAnalytics", () => {
     expect(transport.batches).toEqual([
       [
         {
-          schema_version: 1,
+          schema_version: 2,
           event_id: "01J00000000000000000000000",
           type: "page_view",
           site_id: "site_example",
@@ -83,10 +156,54 @@ describe("createAnalytics", () => {
           path: navigation.path,
           title: navigation.title,
           referrer: navigation.referrer,
-          context: { language: "en-CA" },
+          context_schema_version: 1,
+          context: {
+            language: "en-CA",
+            timezone: "unknown",
+            viewport_width: "unknown",
+            viewport_height: "unknown",
+            screen_width: "unknown",
+            screen_height: "unknown",
+            user_agent: "unknown",
+          },
         },
       ],
     ]);
+  });
+
+  it("maps invalid and oversized context values to unknown or omission", async () => {
+    const transport = new MockTransport();
+    const analytics = createAnalytics({
+      siteId: "site_example",
+      transport,
+      contextProvider: {
+        getContext: () => ({
+          language: "x".repeat(65),
+          timezone: "unknown",
+          viewport_width: -1,
+          viewport_height: "unknown" as const,
+          screen_width: "unknown" as const,
+          screen_height: "unknown" as const,
+          user_agent: "x".repeat(1025),
+          utm_source: "x".repeat(257),
+          referrer: "x".repeat(4097),
+        }),
+      },
+    });
+    const observer = new MemoryNavigationObserver();
+    analytics.observe(observer);
+    observer.emit(navigation);
+    await analytics.flush();
+
+    expect(transport.batches[0]?.[0]).toMatchObject({
+      context: {
+        language: "unknown",
+        viewport_width: "unknown",
+        user_agent: "unknown",
+      },
+    });
+    expect(transport.batches[0]?.[0]).not.toHaveProperty("context.utm_source");
+    expect(transport.batches[0]?.[0]).not.toHaveProperty("context.referrer");
   });
 
   it("supports beforeSend modification and dropping", async () => {
@@ -97,7 +214,7 @@ describe("createAnalytics", () => {
       beforeSend: (event) => ({ ...event, title: "Changed" }),
       createEventId: () => "01J00000000000000000000001",
       now: () => 201,
-      contextProvider: { getContext: () => ({}) },
+      contextProvider: unknownContextProvider,
     });
     const observer = new MemoryNavigationObserver();
     analytics.observe(observer);
@@ -109,7 +226,7 @@ describe("createAnalytics", () => {
       siteId: "site_example",
       transport,
       beforeSend: () => null,
-      contextProvider: { getContext: () => ({}) },
+      contextProvider: unknownContextProvider,
     });
     const droppedObserver = new MemoryNavigationObserver();
     dropped.observe(droppedObserver);
@@ -193,7 +310,7 @@ describe("createAnalytics", () => {
       siteId: "site_example",
       transport,
       flushIntervalMs: 5000,
-      contextProvider: { getContext: () => ({}) },
+      contextProvider: unknownContextProvider,
     });
     const observer = new MemoryNavigationObserver();
     analytics.observe(observer);
@@ -219,7 +336,7 @@ describe("createAnalytics", () => {
       siteId: "site_example",
       transport,
       bufferSize: 2,
-      contextProvider: { getContext: () => ({}) },
+      contextProvider: unknownContextProvider,
     });
     const observer = new MemoryNavigationObserver();
     analytics.observe(observer);
@@ -239,12 +356,12 @@ describe("createAnalytics", () => {
     const firstAnalytics = createAnalytics({
       siteId: "site_first",
       transport: firstTransport,
-      contextProvider: { getContext: () => ({}) },
+      contextProvider: unknownContextProvider,
     });
     const secondAnalytics = createAnalytics({
       siteId: "site_second",
       transport: secondTransport,
-      contextProvider: { getContext: () => ({}) },
+      contextProvider: unknownContextProvider,
     });
     const firstObserver = new MemoryNavigationObserver();
     const secondObserver = new MemoryNavigationObserver();
@@ -273,7 +390,7 @@ describe("createAnalytics", () => {
       siteId: "site_example",
       transport,
       onBufferChange,
-      contextProvider: { getContext: () => ({}) },
+      contextProvider: unknownContextProvider,
     });
     const observer = new MemoryNavigationObserver();
 
@@ -299,7 +416,7 @@ describe("createAnalytics", () => {
     const analytics = createAnalytics({
       siteId: "site_example",
       transport,
-      contextProvider: { getContext: () => ({}) },
+      contextProvider: unknownContextProvider,
     });
     const observer = new MemoryNavigationObserver();
 
