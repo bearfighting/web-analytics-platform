@@ -201,7 +201,7 @@ dimension_daily
 - page_views, unique_visitors, sessions
 
 analytics_watermarks
-- site_id, source_name, processed_received_watermark
+- site_id, generation_id nullable, source_name, processed_received_watermark
 ```
 
 `data_as_of` 取构成本次 response 的所有 source watermark 的最小值。没有匹配输入时为 `null`。API 只能读取 active generation，并且不能把较新的 Page View watermark 与较旧的 Visitor/Session generation 假装成同一 freshness。
@@ -348,6 +348,8 @@ dimension_event_facts
 
 Phase 6 PR1 必须先新增 ADR 选择具体 parser 库、版本和升级策略。在该 ADR 合并前，不能将 parser 结果作为稳定生产指标。
 
+PR1 已通过 [ADR-006](decisions/ADR-006-user-agent-parser.md) 锁定 Rust `woothee` crate `0.13.0`，生产 parser version 为 `woothee-0.13.0`。PR1 只锁定决策和 migration metadata，不实现正式 Parser adapter；adapter 在 PR3 实现。
+
 实现必须提供以下接口边界：
 
 ```text
@@ -462,9 +464,8 @@ Rollback 顺序：
 
 ### PR1 — Migration and Parser Decision
 
-- 新增本设计文档和 parser ADR。
+- 新增 parser ADR，锁定 `woothee 0.13.0`、parser version 和分类结果。
 - 实现 additive migration、watermark/generation metadata 和回滚开关。
-- 锁定 User-Agent parser 库、版本和分类结果。
 - 不启用新 API，不切换 Dashboard。
 
 ### PR2 — Browser Visitor ID and Protocol V2

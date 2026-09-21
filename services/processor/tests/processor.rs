@@ -56,6 +56,78 @@ async fn insert_raw_event(
     .expect("raw event should be insertable");
 }
 
+async fn cleanup_phase6_metadata(pool: &PgPool) {
+    for table in [
+        "analytics_watermarks",
+        "analytics_generations",
+        "analytics_feature_flags",
+    ] {
+        sqlx::query(&format!("DELETE FROM {table}"))
+            .execute(pool)
+            .await
+            .expect("phase 6 metadata should be cleanable");
+    }
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL; run pnpm test:integration"]
+async fn rollback_generation_is_atomic_and_selects_only_retired_targets() {
+    let (processor, pool) = setup().await;
+    cleanup_phase6_metadata(&pool).await;
+
+    let active_generation = "00000000-0000-4000-8000-000000000011";
+    let retired_generation = "00000000-0000-4000-8000-000000000012";
+    sqlx::query(
+        "INSERT INTO analytics_generations
+            (generation_id, site_id, aggregation_version, parser_version,
+             rebuild_reason, status)
+         VALUES
+            ($1::uuid, 'site_processor', 1, 'woothee-0.13.0', 'initial', 'active'),
+            ($2::uuid, 'site_processor', 1, 'woothee-0.13.0', 'backfill', 'retired')",
+    )
+    .bind(active_generation)
+    .bind(retired_generation)
+    .execute(&pool)
+    .await
+    .expect("rollback generations should be insertable");
+
+    processor
+        .rollback_generation("site_processor", retired_generation)
+        .await
+        .expect("retired generation should become active");
+
+    let statuses = sqlx::query(
+        "SELECT generation_id::text AS generation_id, status
+         FROM analytics_generations
+         WHERE site_id = 'site_processor'
+         ORDER BY generation_id",
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("generation statuses should be queryable");
+    assert_eq!(statuses.len(), 2);
+    assert_eq!(statuses[0].get::<String, _>("status"), "retired");
+    assert_eq!(statuses[1].get::<String, _>("status"), "active");
+
+    let result = processor
+        .rollback_generation("site_processor", retired_generation)
+        .await;
+    assert!(result.is_err());
+
+    let active_count = sqlx::query(
+        "SELECT COUNT(*) AS count
+         FROM analytics_generations
+         WHERE site_id = 'site_processor' AND status = 'active'",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("active generation count should be queryable")
+    .get::<i64, _>("count");
+    assert_eq!(active_count, 1);
+
+    cleanup_phase6_metadata(&pool).await;
+}
+
 #[tokio::test]
 #[ignore = "requires PostgreSQL; run pnpm test:integration"]
 async fn processes_daily_routes_and_totals_atomically() {

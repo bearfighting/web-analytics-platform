@@ -36,6 +36,72 @@ impl Processor {
         }
         Ok(processed)
     }
+
+    pub async fn rollback_generation(
+        &self,
+        site_id: &str,
+        target_generation_id: &str,
+    ) -> Result<(), ProcessorError> {
+        let mut transaction = self.pool.begin().await?;
+
+        let target_status = sqlx::query_scalar::<_, String>(
+            "SELECT status
+             FROM analytics_generations
+             WHERE site_id = $1 AND generation_id = $2::uuid
+             FOR UPDATE",
+        )
+        .bind(site_id)
+        .bind(target_generation_id)
+        .fetch_optional(&mut *transaction)
+        .await?
+        .ok_or_else(|| ProcessorError::GenerationNotFound {
+            site_id: site_id.to_owned(),
+            generation_id: target_generation_id.to_owned(),
+        })?;
+
+        if target_status != "retired" {
+            return Err(ProcessorError::InvalidRollbackTarget {
+                generation_id: target_generation_id.to_owned(),
+                status: target_status,
+            });
+        }
+
+        let active_generation_id = sqlx::query_scalar::<_, String>(
+            "SELECT generation_id::text
+             FROM analytics_generations
+             WHERE site_id = $1 AND status = 'active'
+             FOR UPDATE",
+        )
+        .bind(site_id)
+        .fetch_optional(&mut *transaction)
+        .await?
+        .ok_or_else(|| ProcessorError::NoActiveGeneration {
+            site_id: site_id.to_owned(),
+        })?;
+
+        sqlx::query(
+            "UPDATE analytics_generations
+             SET status = 'retired'
+             WHERE site_id = $1 AND generation_id = $2::uuid AND status = 'active'",
+        )
+        .bind(site_id)
+        .bind(&active_generation_id)
+        .execute(&mut *transaction)
+        .await?;
+
+        sqlx::query(
+            "UPDATE analytics_generations
+             SET status = 'active', activated_at = NOW(), failure_reason = NULL
+             WHERE site_id = $1 AND generation_id = $2::uuid AND status = 'retired'",
+        )
+        .bind(site_id)
+        .bind(target_generation_id)
+        .execute(&mut *transaction)
+        .await?;
+
+        transaction.commit().await?;
+        Ok(())
+    }
 }
 
 async fn process_event(
