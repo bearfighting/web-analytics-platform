@@ -14,6 +14,7 @@ describe("dashboard query params", () => {
       params: {
         siteId: "site_playground",
         dateRange: { from: "2026-08-23", to: "2026-09-21" },
+        dimension: "browser",
       },
     });
   });
@@ -30,6 +31,7 @@ describe("dashboard query params", () => {
       params: {
         siteId: "site_alpha",
         dateRange: { from: "2026-09-01", to: "2026-09-18" },
+        dimension: "browser",
       },
     });
   });

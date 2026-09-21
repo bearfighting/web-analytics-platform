@@ -151,6 +151,30 @@ button {
   text-align: left;
 }
 
+.freshness-banner {
+  margin: 0 0 16px;
+  border-radius: 8px;
+  padding: 12px 16px;
+  background: #eef2ff;
+  color: #3730a3 !important;
+  font-size: 0.9rem;
+}
+
+.freshness-stale {
+  background: #fff7ed;
+  color: #9a3412 !important;
+}
+
+.freshness-rebuilding {
+  background: #eff6ff;
+  color: #1d4ed8 !important;
+}
+
+.freshness-failed {
+  background: #fef2f2;
+  color: #b91c1c !important;
+}
+
 @media (max-width: 800px) {
   .dashboard-header {
     align-items: stretch;
@@ -159,5 +183,10 @@ button {
 
   .overview-grid {
     grid-template-columns: 1fr;
+  }
+
+  .data-table {
+    display: block;
+    overflow-x: auto;
   }
 }

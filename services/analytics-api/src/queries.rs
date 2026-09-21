@@ -235,3 +235,103 @@ pub(crate) async fn watermarks(
     .fetch_all(&mut **transaction)
     .await
 }
+
+pub(crate) async fn freshness_status(
+    transaction: &mut Transaction<'_, Postgres>,
+    site_id: &str,
+    generation_id: &str,
+    generation_source: &str,
+) -> Result<String, sqlx::Error> {
+    if let Some(status) = rebuild_freshness_status(transaction, site_id).await? {
+        return Ok(status);
+    }
+
+    let watermarks = watermarks(transaction, site_id, generation_id, generation_source).await?;
+    let page_views = watermarks
+        .iter()
+        .find(|row| row.source_name == "page_views")
+        .and_then(|row| row.processed_received_watermark);
+    let generation = watermarks
+        .iter()
+        .find(|row| row.source_name == generation_source)
+        .and_then(|row| row.processed_received_watermark);
+    if let (Some(page_views), Some(generation)) = (page_views, generation)
+        && generation < page_views
+    {
+        return Ok("stale".to_owned());
+    }
+    Ok("current".to_owned())
+}
+
+pub(crate) async fn freshness_status_without_generation(
+    transaction: &mut Transaction<'_, Postgres>,
+    site_id: &str,
+) -> Result<String, sqlx::Error> {
+    Ok(rebuild_freshness_status(transaction, site_id)
+        .await?
+        .unwrap_or_else(|| "current".to_owned()))
+}
+
+async fn rebuild_freshness_status(
+    transaction: &mut Transaction<'_, Postgres>,
+    site_id: &str,
+) -> Result<Option<String>, sqlx::Error> {
+    let has_rebuilding_queue = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(
+             SELECT 1 FROM analytics_rebuild_queue
+             WHERE site_id = $1 AND status IN ('pending', 'running')
+         )",
+    )
+    .bind(site_id)
+    .fetch_one(&mut **transaction)
+    .await?;
+    let has_building_generation = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(
+             SELECT 1 FROM analytics_generations
+             WHERE site_id = $1 AND status = 'building'
+         )",
+    )
+    .bind(site_id)
+    .fetch_one(&mut **transaction)
+    .await?;
+    if has_rebuilding_queue || has_building_generation {
+        return Ok(Some("rebuilding".to_owned()));
+    }
+
+    let has_failed_queue = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(
+             SELECT 1 FROM analytics_rebuild_queue
+             WHERE site_id = $1 AND status = 'failed'
+               AND updated_at > COALESCE(
+                   (SELECT activated_at FROM analytics_generations
+                    WHERE site_id = $1 AND status = 'active'),
+                   '-infinity'::timestamptz
+               )
+         )",
+    )
+    .bind(site_id)
+    .fetch_one(&mut **transaction)
+    .await?;
+    if has_failed_queue {
+        return Ok(Some("failed".to_owned()));
+    }
+
+    let has_failed_generation = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(
+             SELECT 1 FROM analytics_generations
+             WHERE site_id = $1 AND status = 'failed'
+               AND created_at > COALESCE(
+                   (SELECT activated_at FROM analytics_generations
+                    WHERE site_id = $1 AND status = 'active'),
+                   '-infinity'::timestamptz
+               )
+         )",
+    )
+    .bind(site_id)
+    .fetch_one(&mut **transaction)
+    .await?;
+    if has_failed_generation {
+        return Ok(Some("failed".to_owned()));
+    }
+    Ok(None)
+}

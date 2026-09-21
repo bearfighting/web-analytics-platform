@@ -40,6 +40,7 @@ async fn reset_phase6(pool: &PgPool, site_id: &str) {
         "visitor_daily",
         "session_daily",
         "analytics_watermarks",
+        "analytics_rebuild_queue",
         "analytics_generations",
         "analytics_feature_flags",
         "raw_events",
@@ -304,8 +305,8 @@ async fn phase6_reports_use_active_generation_distincts_and_watermarks() {
     sqlx::query(
         "INSERT INTO analytics_generations
             (generation_id, site_id, aggregation_version, parser_version,
-             rebuild_reason, status)
-         VALUES ($1::uuid, $2, 1, 'woothee-0.13.0', 'initial', 'active')",
+             rebuild_reason, status, activated_at)
+         VALUES ($1::uuid, $2, 1, 'woothee-0.13.0', 'initial', 'active', '2026-09-19T12:00:00Z')",
     )
     .bind(generation)
     .bind(site)
@@ -452,7 +453,7 @@ async fn phase6_reports_use_active_generation_distincts_and_watermarks() {
             (site_id, generation_id, source_name, processed_received_watermark)
          VALUES ($1, NULL, 'page_views', '2026-09-19T12:00:00Z'),
                 ($1, $2::uuid, 'visitor_session', '2026-09-19T11:00:00Z'),
-                ($1, $2::uuid, 'dimensions', '2026-09-19T10:00:00Z')",
+                ($1, $2::uuid, 'dimensions', '2026-09-19T13:00:00Z')",
     )
     .bind(site)
     .bind(generation)
@@ -476,6 +477,7 @@ async fn phase6_reports_use_active_generation_distincts_and_watermarks() {
     assert_eq!(visitor_body["unique_visitors"], 2);
     assert_eq!(visitor_body["sessions"], 2);
     assert_eq!(visitor_body["data_as_of"], "2026-09-19T11:00:00Z");
+    assert_eq!(visitor_body["freshness_status"], "stale");
     assert_eq!(visitor_body["items"].as_array().unwrap().len(), 2);
 
     let response = app(pool.clone())
@@ -494,7 +496,90 @@ async fn phase6_reports_use_active_generation_distincts_and_watermarks() {
     assert_eq!(dimension_body["items"][0]["page_views"], 3);
     assert_eq!(dimension_body["items"][0]["unique_visitors"], 2);
     assert_eq!(dimension_body["items"][0]["sessions"], 2);
-    assert_eq!(dimension_body["data_as_of"], "2026-09-19T10:00:00Z");
+    assert_eq!(dimension_body["data_as_of"], "2026-09-19T12:00:00Z");
+    assert_eq!(dimension_body["freshness_status"], "current");
+
+    sqlx::query(
+        "INSERT INTO analytics_generations
+            (generation_id, site_id, aggregation_version, parser_version, rebuild_reason, status, created_at)
+         VALUES ('00000000-0000-4000-8000-000000000007', $1, 1, 'woothee-0.13.0', 'initial', 'failed', '2026-09-18T09:00:00Z')",
+    )
+    .bind(site)
+    .execute(&pool)
+    .await
+    .unwrap();
+    let response = app(pool.clone())
+        .oneshot(
+            Request::get(format!(
+                "/v1/sites/{site}/reports/2026-09-18/2026-09-19/dimensions/browser"
+            ))
+            .body(axum::body::Body::empty())
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    assert_eq!(body(response).await["freshness_status"], "current");
+}
+
+#[tokio::test]
+#[ignore = "requires DATABASE_URL and PostgreSQL"]
+async fn phase6_reports_expose_rebuild_state_without_active_generation() {
+    let pool = pool().await;
+    let site = "analytics_api_phase6_rebuild_state";
+    reset_phase6(&pool, site).await;
+    sqlx::query(
+        "INSERT INTO analytics_feature_flags (site_id, analytics_enabled)
+         VALUES ($1, TRUE)",
+    )
+    .bind(site)
+    .execute(&pool)
+    .await
+    .unwrap();
+    let generation = "00000000-0000-4000-8000-000000000006";
+    sqlx::query(
+        "INSERT INTO analytics_generations
+            (generation_id, site_id, aggregation_version, parser_version, rebuild_reason, status)
+         VALUES ($1::uuid, $2, 1, 'woothee-0.13.0', 'initial', 'building')",
+    )
+    .bind(generation)
+    .bind(site)
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let response = app(pool.clone())
+        .oneshot(
+            Request::get(format!(
+                "/v1/sites/{site}/reports/2026-09-18/2026-09-18/visitors"
+            ))
+            .body(axum::body::Body::empty())
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    assert_eq!(body(response).await["freshness_status"], "rebuilding");
+
+    sqlx::query(
+        "UPDATE analytics_generations SET status = 'failed' WHERE generation_id = $1::uuid",
+    )
+    .bind(generation)
+    .execute(&pool)
+    .await
+    .unwrap();
+    let response = app(pool)
+        .oneshot(
+            Request::get(format!(
+                "/v1/sites/{site}/reports/2026-09-18/2026-09-18/visitors"
+            ))
+            .body(axum::body::Body::empty())
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    assert_eq!(body(response).await["freshness_status"], "failed");
 }
 
 #[tokio::test]

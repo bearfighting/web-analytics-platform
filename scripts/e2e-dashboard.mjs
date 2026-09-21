@@ -15,6 +15,7 @@ const errorDashboardPort = process.env.DASHBOARD_ERROR_E2E_PORT ?? "13001";
 const errorContainer = `${project}-dashboard-error`;
 const collectorUrl = `http://127.0.0.1:${process.env.E2E_COLLECTOR_PORT ?? "14001"}`;
 const fixturesDirectory = path.join(root, "protocol", "phase-3", "fixtures");
+const phase6FixturesDirectory = path.join(root, "protocol", "phase-6", "fixtures");
 const keys = {
   site_playground: "e2e-test-key",
   site_alpha: "e2e-test-key-alpha",
@@ -38,6 +39,8 @@ const composeBaseArgs = [
 
 const fixture = async (name) =>
   JSON.parse(await readFile(path.join(fixturesDirectory, `${name}.json`), "utf8"));
+const phase6Fixture = async (name) =>
+  JSON.parse(await readFile(path.join(phase6FixturesDirectory, `${name}.json`), "utf8"));
 
 function runCompose(args, options = {}) {
   try {
@@ -147,7 +150,24 @@ async function resetDatabase() {
     "-v",
     "ON_ERROR_STOP=1",
     "-c",
-    "TRUNCATE raw_events, page_view_daily, page_view_routes, page_view_totals RESTART IDENTITY",
+    "TRUNCATE dimension_event_facts, dimension_daily, session_events, sessions, visitor_event_facts, visitor_daily, session_daily, normalized_event_context, analytics_rebuild_queue, analytics_watermarks, analytics_generations, analytics_feature_flags, raw_events, page_view_daily, page_view_routes, page_view_totals RESTART IDENTITY CASCADE",
+  ]);
+}
+
+function enablePhase6(siteId) {
+  runCompose([
+    "exec",
+    "-T",
+    "postgres",
+    "psql",
+    "-U",
+    "analytics",
+    "-d",
+    "analytics",
+    "-v",
+    "ON_ERROR_STOP=1",
+    "-c",
+    `INSERT INTO analytics_feature_flags (site_id, protocol_v2_enabled, analytics_enabled) VALUES ('${siteId}', TRUE, TRUE)`,
   ]);
 }
 
@@ -172,6 +192,27 @@ async function postFixtureEvents(input) {
   }
 }
 
+async function postV2FixtureEvents(input) {
+  for (const siteId of new Set(input.events.map((event) => event.site_id))) {
+    const events = input.events.filter((event) => event.site_id === siteId);
+    const response = await fetch(`${collectorUrl}/v1/events`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "http://localhost:3000",
+        "x-ingest-key": keys[siteId],
+      },
+      body: JSON.stringify({ schema_version: 2, events }),
+    });
+    const body = await response.json();
+    assert(response.status === 202, `Collector rejected V2 events: ${JSON.stringify(body)}`);
+    assert(
+      body.accepted === events.length,
+      `Collector accepted ${body.accepted} V2 events, expected ${events.length}`,
+    );
+  }
+}
+
 function runProcessorOnce() {
   runCompose(
     [
@@ -192,10 +233,44 @@ function runProcessorOnce() {
   );
 }
 
+function runProcessorBackfill(from, to) {
+  runCompose(
+    [
+      "run",
+      "--rm",
+      "--no-deps",
+      "--build",
+      "--entrypoint",
+      "cargo",
+      "processor",
+      "run",
+      "-p",
+      "processor",
+      "--",
+      "--backfill",
+      "--site-id",
+      "site_playground",
+      "--from",
+      from,
+      "--to",
+      to,
+    ],
+    { capture: true },
+  );
+}
+
 async function prepareFixture(data) {
   await resetDatabase();
   await postFixtureEvents(data.input);
   runProcessorOnce();
+}
+
+async function preparePhase6Fixture(data) {
+  await resetDatabase();
+  enablePhase6("site_playground");
+  await postV2FixtureEvents(data.input);
+  runProcessorOnce();
+  runProcessorBackfill("2026-09-20", "2026-09-21");
 }
 
 function rangeUrl(siteId, from, to) {
@@ -308,6 +383,55 @@ async function assertCustomDateRange(page) {
   await expectMetric(page, "Selected range Page Views", rangeOverview.page_views);
 }
 
+async function assertPhase6Dashboard(page) {
+  const data = await phase6Fixture("dashboard-v2");
+  await preparePhase6Fixture(data);
+  await page.goto(rangeUrl("site_playground", "2026-09-20", "2026-09-21"));
+  await expectMetric(page, "Unique Visitors", data.expected.visitors.unique_visitors);
+  await expectMetric(page, "Sessions", data.expected.visitors.sessions);
+  await expectReportRows(
+    page,
+    "Visitors and Sessions",
+    data.expected.visitors.items.map(
+      (item) => `${item.day} ${item.page_views} ${item.unique_visitors} ${item.sessions}`,
+    ),
+  );
+  await expectReportRows(page, "Dimension Report", [
+    `${data.expected.browser.value} ${data.expected.browser.page_views} ${data.expected.browser.unique_visitors} ${data.expected.browser.sessions}`,
+  ]);
+  await page.getByText(/Data as of/).waitFor();
+  await page.locator('select[name="dimension"]').selectOption("language");
+  await page.locator('button[type="submit"]').click();
+  await page.waitForURL(/dimension=language/);
+  await expectReportRows(page, "Dimension Report", ["en-CA 3 1 2", "en-US 2 1 1"]);
+}
+
+async function assertPhase6Disabled(page) {
+  const data = await fixture("single-page-view");
+  await prepareFixture(data);
+  await page.goto(rangeUrl("site_playground", "2026-09-18", "2026-09-18"));
+  await expectMetric(
+    page,
+    "Selected range Page Views",
+    data.expected.api.range_overview.body.page_views,
+  );
+  assert(
+    (await page.getByText("Phase 6 analytics is not enabled for this site.").count()) === 2,
+    "Expected disabled state for Visitors and Dimensions",
+  );
+}
+
+async function assertPhase6Empty(page) {
+  const data = await phase6Fixture("dashboard-v2");
+  await preparePhase6Fixture(data);
+  await page.goto(rangeUrl("site_playground", "2026-09-01", "2026-09-01"));
+  assert(
+    (await page.getByText("No Phase 6 analytics data is available for this selection.").count()) ===
+      2,
+    "Expected empty state for Visitors and Dimensions",
+  );
+}
+
 async function assertApiError(browser) {
   runCompose(
     [
@@ -373,6 +497,12 @@ try {
   console.log("PASS empty-date-range dashboard");
   await assertCustomDateRange(page);
   console.log("PASS custom-date-range dashboard");
+  await assertPhase6Disabled(page);
+  console.log("PASS phase6-disabled dashboard");
+  await assertPhase6Dashboard(page);
+  console.log("PASS phase6 dashboard");
+  await assertPhase6Empty(page);
+  console.log("PASS phase6-empty dashboard");
   await assertApiError(browser);
   console.log("PASS api-error dashboard");
   await page.close();

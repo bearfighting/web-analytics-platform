@@ -66,6 +66,7 @@ pub(crate) struct VisitorSessionReportResponse {
     pub(crate) sessions: i64,
     pub(crate) items: Vec<VisitorSessionItem>,
     pub(crate) data_as_of: Option<chrono::DateTime<chrono::Utc>>,
+    pub(crate) freshness_status: String,
     pub(crate) aggregation_version: i32,
 }
 
@@ -85,6 +86,7 @@ pub(crate) struct DimensionReportResponse {
     pub(crate) dimension: String,
     pub(crate) items: Vec<DimensionItem>,
     pub(crate) data_as_of: Option<chrono::DateTime<chrono::Utc>>,
+    pub(crate) freshness_status: String,
     pub(crate) aggregation_version: i32,
 }
 

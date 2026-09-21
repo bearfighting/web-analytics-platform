@@ -1,3 +1,4 @@
+import { Phase6LoadingState } from "../../components/phase6-loading-state";
 import { LoadingState } from "../../components/states/loading-state";
 
 export default function DashboardLoading() {
@@ -10,6 +11,8 @@ export default function DashboardLoading() {
       <section className="card">
         <LoadingState context={{ siteId: "pending", dateRange: { from: "", to: "" } }} />
       </section>
+      <Phase6LoadingState heading="Visitors and Sessions" />
+      <Phase6LoadingState heading="Dimension Report" />
     </main>
   );
 }

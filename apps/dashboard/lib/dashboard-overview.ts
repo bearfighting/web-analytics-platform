@@ -10,6 +10,7 @@ import type { DashboardDateRange } from "./query-params";
 export interface DashboardOverviewContext {
   siteId: string;
   dateRange: DashboardDateRange;
+  dimension?: import("./analytics-api/types").AnalyticsDimension;
 }
 
 export interface DashboardOverviewData {

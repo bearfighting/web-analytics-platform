@@ -61,6 +61,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         dateRange={displayedDateRange}
         siteId={displayedSite}
         sites={siteConfig.config.sites}
+        dimension="browser"
       >
         <section className="card">
           <ErrorState
@@ -77,11 +78,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       dateRange={query.params.dateRange}
       siteId={query.params.siteId}
       sites={siteConfig.config.sites}
+      dimension={query.params.dimension}
     >
       <DashboardSections
         from={query.params.dateRange.from}
         siteId={query.params.siteId}
         to={query.params.dateRange.to}
+        dimension={query.params.dimension}
       />
     </DashboardShell>
   );

@@ -1,3 +1,5 @@
+import { ANALYTICS_DIMENSIONS, type AnalyticsDimension } from "./analytics-api/types";
+
 export interface DashboardDateRange {
   from: string;
   to: string;
@@ -6,10 +8,15 @@ export interface DashboardDateRange {
 export interface DashboardQueryParams {
   siteId: string;
   dateRange: DashboardDateRange;
+  dimension: AnalyticsDimension;
 }
 
 export type DashboardQueryErrorCode =
-  "invalid_date" | "partial_date_range" | "reversed_date_range" | "unknown_site";
+  | "invalid_date"
+  | "partial_date_range"
+  | "reversed_date_range"
+  | "unknown_site"
+  | "invalid_dimension";
 
 export interface DashboardQueryError {
   code: DashboardQueryErrorCode;
@@ -65,6 +72,7 @@ export function parseDashboardQuery(
   const siteId = firstValue(searchParams.site_id) || defaultSite;
   const from = firstValue(searchParams.from);
   const to = firstValue(searchParams.to);
+  const dimension = firstValue(searchParams.dimension) || "browser";
 
   if (!allowedSites.includes(siteId)) {
     return {
@@ -75,8 +83,23 @@ export function parseDashboardQuery(
     };
   }
 
+  if (!(ANALYTICS_DIMENSIONS as readonly string[]).includes(dimension)) {
+    return {
+      error: {
+        code: "invalid_dimension",
+        message: "The selected dimension is not supported.",
+      },
+    };
+  }
+
   if (!from && !to) {
-    return { params: { siteId, dateRange: defaultDashboardDateRange(now) } };
+    return {
+      params: {
+        siteId,
+        dateRange: defaultDashboardDateRange(now),
+        dimension: dimension as AnalyticsDimension,
+      },
+    };
   }
 
   if (!from || !to) {
@@ -109,5 +132,11 @@ export function parseDashboardQuery(
     };
   }
 
-  return { params: { siteId, dateRange: { from, to } } };
+  return {
+    params: {
+      siteId,
+      dateRange: { from, to },
+      dimension: dimension as AnalyticsDimension,
+    },
+  };
 }

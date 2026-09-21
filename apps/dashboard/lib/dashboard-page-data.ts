@@ -34,6 +34,8 @@ export async function loadDashboardPageData(
       reports: {
         timeline: { status: "error", error },
         pages: { status: "error", error },
+        visitors: { status: "error", error },
+        dimension: { status: "error", error },
       },
     };
   }

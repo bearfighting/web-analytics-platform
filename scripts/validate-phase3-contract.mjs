@@ -204,6 +204,8 @@ function validateOpenApi(document) {
     const schema = document.components?.schemas?.[schemaName];
     if (!schema?.required?.includes("data_as_of"))
       errors.push(`${schemaName} must require data_as_of`);
+    if (!schema?.required?.includes("freshness_status"))
+      errors.push(`${schemaName} must require freshness_status`);
     const dataAsOf = schema?.properties?.data_as_of;
     if (
       !Array.isArray(dataAsOf?.type) ||
@@ -213,6 +215,13 @@ function validateOpenApi(document) {
       errors.push(`${schemaName}.data_as_of must allow string and null`);
     if (!dataAsOf?.description?.includes("Common processed_received watermark"))
       errors.push(`${schemaName}.data_as_of must document the common freshness watermark`);
+    const freshnessStatus = schema?.properties?.freshness_status;
+    if (
+      freshnessStatus?.type !== "string" ||
+      JSON.stringify(freshnessStatus.enum) !==
+        JSON.stringify(["current", "stale", "rebuilding", "failed"])
+    )
+      errors.push(`${schemaName}.freshness_status must expose the Phase 6 status enum`);
   }
 
   const dimensionResponse = dimensionPath?.responses?.["200"];

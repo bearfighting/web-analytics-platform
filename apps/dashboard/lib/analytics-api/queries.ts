@@ -1,3 +1,5 @@
+import { ANALYTICS_DIMENSIONS } from "./types";
+
 import type {
   AnalyticsApiErrorResponse,
   OverviewResponse,
@@ -6,6 +8,10 @@ import type {
   RangeOverviewResponse,
   TimelineItem,
   TimelineResponse,
+  AnalyticsDimension,
+  DimensionResponse,
+  FreshnessStatus,
+  VisitorSessionResponse,
 } from "./types";
 
 export const DEFAULT_PAGES_LIMIT = 20;
@@ -26,6 +32,24 @@ export function timelinePath(siteId: string, from: string, to: string): string {
 
 export function pagesPath(siteId: string, from: string, to: string, limit: number): string {
   return `/v1/sites/${encodeURIComponent(siteId)}/reports/${from}/${to}/pages?limit=${encodeURIComponent(String(limit))}`;
+}
+
+export function visitorsPath(siteId: string, from: string, to: string): string {
+  return `/v1/sites/${encodeURIComponent(siteId)}/reports/${from}/${to}/visitors`;
+}
+
+export function sessionsPath(siteId: string, from: string, to: string): string {
+  return `/v1/sites/${encodeURIComponent(siteId)}/reports/${from}/${to}/sessions`;
+}
+
+export function dimensionPath(
+  siteId: string,
+  from: string,
+  to: string,
+  dimension: AnalyticsDimension,
+  limit: number,
+): string {
+  return `/v1/sites/${encodeURIComponent(siteId)}/reports/${from}/${to}/dimensions/${dimension}?limit=${encodeURIComponent(String(limit))}`;
 }
 
 export function isOverviewResponse(value: unknown): value is OverviewResponse {
@@ -70,6 +94,42 @@ export function isPagesResponse(value: unknown): value is PagesResponse {
   );
 }
 
+export function isVisitorSessionResponse(value: unknown): value is VisitorSessionResponse {
+  return (
+    isRecord(value) &&
+    isString(value.site_id) &&
+    isString(value.from) &&
+    isValidDate(value.from) &&
+    isString(value.to) &&
+    isValidDate(value.to) &&
+    isNonNegativeInteger(value.page_views) &&
+    isNonNegativeInteger(value.unique_visitors) &&
+    isNonNegativeInteger(value.sessions) &&
+    Array.isArray(value.items) &&
+    value.items.every(isVisitorSessionItem) &&
+    isNullableDateTime(value.data_as_of) &&
+    isFreshnessStatus(value.freshness_status) &&
+    isPositiveInteger(value.aggregation_version)
+  );
+}
+
+export function isDimensionResponse(value: unknown): value is DimensionResponse {
+  return (
+    isRecord(value) &&
+    isString(value.site_id) &&
+    isString(value.from) &&
+    isValidDate(value.from) &&
+    isString(value.to) &&
+    isValidDate(value.to) &&
+    isDimension(value.dimension) &&
+    Array.isArray(value.items) &&
+    value.items.every(isDimensionItem) &&
+    isNullableDateTime(value.data_as_of) &&
+    isFreshnessStatus(value.freshness_status) &&
+    isPositiveInteger(value.aggregation_version)
+  );
+}
+
 export function isAnalyticsApiErrorResponse(value: unknown): value is AnalyticsApiErrorResponse {
   return (
     isRecord(value) &&
@@ -97,6 +157,28 @@ function isPageItem(value: unknown): value is PageItem {
   );
 }
 
+function isVisitorSessionItem(value: unknown): value is VisitorSessionResponse["items"][number] {
+  return (
+    isRecord(value) &&
+    isString(value.day) &&
+    isValidDate(value.day) &&
+    isNonNegativeInteger(value.page_views) &&
+    isNonNegativeInteger(value.unique_visitors) &&
+    isNonNegativeInteger(value.sessions)
+  );
+}
+
+function isDimensionItem(value: unknown): value is DimensionResponse["items"][number] {
+  return (
+    isRecord(value) &&
+    isString(value.value) &&
+    value.value.length > 0 &&
+    isNonNegativeInteger(value.page_views) &&
+    isNonNegativeInteger(value.unique_visitors) &&
+    isNonNegativeInteger(value.sessions)
+  );
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -108,6 +190,27 @@ function isString(value: unknown): value is string {
 function isNonNegativeInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
+
+function isPositiveInteger(value: unknown): value is number {
+  return isNonNegativeInteger(value) && value > 0;
+}
+
+function isDimension(value: unknown): value is AnalyticsDimension {
+  return typeof value === "string" && (ANALYTICS_DIMENSIONS as readonly string[]).includes(value);
+}
+
+function isFreshnessStatus(value: unknown): value is FreshnessStatus {
+  return value === "current" || value === "stale" || value === "rebuilding" || value === "failed";
+}
+
+function isNullableDateTime(value: unknown): value is string | null {
+  return (
+    value === null ||
+    (isString(value) && RFC3339_UTC.test(value) && !Number.isNaN(Date.parse(value)))
+  );
+}
+
+const RFC3339_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
 
 function isValidDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {

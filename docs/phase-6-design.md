@@ -425,6 +425,7 @@ API 实现规则：
 - Visitors/Sessions 顶层值按整个范围 distinct，daily items 按日期升序。
 - Dimensions 按 `page_views DESC, value ASC` 返回。
 - `data_as_of` 使用共同最小 watermark；没有匹配输入时为 `null`。
+- Phase 6 response 增加 `freshness_status`：`current`、`stale`、`rebuilding` 或 `failed`。状态由 active generation、legacy Page View watermark、rebuild queue 和最近 generation 状态共同计算。
 - `aggregation_version` 是计算语义版本，不是数据库 migration 版本。
 - 新 endpoint 使用 feature flag；flag 关闭时当前 API 路由、OpenAPI V1 behavior 和 Dashboard 完全不变。
 - API 不返回 Visitor ID、原始 User-Agent、IP、Session ID 或逐事件轨迹。
@@ -531,12 +532,16 @@ Rollback 顺序：
 - `analytics_enabled` 关闭或缺少时，新 API 返回统一 404 `analytics_not_enabled`；既有 Page View API 不读取该 flag。
 - Page View 使用 `generation_id = NULL` 的 legacy `page_views` watermark；Visitor/Session 使用 `visitor_session`，Dimension 使用 `dimensions` generation watermark。
 - API 只读取 active generation，并在单次 repeatable-read transaction 中计算 response 和 `data_as_of`。
+- Dashboard 保留旧 Page View 区块；Phase 6 flag 关闭时 Visitors、Sessions 和 Dimensions 区块显示 disabled state。
+- Dashboard 展示 `data_as_of` 和 `freshness_status`，rebuilding/failed 时继续显示最后一个 active generation。
 
 ### PR5 — Dashboard and End-to-end Rollout
 
 - Dashboard 展示 Visitor、Session、Dimension 和 freshness 状态。
 - 完成 Browser → Collector → PostgreSQL → Processor → API → Dashboard E2E。
 - 完成 feature flag rollout、rollback 和 backfill E2E。
+- Dashboard 默认 Dimension 为 `browser`，通过 query parameter 支持全部 Phase 6 allowlist Dimension。
+- 现有 Dashboard E2E 扩展为 V1 regression、V2 generation、disabled flag 和 Dimension 数据场景；freshness 状态由 API integration 与 Dashboard component tests 覆盖。
 
 ## 15. 测试与验收
 

@@ -60,6 +60,10 @@ pub(crate) async fn visitors(
         .await
         .map_err(ApiError::database)?
     else {
+        let freshness_status =
+            queries::freshness_status_without_generation(&mut transaction, &site_id)
+                .await
+                .map_err(ApiError::database)?;
         transaction.commit().await.map_err(ApiError::database)?;
         return Ok(Json(VisitorSessionReportResponse {
             site_id,
@@ -70,6 +74,7 @@ pub(crate) async fn visitors(
             sessions: 0,
             items: Vec::new(),
             data_as_of: None,
+            freshness_status,
             aggregation_version: 1,
         })
         .into_response());
@@ -111,6 +116,14 @@ pub(crate) async fn visitors(
     } else {
         common_watermark(&watermark_rows, &["page_views", "visitor_session"])
     };
+    let freshness_status = queries::freshness_status(
+        &mut transaction,
+        &site_id,
+        &generation.generation_id,
+        "visitor_session",
+    )
+    .await
+    .map_err(ApiError::database)?;
     transaction.commit().await.map_err(ApiError::database)?;
     Ok(Json(VisitorSessionReportResponse {
         site_id,
@@ -121,6 +134,7 @@ pub(crate) async fn visitors(
         sessions,
         items,
         data_as_of,
+        freshness_status,
         aggregation_version: generation.aggregation_version,
     })
     .into_response())
@@ -161,6 +175,10 @@ pub(crate) async fn dimensions(
         .await
         .map_err(ApiError::database)?
     else {
+        let freshness_status =
+            queries::freshness_status_without_generation(&mut transaction, &site_id)
+                .await
+                .map_err(ApiError::database)?;
         transaction.commit().await.map_err(ApiError::database)?;
         return Ok(Json(DimensionReportResponse {
             site_id,
@@ -169,6 +187,7 @@ pub(crate) async fn dimensions(
             dimension,
             items: Vec::new(),
             data_as_of: None,
+            freshness_status,
             aggregation_version: 1,
         })
         .into_response());
@@ -202,8 +221,16 @@ pub(crate) async fn dimensions(
     .await
     .map_err(ApiError::database)?;
     let data_as_of = has_items
-        .then(|| common_watermark(&watermark_rows, &["dimensions"]))
+        .then(|| common_watermark(&watermark_rows, &["page_views", "dimensions"]))
         .flatten();
+    let freshness_status = queries::freshness_status(
+        &mut transaction,
+        &site_id,
+        &generation.generation_id,
+        "dimensions",
+    )
+    .await
+    .map_err(ApiError::database)?;
     transaction.commit().await.map_err(ApiError::database)?;
     Ok(Json(DimensionReportResponse {
         site_id,
@@ -212,6 +239,7 @@ pub(crate) async fn dimensions(
         dimension,
         items,
         data_as_of,
+        freshness_status,
         aggregation_version: generation.aggregation_version,
     })
     .into_response())

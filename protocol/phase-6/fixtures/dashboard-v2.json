@@ -1,0 +1,118 @@
+{
+  "input": {
+    "events": [
+      {
+        "schema_version": 2,
+        "event_id": "01J00000000000000000000601",
+        "type": "page_view",
+        "site_id": "site_playground",
+        "visitor_id": "550e8400-e29b-41d4-a716-446655440010",
+        "context_schema_version": 1,
+        "occurred_at": 1789945200000,
+        "path": "/home",
+        "context": {
+          "language": "en-CA",
+          "timezone": "America/Toronto",
+          "viewport_width": "unknown",
+          "viewport_height": "unknown",
+          "screen_width": "unknown",
+          "screen_height": "unknown",
+          "utm_source": "newsletter",
+          "referrer": "https://news.example.com/article",
+          "user_agent": "Mozilla/5.0"
+        }
+      },
+      {
+        "schema_version": 2,
+        "event_id": "01J00000000000000000000602",
+        "type": "page_view",
+        "site_id": "site_playground",
+        "visitor_id": "550e8400-e29b-41d4-a716-446655440010",
+        "context_schema_version": 1,
+        "occurred_at": 1789945800000,
+        "path": "/pricing",
+        "context": {
+          "language": "en-CA",
+          "timezone": "America/Toronto",
+          "viewport_width": "unknown",
+          "viewport_height": "unknown",
+          "screen_width": "unknown",
+          "screen_height": "unknown",
+          "utm_source": "newsletter",
+          "referrer": "https://news.example.com/article",
+          "user_agent": "Mozilla/5.0"
+        }
+      },
+      {
+        "schema_version": 2,
+        "event_id": "01J00000000000000000000603",
+        "type": "page_view",
+        "site_id": "site_playground",
+        "visitor_id": "550e8400-e29b-41d4-a716-446655440010",
+        "context_schema_version": 1,
+        "occurred_at": 1789948200000,
+        "path": "/checkout",
+        "context": {
+          "language": "en-CA",
+          "timezone": "America/Toronto",
+          "viewport_width": "unknown",
+          "viewport_height": "unknown",
+          "screen_width": "unknown",
+          "screen_height": "unknown",
+          "utm_source": "newsletter",
+          "referrer": "https://news.example.com/article",
+          "user_agent": "Mozilla/5.0"
+        }
+      },
+      {
+        "schema_version": 2,
+        "event_id": "01J00000000000000000000604",
+        "type": "page_view",
+        "site_id": "site_playground",
+        "visitor_id": "550e8400-e29b-41d4-a716-446655440011",
+        "context_schema_version": 1,
+        "occurred_at": 1789949400000,
+        "path": "/home",
+        "context": {
+          "language": "en-US",
+          "timezone": "America/New_York",
+          "viewport_width": "unknown",
+          "viewport_height": "unknown",
+          "screen_width": "unknown",
+          "screen_height": "unknown",
+          "user_agent": "Mozilla/5.0"
+        }
+      },
+      {
+        "schema_version": 2,
+        "event_id": "01J00000000000000000000605",
+        "type": "page_view",
+        "site_id": "site_playground",
+        "context_schema_version": 1,
+        "occurred_at": 1789950000000,
+        "path": "/anonymous",
+        "context": {
+          "language": "en-US",
+          "timezone": "America/New_York",
+          "viewport_width": "unknown",
+          "viewport_height": "unknown",
+          "screen_width": "unknown",
+          "screen_height": "unknown",
+          "user_agent": "Mozilla/5.0"
+        }
+      }
+    ]
+  },
+  "expected": {
+    "visitors": {
+      "page_views": 5,
+      "unique_visitors": 2,
+      "sessions": 3,
+      "items": [
+        { "day": "2026-09-20", "page_views": 3, "unique_visitors": 1, "sessions": 2 },
+        { "day": "2026-09-21", "page_views": 2, "unique_visitors": 1, "sessions": 1 }
+      ]
+    },
+    "browser": { "value": "unknown", "page_views": 5, "unique_visitors": 2, "sessions": 3 }
+  }
+}

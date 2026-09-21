@@ -1,15 +1,20 @@
 import { AnalyticsApiClientError } from "./errors";
 import {
   DEFAULT_PAGES_LIMIT,
+  dimensionPath,
+  isDimensionResponse,
   isAnalyticsApiErrorResponse,
   isOverviewResponse,
   isPagesResponse,
   isRangeOverviewResponse,
   isTimelineResponse,
+  isVisitorSessionResponse,
   overviewPath,
   pagesPath,
   rangeOverviewPath,
+  sessionsPath,
   timelinePath,
+  visitorsPath,
   type ResponseValidator,
 } from "./queries";
 
@@ -18,6 +23,9 @@ import type {
   PagesResponse,
   RangeOverviewResponse,
   TimelineResponse,
+  AnalyticsDimension,
+  DimensionResponse,
+  VisitorSessionResponse,
 } from "./types";
 
 export interface AnalyticsApiClientOptions {
@@ -30,6 +38,15 @@ export interface AnalyticsApiClient {
   rangeOverview(siteId: string, from: string, to: string): Promise<RangeOverviewResponse>;
   timeline(siteId: string, from: string, to: string): Promise<TimelineResponse>;
   pages(siteId: string, from: string, to: string, limit?: number): Promise<PagesResponse>;
+  visitors(siteId: string, from: string, to: string): Promise<VisitorSessionResponse>;
+  sessions(siteId: string, from: string, to: string): Promise<VisitorSessionResponse>;
+  dimension(
+    siteId: string,
+    from: string,
+    to: string,
+    dimension: AnalyticsDimension,
+    limit?: number,
+  ): Promise<DimensionResponse>;
 }
 
 const HTTP_ERROR_MESSAGE = "Analytics API failed to complete the request";
@@ -47,6 +64,26 @@ export function createAnalyticsApiClient(options: AnalyticsApiClientOptions): An
       requestJson(`${baseUrl}${timelinePath(siteId, from, to)}`, isTimelineResponse),
     pages: (siteId, from, to, limit = DEFAULT_PAGES_LIMIT) =>
       requestJson(`${baseUrl}${pagesPath(siteId, from, to, limit)}`, isPagesResponse),
+    visitors: (siteId, from, to) =>
+      requestJson(
+        `${baseUrl}${visitorsPath(siteId, from, to)}`,
+        (value): value is VisitorSessionResponse =>
+          isVisitorSessionResponse(value) && matchesRange(value, siteId, from, to),
+      ),
+    sessions: (siteId, from, to) =>
+      requestJson(
+        `${baseUrl}${sessionsPath(siteId, from, to)}`,
+        (value): value is VisitorSessionResponse =>
+          isVisitorSessionResponse(value) && matchesRange(value, siteId, from, to),
+      ),
+    dimension: (siteId, from, to, dimension, limit = DEFAULT_PAGES_LIMIT) =>
+      requestJson(
+        `${baseUrl}${dimensionPath(siteId, from, to, dimension, limit)}`,
+        (value): value is DimensionResponse =>
+          isDimensionResponse(value) &&
+          matchesRange(value, siteId, from, to) &&
+          value.dimension === dimension,
+      ),
   };
 
   async function requestJson<T>(url: string, validate: ResponseValidator<T>): Promise<T> {
@@ -86,7 +123,7 @@ export function createAnalyticsApiClient(options: AnalyticsApiClientOptions): An
     if (!response.ok) {
       if (isAnalyticsApiErrorResponse(body)) {
         throw new AnalyticsApiClientError(body.error.message, {
-          kind: "http",
+          kind: body.error.code === "analytics_not_enabled" ? "disabled" : "http",
           status: response.status,
           code: body.error.code,
         });
@@ -107,6 +144,15 @@ export function createAnalyticsApiClient(options: AnalyticsApiClientOptions): An
 
     return body;
   }
+}
+
+function matchesRange(
+  value: { site_id: string; from: string; to: string },
+  siteId: string,
+  from: string,
+  to: string,
+): boolean {
+  return value.site_id === siteId && value.from === from && value.to === to;
 }
 
 function normalizeBaseUrl(value: string): string {

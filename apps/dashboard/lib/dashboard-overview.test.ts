@@ -21,6 +21,9 @@ function createClient(overrides: Partial<AnalyticsApiClient> = {}): AnalyticsApi
     }),
     timeline: vi.fn(),
     pages: vi.fn(),
+    visitors: vi.fn(),
+    sessions: vi.fn(),
+    dimension: vi.fn(),
     ...overrides,
   };
 }

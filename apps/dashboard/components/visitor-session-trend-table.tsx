@@ -3,32 +3,37 @@ import React from "react";
 import { EmptyState } from "./states/empty-state";
 import { ErrorState } from "./states/error-state";
 
-import type { TimelineResponse } from "../lib/analytics-api/types";
+import type { VisitorSessionResponse } from "../lib/analytics-api/types";
 import type { DashboardOverviewContext } from "../lib/dashboard-overview";
 import type { DashboardReportState } from "../lib/dashboard-reports";
 
-interface TimelineTableProps {
+interface VisitorSessionTrendTableProps {
   context: DashboardOverviewContext;
-  state: DashboardReportState<TimelineResponse>;
+  state: DashboardReportState<VisitorSessionResponse>;
 }
 
-export function TimelineTable({ context, state }: TimelineTableProps) {
+export function VisitorSessionTrendTable({ context, state }: VisitorSessionTrendTableProps) {
   return (
-    <section className="card" aria-labelledby="timeline-heading">
-      <h2 id="timeline-heading">Timeline</h2>
+    <section className="card" aria-labelledby="visitor-session-heading">
+      <h2 id="visitor-session-heading">Visitors and Sessions</h2>
       {state.status === "error" ? (
         <ErrorState context={context} message={state.error.message} />
       ) : state.status === "disabled" ? (
-        <p role="status">Page View analytics is not enabled for this site.</p>
+        <p role="status">Phase 6 analytics is not enabled for this site.</p>
       ) : state.data.items.length === 0 ? (
-        <EmptyState context={context} />
+        <EmptyState
+          context={context}
+          message="No Phase 6 analytics data is available for this selection."
+        />
       ) : (
         <table className="data-table">
-          <caption className="table-caption">Daily Page Views in UTC</caption>
+          <caption className="table-caption">Daily Visitor and Session metrics in UTC</caption>
           <thead>
             <tr>
               <th scope="col">UTC Date</th>
               <th scope="col">Page Views</th>
+              <th scope="col">Unique Visitors</th>
+              <th scope="col">Sessions</th>
             </tr>
           </thead>
           <tbody>
@@ -36,6 +41,8 @@ export function TimelineTable({ context, state }: TimelineTableProps) {
               <tr key={item.day}>
                 <td>{item.day}</td>
                 <td>{item.page_views}</td>
+                <td>{item.unique_visitors}</td>
+                <td>{item.sessions}</td>
               </tr>
             ))}
           </tbody>

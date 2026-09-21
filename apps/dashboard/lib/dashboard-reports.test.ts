@@ -21,6 +21,29 @@ function createClient(overrides: Partial<AnalyticsApiClient> = {}): AnalyticsApi
     rangeOverview: vi.fn(),
     timeline: vi.fn().mockResolvedValue(fixture.timeline),
     pages: vi.fn().mockResolvedValue(fixture.pages),
+    visitors: vi.fn().mockResolvedValue({
+      site_id: context.siteId,
+      from: context.dateRange.from,
+      to: context.dateRange.to,
+      page_views: 0,
+      unique_visitors: 0,
+      sessions: 0,
+      items: [],
+      data_as_of: null,
+      freshness_status: "current",
+      aggregation_version: 1,
+    }),
+    sessions: vi.fn(),
+    dimension: vi.fn().mockResolvedValue({
+      site_id: context.siteId,
+      from: context.dateRange.from,
+      to: context.dateRange.to,
+      dimension: "browser",
+      items: [],
+      data_as_of: null,
+      freshness_status: "current",
+      aggregation_version: 1,
+    }),
     ...overrides,
   };
 }
@@ -56,6 +79,8 @@ describe("loadDashboardReports", () => {
     expect(result).toEqual({
       timeline: { status: "success", data: fixture.timeline },
       pages: { status: "success", data: fixture.pages },
+      visitors: { status: "success", data: expect.any(Object) },
+      dimension: { status: "success", data: expect.any(Object) },
     });
   });
 
@@ -92,6 +117,8 @@ describe("loadDashboardReports", () => {
     expect(result).toEqual({
       timeline: { status: "success", data: emptyFixture.timeline },
       pages: { status: "success", data: emptyFixture.pages },
+      visitors: { status: "success", data: expect.any(Object) },
+      dimension: { status: "success", data: expect.any(Object) },
     });
   });
 

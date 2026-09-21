@@ -18,6 +18,8 @@ export function TopPagesTable({ context, state }: TopPagesTableProps) {
       <h2 id="top-pages-heading">Top Pages</h2>
       {state.status === "error" ? (
         <ErrorState context={context} message={state.error.message} />
+      ) : state.status === "disabled" ? (
+        <p role="status">Page View analytics is not enabled for this site.</p>
       ) : state.data.items.length === 0 ? (
         <EmptyState context={context} />
       ) : (

@@ -31,6 +31,29 @@ function createClient(): AnalyticsApiClient {
       to: context.dateRange.to,
       items: [],
     }),
+    visitors: vi.fn().mockResolvedValue({
+      site_id: context.siteId,
+      from: context.dateRange.from,
+      to: context.dateRange.to,
+      page_views: 0,
+      unique_visitors: 0,
+      sessions: 0,
+      items: [],
+      data_as_of: null,
+      freshness_status: "current",
+      aggregation_version: 1,
+    }),
+    sessions: vi.fn(),
+    dimension: vi.fn().mockResolvedValue({
+      site_id: context.siteId,
+      from: context.dateRange.from,
+      to: context.dateRange.to,
+      dimension: "browser",
+      items: [],
+      data_as_of: null,
+      freshness_status: "current",
+      aggregation_version: 1,
+    }),
   };
 }
 
@@ -49,6 +72,8 @@ describe("loadDashboardPageData", () => {
     expect(client.rangeOverview).toHaveBeenCalledTimes(1);
     expect(client.timeline).toHaveBeenCalledTimes(1);
     expect(client.pages).toHaveBeenCalledTimes(1);
+    expect(client.visitors).toHaveBeenCalledTimes(1);
+    expect(client.dimension).toHaveBeenCalledTimes(1);
     expect(result.overview.status).toBe("success");
     expect(result.reports.timeline.status).toBe("success");
     expect(result.reports.pages.status).toBe("success");
@@ -64,5 +89,7 @@ describe("loadDashboardPageData", () => {
     expect(result.overview).toMatchObject({ status: "error", context, error: { kind: "config" } });
     expect(result.reports.timeline).toMatchObject({ status: "error", error: { kind: "config" } });
     expect(result.reports.pages).toMatchObject({ status: "error", error: { kind: "config" } });
+    expect(result.reports.visitors).toMatchObject({ status: "error", error: { kind: "config" } });
+    expect(result.reports.dimension).toMatchObject({ status: "error", error: { kind: "config" } });
   });
 });

@@ -414,6 +414,7 @@
           "sessions",
           "items",
           "data_as_of",
+          "freshness_status",
           "aggregation_version"
         ],
         "properties": {
@@ -431,6 +432,10 @@
             "type": ["string", "null"],
             "format": "date-time",
             "description": "Common processed_received watermark across all aggregates contributing to the response; null when there is no matching input."
+          },
+          "freshness_status": {
+            "type": "string",
+            "enum": ["current", "stale", "rebuilding", "failed"]
           },
           "aggregation_version": { "type": "integer", "minimum": 1 }
         },
@@ -456,6 +461,7 @@
           "dimension",
           "items",
           "data_as_of",
+          "freshness_status",
           "aggregation_version"
         ],
         "properties": {
@@ -468,6 +474,10 @@
             "type": ["string", "null"],
             "format": "date-time",
             "description": "Common processed_received watermark across all aggregates contributing to the response; null when there is no matching input."
+          },
+          "freshness_status": {
+            "type": "string",
+            "enum": ["current", "stale", "rebuilding", "failed"]
           },
           "aggregation_version": { "type": "integer", "minimum": 1 }
         },

@@ -13,6 +13,31 @@ const overview = canonicalApi.overview.body;
 const rangeOverview = canonicalApi.range_overview.body;
 const timeline = canonicalApi.timeline.body;
 const pages = canonicalApi.pages.body;
+const visitorSession = {
+  site_id: "site_playground",
+  from: "2026-09-18",
+  to: "2026-09-19",
+  page_views: 3,
+  unique_visitors: 2,
+  sessions: 2,
+  items: [
+    { day: "2026-09-18", page_views: 2, unique_visitors: 1, sessions: 1 },
+    { day: "2026-09-19", page_views: 1, unique_visitors: 1, sessions: 1 },
+  ],
+  data_as_of: "2026-09-19T12:00:00Z",
+  freshness_status: "current",
+  aggregation_version: 1,
+};
+const dimension = {
+  site_id: "site_playground",
+  from: "2026-09-18",
+  to: "2026-09-19",
+  dimension: "browser",
+  items: [{ value: "unknown", page_views: 3, unique_visitors: 2, sessions: 2 }],
+  data_as_of: "2026-09-19T12:00:00Z",
+  freshness_status: "current",
+  aggregation_version: 1,
+};
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -157,6 +182,31 @@ describe("Analytics API queries", () => {
 
     expect(fetchMock.mock.calls[0]?.[0]).toContain("/pages?limit=100");
   });
+
+  it("builds Phase 6 report URLs and validates freshness metadata", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse(visitorSession))
+      .mockResolvedValueOnce(jsonResponse(visitorSession))
+      .mockResolvedValueOnce(jsonResponse(dimension));
+    const client = createAnalyticsApiClient({ baseUrl, fetch: fetchMock });
+
+    await expect(client.visitors("site_playground", "2026-09-18", "2026-09-19")).resolves.toEqual(
+      visitorSession,
+    );
+    await expect(client.sessions("site_playground", "2026-09-18", "2026-09-19")).resolves.toEqual(
+      visitorSession,
+    );
+    await expect(
+      client.dimension("site_playground", "2026-09-18", "2026-09-19", "browser"),
+    ).resolves.toEqual(dimension);
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "http://analytics-api:4002/v1/sites/site_playground/reports/2026-09-18/2026-09-19/visitors",
+      "http://analytics-api:4002/v1/sites/site_playground/reports/2026-09-18/2026-09-19/sessions",
+      "http://analytics-api:4002/v1/sites/site_playground/reports/2026-09-18/2026-09-19/dimensions/browser?limit=20",
+    ]);
+  });
 });
 
 describe("Analytics API errors and response validation", () => {
@@ -193,6 +243,20 @@ describe("Analytics API errors and response validation", () => {
     );
 
     await expectHttpError(client.overview("site_playground"), 500, "analytics_api_error");
+  });
+
+  it("maps disabled Phase 6 responses separately", async () => {
+    const { client } = clientFor(
+      jsonResponse({ error: { code: "analytics_not_enabled", message: "disabled" } }, 404),
+    );
+
+    await expect(
+      client.visitors("site_playground", "2026-09-18", "2026-09-19"),
+    ).rejects.toMatchObject({
+      kind: "disabled",
+      status: 404,
+      code: "analytics_not_enabled",
+    });
   });
 
   it("uses a fallback message for a non-JSON HTTP error", async () => {
@@ -262,6 +326,34 @@ describe("Analytics API errors and response validation", () => {
     ).rejects.toBeInstanceOf(AnalyticsApiClientError);
     await expect(
       pagesClient.pages("site_playground", "2026-09-01", "2026-09-18"),
+    ).rejects.toBeInstanceOf(AnalyticsApiClientError);
+  });
+
+  it("rejects non-UTC response timestamps", async () => {
+    const { client } = clientFor(
+      jsonResponse({ ...visitorSession, data_as_of: "2026-09-19 12:00:00" }),
+    );
+
+    await expect(
+      client.visitors("site_playground", "2026-09-18", "2026-09-19"),
+    ).rejects.toBeInstanceOf(AnalyticsApiClientError);
+  });
+
+  it("rejects Phase 6 responses for a different request scope", async () => {
+    const { client } = clientFor(
+      jsonResponse({ ...visitorSession, site_id: "another-site", dimension: undefined }),
+    );
+
+    await expect(
+      client.visitors("site_playground", "2026-09-18", "2026-09-19"),
+    ).rejects.toBeInstanceOf(AnalyticsApiClientError);
+  });
+
+  it("rejects a dimension response for a different dimension", async () => {
+    const { client } = clientFor(jsonResponse({ ...dimension, dimension: "language" }));
+
+    await expect(
+      client.dimension("site_playground", "2026-09-18", "2026-09-19", "browser"),
     ).rejects.toBeInstanceOf(AnalyticsApiClientError);
   });
 

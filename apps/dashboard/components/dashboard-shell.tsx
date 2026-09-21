@@ -1,5 +1,8 @@
 import React from "react";
 
+import { ANALYTICS_DIMENSIONS } from "../lib/analytics-api/types";
+
+import type { AnalyticsDimension } from "../lib/analytics-api/types";
 import type { DashboardDateRange } from "../lib/query-params";
 import type { ReactNode } from "react";
 
@@ -7,10 +10,17 @@ interface DashboardShellProps {
   dateRange: DashboardDateRange;
   siteId: string;
   sites: string[];
+  dimension: AnalyticsDimension;
   children: ReactNode;
 }
 
-export function DashboardShell({ dateRange, siteId, sites, children }: DashboardShellProps) {
+export function DashboardShell({
+  dateRange,
+  siteId,
+  sites,
+  dimension,
+  children,
+}: DashboardShellProps) {
   return (
     <main className="dashboard-shell">
       <header className="dashboard-header">
@@ -37,6 +47,16 @@ export function DashboardShell({ dateRange, siteId, sites, children }: Dashboard
           <label>
             To
             <input name="to" type="date" defaultValue={dateRange.to} />
+          </label>
+          <label>
+            Dimension
+            <select name="dimension" defaultValue={dimension}>
+              {ANALYTICS_DIMENSIONS.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
           </label>
           <button type="submit">Apply</button>
         </form>
