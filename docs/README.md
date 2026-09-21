@@ -16,6 +16,7 @@
 - [Phase 4 Design](phase-4-design.md)：Dashboard、Analytics API Query Client 和完整 Dashboard workflow 的实施计划。
 - [Phase 5 Design](phase-5-design.md)：Analytics Semantics、Visitor、Session、Browser Context 和 Dimensions 契约设计。
 - [Phase 6 Design](phase-6-design.md)：Browser Visitor ID、Protocol V2、Sessionization、Dimensions、Analytics API 和 Dashboard 的实施计划。
+- [Phase 7 Design](phase-7-design.md)：Protocol consolidation、稳定性、CI、retention、部署和 npm 发布的执行计划。
 - [Analytics API OpenAPI Contract](analytics-api.openapi.json)：Analytics API v1 的机器可读契约，包含已启用的 Phase 6 reports。
 - [Ingest Key Guide](ingest-key.md)：Ingest Key 的生成、配置、Website 使用、Origin 关联和轮换流程。
 

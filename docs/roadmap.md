@@ -184,7 +184,9 @@ Country / IP 不属于本阶段必须内容。
 
 ## Phase 7 — Stabilization
 
-目标：在不扩大产品范围的前提下提高可用性。
+详细执行方案见：[phase-7-design.md](phase-7-design.md)。
+
+目标：在不扩大产品范围的前提下完成协议收敛、稳定性验证和第一个 release candidate 准备。
 
 交付：
 
@@ -196,6 +198,8 @@ Country / IP 不属于本阶段必须内容。
 - 基础 retention
 - 部署文档
 - npm SDK 发布流程
+
+实施顺序和验收标准以 Phase 7 设计文档为准。Protocol consolidation 是发布前置步骤；retention 在策略批准前只允许 dry-run，不启用自动删除。
 
 ## 后续方向
 
