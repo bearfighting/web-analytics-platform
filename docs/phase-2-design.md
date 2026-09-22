@@ -1,6 +1,8 @@
 # Phase 2 Design — Backend Collector
 
-> Status: Working design
+> Historical implementation design: this document describes the pre-consolidation Event Protocol V1 and the initial TOML-based Collector configuration. After Phase 7 PR0, the unified protocol and capability configuration documents take precedence.
+
+> Status: Completed historical implementation design
 > Scope: HTTP ingestion, Event Protocol V1 validation, site configuration, Origin allowlist, Public Ingest Key provisioning and validation, basic rate limiting and FetchTransport integration
 
 ## 1. Phase 2 定义

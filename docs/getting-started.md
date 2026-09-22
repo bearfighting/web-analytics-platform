@@ -82,6 +82,8 @@ Dashboard 支持以下 URL 参数：
 
 ```bash
 docker compose \
+  -f compose.yaml \
+  -f compose.backend.yaml \
   --profile backend \
   --profile storage \
   --profile processing \
@@ -90,6 +92,26 @@ docker compose \
 ```
 
 Dashboard 默认访问 `http://localhost:13000/dashboard`。它在容器内使用 `http://analytics-api:4002`，不需要数据库环境变量。
+
+在 Protocol Consolidation 完成前，Phase 6 的 Protocol V2 仍受 site-level feature flag 保护。使用上面的手动 Compose 命令后，本地 `site_playground` 需要额外启用一次：
+
+```bash
+docker compose \
+  -f compose.yaml \
+  -f compose.backend.yaml \
+  --profile backend \
+  --profile storage \
+  --profile processing \
+  --profile dashboard \
+  exec -T postgres \
+  psql -U analytics -d analytics -c \
+  "INSERT INTO analytics_feature_flags (site_id, protocol_v2_enabled, analytics_enabled)
+   VALUES ('site_playground', TRUE, TRUE)
+   ON CONFLICT (site_id) DO UPDATE
+   SET protocol_v2_enabled = TRUE, analytics_enabled = TRUE;"
+```
+
+这是开发阶段迁移开关，不是最终用户配置。Protocol Consolidation 完成后，该步骤和 `protocol_v2_enabled` 都应删除；新的用户配置只面向观测能力。
 
 运行 Dashboard 浏览器 E2E 前安装 Chromium：
 

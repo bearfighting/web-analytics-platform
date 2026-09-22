@@ -1,5 +1,7 @@
 # Event Protocol V1
 
+> This document describes the development-stage Protocol V1 baseline. Before the first public release, [Protocol Consolidation Refactoring](protocol-consolidation-refactor.md) will redefine this as the unified initial protocol that includes the approved Visitor ID and Browser Context fields.
+
 Event Protocol V1 是 Client SDK 和 Backend 之间的跨语言契约。Phase 0 的 Protocol PR3 只定义和验证 Page View 事件，不实现事件采集、发送或服务端处理；Client SDK 的运行时实现见 Phase 1 文档。
 
 ## PageViewEvent

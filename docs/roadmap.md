@@ -238,6 +238,8 @@ Protocol / contract
 
 Phase 8 不应直接修改 Phase 7 的稳定性目标；如果需要 breaking protocol 或 API 变更，必须先更新设计文档和迁移方案。
 
+Phase 8 实现新能力时，必须同步建立稳定的内部 capability 边界，但暂不要求提供用户可编辑的动态站点配置。用户配置 API、Dashboard 管理、运行时刷新和回滚属于 Phase 8 之后的独立产品配置阶段。
+
 Phase 8 明确保持单体部署边界：继续使用 PostgreSQL、批处理或 one-shot Processor 和现有 HTTP API，不引入消息队列、缓存集群、流处理平台或其他分布式基础设施。Geo PR2 是否实施，取决于 Geo PR1 的数据质量、部署资产和隐私评估，不默认扩大 MVP 范围。
 
 ## Phase 9 — Advanced Analytics and Infrastructure
@@ -307,7 +309,8 @@ PostgreSQL Edition 可以支持多 worker、较高并发和独立运维，但仍
 只有出现真实需求后再考虑：
 
 - Error Analytics
-- 模块化采集与分析能力：允许站点按需组合 Page Views、Browser Context、Anonymous Visitor、Sessions、Geo、Custom Events、Web Vitals 和 Conversion/Funnel 等模块，并分别控制 site configuration、visitor consent、server policy 和 operator authorization。
+- [观测能力模块化与动态配置](feature-modularization-design.md)：Phase 8 在实现新能力时完成内部 capability 边界；Phase 8 之后再实现配置 API、持久化、Dashboard 管理、动态刷新和回滚。用户不配置 Protocol 版本、schema 或内部 rollout flag。
+- 模块化实施顺序固定为：统一协议 → 稳定现有 MVP → Phase 8 内部能力模块化 → 配置 API/持久化 → Dashboard 配置 → 动态刷新与回滚。
 - 非实时趋势 Summary / Insights API
   - 面向总体趋势和多维度聚合查询。
   - 可以评估 PostgreSQL Materialized View、rollup table 或其他预计算方案。

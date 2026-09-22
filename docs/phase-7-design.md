@@ -59,6 +59,7 @@ migration job → schema compatibility check → service deployment → health v
 ## 4. 不属于本阶段
 
 - 新 Router Adapter、Custom Events、Web Vitals、Conversion、Funnel、Replay 或 Heatmap。
+- 观测能力模块化、站点 capability 动态配置和 Dashboard 配置管理；这些工作必须在 Protocol consolidation 完成并经过本阶段稳定化后，按 [Feature Modularization Design](feature-modularization-design.md) 单独规划。
 - 新的 Visitor、Session、Dimension 或 API 统计语义。
 - Kafka、ClickHouse、Redis Cluster、Realtime 或多区域部署。
 - 真实用户迁移、跨设备身份合并或复杂组织权限。

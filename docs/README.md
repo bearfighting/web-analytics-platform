@@ -6,19 +6,21 @@
 - [Roadmap](roadmap.md)：线性开发阶段和交付顺序。
 - [Monorepo Design](monorepo-design.md)：仓库结构、模块职责和 Workspace 策略。
 - [Phase 0 Design](phase-0-design.md)：项目启动阶段的详细步骤、Checklist 和验收标准。
-- [Event Protocol](event-protocol.md)：Event Protocol V1 的 Schema、字段和版本策略。
+- [Event Protocol](event-protocol.md)：开发阶段 Event Protocol V1 基线；正式发布前以协议合并设计为准。
 - [Protocol Layout](../protocol/README.md)：事件、Context、服务契约和语义场景的稳定目录约定。
 - [Protocol Consolidation Refactoring](protocol-consolidation-refactor.md)：上线前合并开发阶段 V1/V2 协议的目标、步骤和验收标准。
+- [Feature Modularization Design](feature-modularization-design.md)：协议收敛之后的观测能力模块化、动态配置和实现优先顺序。
 - [Router Playground](router-playground.md)：Next.js App Router 实验场和导航场景。
 - [Phase 1 Design](phase-1-design.md)：Client SDK、Observer 和 Transport 的实施计划。
-- [Phase 2 Design](phase-2-design.md)：Backend Collector、HTTP 契约和基础安全控制的实施计划。
+- [Phase 2 Design](phase-2-design.md)：Backend Collector、HTTP 契约和基础安全控制的历史实施计划。
 - [Phase 3 Design](phase-3-design.md)：PostgreSQL Storage、Page View Processor 和 Analytics API 的实施计划。
 - [Phase 4 Design](phase-4-design.md)：Dashboard、Analytics API Query Client 和完整 Dashboard workflow 的实施计划。
-- [Phase 5 Design](phase-5-design.md)：Analytics Semantics、Visitor、Session、Browser Context 和 Dimensions 契约设计。
-- [Phase 6 Design](phase-6-design.md)：Browser Visitor ID、Protocol V2、Sessionization、Dimensions、Analytics API 和 Dashboard 的实施计划。
+- [Phase 5 Design](phase-5-design.md)：Analytics Semantics、Visitor、Session、Browser Context 和 Dimensions 的历史契约设计。
+- [Phase 6 Design](phase-6-design.md)：Browser Visitor ID、临时 Protocol V2 rollout、Sessionization、Dimensions、Analytics API 和 Dashboard 的历史实施计划。
 - [Phase 7 Design](phase-7-design.md)：Protocol consolidation、稳定性、CI、retention、部署和 npm 发布的执行计划。
 - [Analytics API OpenAPI Contract](analytics-api.openapi.json)：Analytics API v1 的机器可读契约，包含已启用的 Phase 6 reports。
 - [Ingest Key Guide](ingest-key.md)：Ingest Key 的生成、配置、Website 使用、Origin 关联和轮换流程。
+- [ADR-007：Capability-oriented Configuration](decisions/ADR-007-capability-oriented-configuration.md)：以用户能力而不是内部协议版本提供配置的架构决策。
 
 `AGENTS.md` 位于仓库根目录，作为整个项目的协作和开发规则入口。
 

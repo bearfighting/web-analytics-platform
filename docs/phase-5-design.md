@@ -1,6 +1,8 @@
 # Phase 5 Design — Analytics Semantics and Identity
 
-> Status: PR3 API contract and Phase 6 implementation plan complete; Phase 6 not started
+> Historical design input: this document records the Phase 5 identity and Browser Context decisions before Protocol consolidation. Its stable semantic decisions remain valid, while V1/V2 migration wording is superseded by [Protocol Consolidation Refactoring](protocol-consolidation-refactor.md).
+
+> Status: Completed design input; retained as historical input for the Phase 6 implementation
 > Scope: Visitor、Session、时间语义、Browser Context 和 Analytics Dimensions 的契约设计
 
 ## 1. Phase 5 定义

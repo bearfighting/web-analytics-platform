@@ -1,6 +1,8 @@
 # Phase 6 Design — Browser Identity, Sessionization and Analytics Dimensions
 
-> Status: Implementation-ready design; implementation not started
+> Historical implementation design: this document describes the temporary Phase 6 V1/V2 rollout and site-level feature flags. It is retained for implementation history; after Phase 7 PR0, the unified protocol and capability-oriented configuration documents take precedence.
+
+> Status: Completed historical implementation design; superseded by Protocol Consolidation before public release
 > Scope: Browser Visitor ID、Protocol V2 production enablement、Sessionization、Browser Context normalization、Dimensions、Analytics API 和 Dashboard
 
 ## 1. Phase 6 定义
