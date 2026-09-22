@@ -35,7 +35,7 @@ async fn setup() -> (Processor, PgPool) {
 #[ignore = "requires PostgreSQL; run pnpm test:integration"]
 async fn canonical_fixtures_match_processor_aggregates() {
     let fixture_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../protocol/contracts/analytics-api/v1/fixtures");
+        .join("../../protocol/contracts/analytics-api/current/fixtures");
     let mut fixture_paths = std::fs::read_dir(fixture_dir)
         .unwrap()
         .map(|entry| entry.unwrap().path())

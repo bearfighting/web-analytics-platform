@@ -11,7 +11,7 @@ import {
 
 const manifest = JSON.parse(
   readFileSync(
-    new URL("../../../protocol/capabilities/v1/capabilities.json", import.meta.url),
+    new URL("../../../protocol/capabilities/capabilities.json", import.meta.url),
     "utf8",
   ),
 ) as CapabilityManifest;

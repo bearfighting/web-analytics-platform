@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const openapiPath = path.join(root, "docs", "analytics-api.openapi.json");
-const contractRoot = path.join(root, "protocol", "contracts", "analytics-api", "v1");
+const contractRoot = path.join(root, "protocol", "contracts", "analytics-api", "current");
 const fixturesDirectory = path.join(contractRoot, "fixtures");
 const queryCasesPath = path.join(contractRoot, "api-contract-cases.json");
 const requiredIds = new Set([

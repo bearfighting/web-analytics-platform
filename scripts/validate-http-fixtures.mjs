@@ -10,7 +10,7 @@ const fixturesDirectory = path.join(
   "protocol",
   "contracts",
   "http-ingestion",
-  "v1",
+  "current",
   "fixtures",
 );
 const allowedStatuses = new Set([200, 202, 204, 400, 401, 403, 413, 415, 429, 500]);
@@ -198,7 +198,7 @@ function validateScenarioBody(fixture, fixtureName) {
           parsed.events.length > 100
         ) {
           errors.push(
-            `${fixtureName}: successful POST must contain a V1 EventBatch with 1-100 events.`,
+            `${fixtureName}: successful POST must contain an EventBatch with 1-100 events.`,
           );
         }
       }

@@ -137,7 +137,7 @@ async fn external_request_test_rejects_invalid_batch_atomically() {
 }
 
 #[tokio::test]
-async fn external_request_test_rejects_legacy_v2_batch() {
+async fn external_request_test_rejects_unsupported_schema_version() {
     let sink = InMemorySink::new();
     let response = app(sink.clone())
         .oneshot(request(

@@ -30,7 +30,7 @@ ingest_keys = ["generated-public-key"]
 `ingest_keys` 使用数组，以便轮换时短暂允许旧 key 和新 key 同时有效。
 生产配置至少包含一个 key；Collector 不支持无 key 的生产降级模式。
 
-完整的 Phase 2 TOML 配置示例见 [`collector.example.toml`](../protocol/contracts/http-ingestion/v1/config/collector.example.toml)。
+完整的 Phase 2 TOML 配置示例见 [`collector.example.toml`](../protocol/contracts/http-ingestion/current/config/collector.example.toml)。
 
 Origin 是完整的 `scheme + host + port`：
 

@@ -7,9 +7,9 @@
 - [MVP Scope](mvp-scope.md)：MVP 功能范围、排除项、完成定义和发布门槛。
 - [Monorepo Design](monorepo-design.md)：仓库结构、模块职责和 Workspace 策略。
 - [Phase 0 Design](phase-0-design.md)：项目启动阶段的详细步骤、Checklist 和验收标准。
-- [Event Protocol](event-protocol.md)：开发阶段 Event Protocol V1 基线；正式发布前以协议合并设计为准。
+- [Event Protocol](event-protocol.md)：统一初始 Event Protocol；历史 V1/V2 迁移背景见协议合并设计。
 - [Protocol Layout](../protocol/README.md)：事件、Context、服务契约和语义场景的稳定目录约定。
-- [Capability Contract](../protocol/capabilities/v1/capabilities.json)：10 个 Analytics capability 的机器可读边界和依赖定义。
+- [Capability Contract](../protocol/capabilities/capabilities.json)：10 个 Analytics capability 的机器可读边界和依赖定义。
 - [Protocol Consolidation Refactoring](protocol-consolidation-refactor.md)：上线前合并开发阶段 V1/V2 协议的目标、步骤和验收标准。
 - [Feature Modularization Design](feature-modularization-design.md)：协议收敛之后的观测能力模块化、动态配置和实现优先顺序；具体 MVP 阶段以 Phase 7/8 文档为准。
 - [Router Playground](router-playground.md)：Next.js App Router 实验场和导航场景。

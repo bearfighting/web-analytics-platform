@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const capabilityRoot = path.join(root, "protocol", "capabilities", "v1");
+const capabilityRoot = path.join(root, "protocol", "capabilities");
 const readJson = async (file) => JSON.parse(await readFile(file, "utf8"));
 
 const findDependencyCycles = (capabilities) => {

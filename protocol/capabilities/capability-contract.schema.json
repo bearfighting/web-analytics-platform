@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://web-analytics-platform.dev/schemas/capabilities/v1/capability-contract.schema.json",
+  "$id": "https://web-analytics-platform.dev/schemas/capabilities/capability-contract.schema.json",
   "title": "Analytics Capability Contract",
   "type": "object",
   "properties": {

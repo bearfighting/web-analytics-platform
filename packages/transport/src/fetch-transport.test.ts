@@ -29,7 +29,10 @@ const endpoint = "http://localhost:4001/v1/events";
 function readFixture(name: string): HttpFixture {
   return JSON.parse(
     readFileSync(
-      new URL(`../../../protocol/contracts/http-ingestion/v1/fixtures/${name}`, import.meta.url),
+      new URL(
+        `../../../protocol/contracts/http-ingestion/current/fixtures/${name}`,
+        import.meta.url,
+      ),
       "utf8",
     ),
   ) as HttpFixture;

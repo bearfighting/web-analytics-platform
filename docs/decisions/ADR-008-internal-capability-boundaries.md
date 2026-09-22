@@ -13,7 +13,7 @@ Conversions, Funnels and Geo still need stable boundaries.
 
 ## Decision
 
-1. The machine-readable manifest under `protocol/capabilities/v1/` is the
+1. The machine-readable manifest under `protocol/capabilities/` is the
    source of truth for capability IDs, dependencies and cross-layer boundaries.
 2. A capability is a product boundary, not a package, service, database table
    or user configuration record.

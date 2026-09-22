@@ -54,7 +54,7 @@ function readCanonicalApi() {
   const fixture = JSON.parse(
     readFileSync(
       new URL(
-        "../../../../protocol/contracts/analytics-api/v1/fixtures/single-page-view.json",
+        "../../../../protocol/contracts/analytics-api/current/fixtures/single-page-view.json",
         import.meta.url,
       ),
       "utf8",

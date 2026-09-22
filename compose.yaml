@@ -23,7 +23,7 @@ services:
       dockerfile: docker/collector.Dockerfile
     environment:
       RUST_LOG: collector=info
-      COLLECTOR_CONFIG: ${COLLECTOR_CONFIG:-/workspace/protocol/contracts/http-ingestion/v1/config/collector.example.toml}
+      COLLECTOR_CONFIG: ${COLLECTOR_CONFIG:-/workspace/protocol/contracts/http-ingestion/current/config/collector.example.toml}
       DATABASE_URL: ${COLLECTOR_DATABASE_URL:-postgres://analytics:analytics@postgres:5432/analytics}
     ports:
       - "4001:4001"

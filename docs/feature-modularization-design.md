@@ -128,7 +128,7 @@ site_ingest_policies
 
 ### Step 1 — MVP capability boundaries（Phase 7 PR1 已完成）
 
-Phase 7 PR1 已在 `protocol/capabilities/v1/` 冻结 Page Views、Browser Context、Visitors、Sessions、Dimensions、Custom Events、Web Vitals、Conversions、Funnels 和 Geo 的稳定内部边界。此阶段不新增动态站点配置，也不把当前开发期 feature flag 直接升级为用户配置。
+Phase 7 PR1 已在 `protocol/capabilities/` 冻结 Page Views、Browser Context、Visitors、Sessions、Dimensions、Custom Events、Web Vitals、Conversions、Funnels 和 Geo 的稳定内部边界。此阶段不新增动态站点配置，也不把当前开发期 feature flag 直接升级为用户配置。
 
 ### Step 2 — Capability contract implementation
 

@@ -1,6 +1,6 @@
 # Phase 7 Design — MVP 功能完善
 
-> Status: PR0 Protocol Consolidation, PR1 Internal Capability Boundaries and PR2 Router Adapters complete; PR2.1 and PR2.5 design frozen
+> Status: PR0 Protocol Consolidation, PR1 Internal Capability Boundaries, PR2 Router Adapters and PR2.1 Contract Namespace Consolidation complete; PR2.5 design frozen
 > Scope: Protocol consolidation、内部 capability 边界和 MVP 产品能力
 
 ## 1. 阶段目标
@@ -84,9 +84,9 @@ geo
 
 ## 6. PR2.1 — Contract Namespace Consolidation
 
-### 目标和边界
+### 目标和边界（已完成）
 
-Event Protocol 的 V1/V2 内容已经合并，但仓库中仍存在不同 contract 使用 `v1` 目录、版本字段和历史路径的情况。PR2.1 在正式进入后续能力开发前，统一当前 contract namespace，避免把不同语义的版本号误解为并行 runtime 协议。
+Event Protocol 的 V1/V2 内容已经合并。PR2.1 已统一当前 contract namespace，避免把不同语义的版本号误解为并行 runtime 协议。
 
 本 PR 不新增 breaking protocol，不实现兼容 runtime，不改变 Page View、Visitor、Session、Dimensions、Analytics API 或 Dashboard 结果。
 
@@ -99,15 +99,15 @@ Event Protocol 的 V1/V2 内容已经合并，但仓库中仍存在不同 contra
 - `/v1/events` 和 `/v1/sites/...` 如果继续作为公开 HTTP/API baseline，必须明确它们是唯一公开接口版本，不代表存在 V1/V2 runtime 双轨；
 - 只有未来真正发生 breaking change 时，才允许引入新的公开 API 或 Event Protocol 版本。
 
-### 预期清理
+### 已完成清理
 
-- 删除 `protocol/events/v1`、`protocol/events/v2` 等残留或空目录；
-- 审查并收敛 `protocol/capabilities/v1`、`protocol/contexts/v1`、`protocol/scenarios/analytics-semantics/v1` 以及内部 contract fixture 的路径和版本命名；
+- 删除 Event Protocol 的历史双目录和 compatibility 空目录；
+- 将 capability、Browser Context、semantic scenario 以及内部 contract fixture 收敛到 canonical/current 路径；
 - 将当前内部 contract 的 canonical layout 固定为：
 
   ```text
   protocol/events/{schemas,examples,fixtures}/
-  protocol/capabilities/{capabilities.json,capability-contract.schema.json}/
+  protocol/capabilities/{capabilities.json,capability-contract.schema.json}
   protocol/contexts/browser-context.schema.json
   protocol/scenarios/analytics-semantics/cases.json
   protocol/contracts/analytics-api/current/
@@ -115,9 +115,9 @@ Event Protocol 的 V1/V2 内容已经合并，但仓库中仍存在不同 contra
   ```
 
 - `analytics-api/current` 和 `http-ingestion/current` 的 source path 不携带内部版本目录；如果公开 HTTP API 继续使用 `/v1/sites/...` 和 `/v1/events`，该 `/v1` 只表示唯一当前公开 API baseline；
-- 将 `event-batch-mixed` 等历史迁移语义 fixture 改为 generic unsupported-schema fixture；
-- 将 `rejects_legacy_v2_batch` 等测试名称改为 `rejects_unsupported_schema_version`；
-- 清理 `legacy_v2`、`protocol_v2_enabled`、V1/V2 rollout 等 runtime、测试和脚本命名；
+- 将混合版本 fixture 改为 generic unsupported-schema fixture；
+- 将 legacy schema rejection 测试改为 `rejects_unsupported_schema_version`；
+- 清理 Event Protocol rollout 专用的 runtime、测试和脚本命名；数据库中的历史 deprecated 字段保持不变；
 - 更新 Rust、TypeScript、fixture validator、CI 和文档引用；
 - 增加校验，禁止重新引入 Event Protocol 的 V1/V2 双目录或 runtime version branch。
 

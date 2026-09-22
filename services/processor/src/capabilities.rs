@@ -115,14 +115,14 @@ pub enum CapabilityRegistryError {
 impl CapabilityRegistry {
     pub fn canonical() -> Result<Self, CapabilityRegistryError> {
         Self::from_json(include_str!(
-            "../../../protocol/capabilities/v1/capabilities.json"
+            "../../../protocol/capabilities/capabilities.json"
         ))
     }
 
     pub fn from_json(json: &str) -> Result<Self, CapabilityRegistryError> {
         let value: serde_json::Value = serde_json::from_str(json)?;
         let schema: serde_json::Value = serde_json::from_str(include_str!(
-            "../../../protocol/capabilities/v1/capability-contract.schema.json"
+            "../../../protocol/capabilities/capability-contract.schema.json"
         ))?;
         let validator = JSONSchema::options()
             .with_draft(Draft::Draft202012)
@@ -301,7 +301,7 @@ mod tests {
 
     #[test]
     fn rejects_invalid_manifest_metadata() {
-        let json = include_str!("../../../protocol/capabilities/v1/capabilities.json").replace(
+        let json = include_str!("../../../protocol/capabilities/capabilities.json").replace(
             "\"capability_schema_version\": 1",
             "\"capability_schema_version\": 2",
         );
@@ -311,7 +311,7 @@ mod tests {
     #[test]
     fn rejects_unknown_manifest_fields() {
         let mut manifest: serde_json::Value = serde_json::from_str(include_str!(
-            "../../../protocol/capabilities/v1/capabilities.json"
+            "../../../protocol/capabilities/capabilities.json"
         ))
         .expect("canonical manifest should be valid JSON");
         manifest["unexpected"] = serde_json::Value::Bool(true);
@@ -321,7 +321,7 @@ mod tests {
     #[test]
     fn rejects_semantically_invalid_capability_boundaries() {
         let mut manifest: serde_json::Value = serde_json::from_str(include_str!(
-            "../../../protocol/capabilities/v1/capabilities.json"
+            "../../../protocol/capabilities/capabilities.json"
         ))
         .expect("canonical manifest should be valid JSON");
         manifest["capabilities"][5]["api"]["routes"] = serde_json::json!(["/runtime"]);
