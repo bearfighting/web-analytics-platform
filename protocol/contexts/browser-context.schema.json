@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://web-analytics-platform.dev/schemas/contexts/browser-context.schema.json",
+  "title": "Browser Context",
+  "type": "object",
+  "properties": {
+    "language": { "type": "string", "maxLength": 64 },
+    "timezone": { "type": "string", "maxLength": 64 },
+    "viewport_width": { "$ref": "#/$defs/unknownOrDimension" },
+    "viewport_height": { "$ref": "#/$defs/unknownOrDimension" },
+    "screen_width": { "$ref": "#/$defs/unknownOrDimension" },
+    "screen_height": { "$ref": "#/$defs/unknownOrDimension" },
+    "utm_source": { "type": "string", "maxLength": 256 },
+    "utm_medium": { "type": "string", "maxLength": 256 },
+    "utm_campaign": { "type": "string", "maxLength": 256 },
+    "utm_term": { "type": "string", "maxLength": 256 },
+    "utm_content": { "type": "string", "maxLength": 256 },
+    "referrer": { "type": "string", "maxLength": 4096 },
+    "user_agent": { "type": "string", "maxLength": 1024 }
+  },
+  "required": [
+    "language",
+    "timezone",
+    "viewport_width",
+    "viewport_height",
+    "screen_width",
+    "screen_height",
+    "user_agent"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "unknownOrDimension": {
+      "oneOf": [{ "type": "integer", "minimum": 0, "maximum": 100000 }, { "const": "unknown" }]
+    }
+  }
+}

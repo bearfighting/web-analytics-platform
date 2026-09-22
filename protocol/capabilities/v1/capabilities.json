@@ -1,0 +1,279 @@
+{
+  "capability_schema_version": 1,
+  "capabilities": [
+    {
+      "id": "page_views",
+      "status": "implemented",
+      "depends_on": [],
+      "input": {
+        "event_types": ["page_view"],
+        "required_fields": ["site_id", "path", "occurred_at"]
+      },
+      "raw_event": {
+        "preserve": true,
+        "fields": ["event_id", "site_id", "path", "occurred_at", "received_at"]
+      },
+      "processor": {
+        "facts": ["page_view_daily", "page_view_routes", "page_view_totals"],
+        "rebuild": "incremental"
+      },
+      "api": {
+        "query_surface": "overview",
+        "routes": [
+          "/v1/sites/{site_id}/overview",
+          "/v1/sites/{site_id}/reports/{from}/{to}/overview"
+        ]
+      },
+      "dashboard": {
+        "surface": "overview",
+        "disabled": "page views remain enabled as the baseline capability",
+        "empty": "return zero metrics and empty tables",
+        "error": "show the dashboard error state without exposing storage details"
+      },
+      "security": {
+        "consent": "required",
+        "origin_and_ingest_key": "enforced",
+        "privacy": ["do not persist IP", "site isolation is required"]
+      },
+      "history": { "queryable_after_disabled": true, "backfill": "optional" }
+    },
+    {
+      "id": "browser_context",
+      "status": "implemented",
+      "depends_on": ["page_views"],
+      "input": {
+        "event_types": ["page_view"],
+        "required_fields": ["context", "context_schema_version"]
+      },
+      "raw_event": { "preserve": true, "fields": ["context", "context_schema_version"] },
+      "processor": {
+        "facts": ["normalized_event_context", "dimension_event_facts"],
+        "rebuild": "explicit_backfill"
+      },
+      "api": {
+        "query_surface": "report",
+        "routes": ["/v1/sites/{site_id}/reports/{from}/{to}/dimensions/{dimension}"]
+      },
+      "dashboard": {
+        "surface": "report",
+        "disabled": "page views remain available without context-derived reports",
+        "empty": "show no dimension rows for the selection",
+        "error": "show the report error state"
+      },
+      "security": {
+        "consent": "required",
+        "origin_and_ingest_key": "enforced",
+        "privacy": [
+          "do not expose raw user-agent",
+          "do not persist IP",
+          "discard unsupported context fields"
+        ]
+      },
+      "history": { "queryable_after_disabled": true, "backfill": "required" }
+    },
+    {
+      "id": "anonymous_visitors",
+      "status": "implemented",
+      "depends_on": ["page_views"],
+      "input": { "event_types": ["page_view"], "required_fields": ["visitor_id"] },
+      "raw_event": { "preserve": true, "fields": ["visitor_id"] },
+      "processor": {
+        "facts": ["visitor_event_facts", "visitor_daily"],
+        "rebuild": "explicit_backfill"
+      },
+      "api": {
+        "query_surface": "report",
+        "routes": ["/v1/sites/{site_id}/reports/{from}/{to}/visitors"]
+      },
+      "dashboard": {
+        "surface": "report",
+        "disabled": "page views remain available and visitor reports are unavailable",
+        "empty": "show zero visitors and sessions",
+        "error": "show the report error state"
+      },
+      "security": {
+        "consent": "required",
+        "origin_and_ingest_key": "enforced",
+        "privacy": [
+          "use site-scoped anonymous IDs",
+          "do not use fingerprinting",
+          "do not expose raw identity sources"
+        ]
+      },
+      "history": { "queryable_after_disabled": true, "backfill": "required" }
+    },
+    {
+      "id": "sessions",
+      "status": "implemented",
+      "depends_on": ["anonymous_visitors"],
+      "input": { "event_types": ["page_view"], "required_fields": ["visitor_id", "occurred_at"] },
+      "raw_event": { "preserve": false, "fields": [] },
+      "processor": {
+        "facts": ["session_events", "sessions", "session_daily"],
+        "rebuild": "explicit_backfill"
+      },
+      "api": {
+        "query_surface": "report",
+        "routes": ["/v1/sites/{site_id}/reports/{from}/{to}/sessions"]
+      },
+      "dashboard": {
+        "surface": "report",
+        "disabled": "page views remain available and session reports are unavailable",
+        "empty": "show zero sessions",
+        "error": "show the report error state"
+      },
+      "security": {
+        "consent": "required",
+        "origin_and_ingest_key": "enforced",
+        "privacy": ["sessions require anonymous visitor IDs", "do not expose raw identity sources"]
+      },
+      "history": { "queryable_after_disabled": true, "backfill": "required" }
+    },
+    {
+      "id": "dimensions",
+      "status": "implemented",
+      "depends_on": ["browser_context"],
+      "input": { "event_types": ["page_view"], "required_fields": ["context"] },
+      "raw_event": { "preserve": false, "fields": [] },
+      "processor": {
+        "facts": ["dimension_event_facts", "dimension_daily"],
+        "rebuild": "explicit_backfill"
+      },
+      "api": {
+        "query_surface": "report",
+        "routes": ["/v1/sites/{site_id}/reports/{from}/{to}/dimensions/{dimension}"]
+      },
+      "dashboard": {
+        "surface": "report",
+        "disabled": "page views remain available and dimension reports are unavailable",
+        "empty": "show no dimension rows",
+        "error": "show the report error state"
+      },
+      "security": {
+        "consent": "required",
+        "origin_and_ingest_key": "enforced",
+        "privacy": [
+          "derive bounded dimensions only",
+          "do not expose raw user-agent",
+          "do not persist IP"
+        ]
+      },
+      "history": { "queryable_after_disabled": true, "backfill": "required" }
+    },
+    {
+      "id": "custom_events",
+      "status": "planned",
+      "depends_on": ["page_views"],
+      "input": { "event_types": ["custom_event"], "required_fields": ["event_name", "properties"] },
+      "raw_event": { "preserve": true, "fields": ["event_name", "properties"] },
+      "processor": { "facts": ["custom_event_facts"], "rebuild": "incremental" },
+      "api": { "query_surface": "future_report", "routes": [] },
+      "dashboard": {
+        "surface": "future_report",
+        "disabled": "no custom event workflow is available",
+        "empty": "not implemented",
+        "error": "not implemented"
+      },
+      "security": {
+        "consent": "required",
+        "origin_and_ingest_key": "enforced",
+        "privacy": ["reject sensitive properties", "bound property depth and size"]
+      },
+      "history": { "queryable_after_disabled": true, "backfill": "optional" }
+    },
+    {
+      "id": "web_vitals",
+      "status": "planned",
+      "depends_on": ["page_views"],
+      "input": { "event_types": ["web_vital"], "required_fields": ["metric", "value", "rating"] },
+      "raw_event": { "preserve": true, "fields": ["metric", "value", "rating"] },
+      "processor": { "facts": ["web_vital_facts", "web_vital_daily"], "rebuild": "incremental" },
+      "api": { "query_surface": "future_report", "routes": [] },
+      "dashboard": {
+        "surface": "future_report",
+        "disabled": "no Web Vitals workflow is available",
+        "empty": "not implemented",
+        "error": "not implemented"
+      },
+      "security": {
+        "consent": "required",
+        "origin_and_ingest_key": "enforced",
+        "privacy": ["bound metric values and labels", "do not collect raw user-agent or IP"]
+      },
+      "history": { "queryable_after_disabled": true, "backfill": "optional" }
+    },
+    {
+      "id": "conversions",
+      "status": "planned",
+      "depends_on": ["custom_events"],
+      "input": { "event_types": ["custom_event"], "required_fields": ["event_name", "properties"] },
+      "raw_event": { "preserve": false, "fields": [] },
+      "processor": { "facts": ["conversion_facts"], "rebuild": "explicit_backfill" },
+      "api": { "query_surface": "future_report", "routes": [] },
+      "dashboard": {
+        "surface": "future_report",
+        "disabled": "no conversion workflow is available",
+        "empty": "not implemented",
+        "error": "not implemented"
+      },
+      "security": {
+        "consent": "required",
+        "origin_and_ingest_key": "enforced",
+        "privacy": [
+          "definitions must not require identity data",
+          "properties inherit custom event privacy rules"
+        ]
+      },
+      "history": { "queryable_after_disabled": true, "backfill": "required" }
+    },
+    {
+      "id": "funnels",
+      "status": "planned",
+      "depends_on": ["custom_events", "conversions"],
+      "input": {
+        "event_types": ["custom_event"],
+        "required_fields": ["event_name", "occurred_at"]
+      },
+      "raw_event": { "preserve": false, "fields": [] },
+      "processor": { "facts": ["funnel_step_facts"], "rebuild": "explicit_backfill" },
+      "api": { "query_surface": "future_report", "routes": [] },
+      "dashboard": {
+        "surface": "future_report",
+        "disabled": "no funnel workflow is available",
+        "empty": "not implemented",
+        "error": "not implemented"
+      },
+      "security": {
+        "consent": "required",
+        "origin_and_ingest_key": "enforced",
+        "privacy": ["do not require cross-device identity", "definitions must be site-scoped"]
+      },
+      "history": { "queryable_after_disabled": true, "backfill": "required" }
+    },
+    {
+      "id": "geo",
+      "status": "planned",
+      "depends_on": ["page_views"],
+      "input": { "event_types": ["page_view"], "required_fields": ["site_id"] },
+      "raw_event": { "preserve": false, "fields": [] },
+      "processor": { "facts": ["geo_country_facts"], "rebuild": "explicit_backfill" },
+      "api": { "query_surface": "future_report", "routes": [] },
+      "dashboard": {
+        "surface": "future_report",
+        "disabled": "no Geo workflow is available",
+        "empty": "not implemented",
+        "error": "not implemented"
+      },
+      "security": {
+        "consent": "required",
+        "origin_and_ingest_key": "enforced",
+        "privacy": [
+          "do not store raw IP",
+          "country only in PR1",
+          "unresolved values become unknown"
+        ]
+      },
+      "history": { "queryable_after_disabled": true, "backfill": "required" }
+    }
+  ]
+}

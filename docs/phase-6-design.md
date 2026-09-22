@@ -7,12 +7,14 @@
 
 ## 1. Phase 6 定义
 
-Phase 6 在 Phase 5 已冻结的语义和契约之上，完成第二条可查询的 Analytics workflow：
+Phase 6 在 Phase 5 已冻结的语义和契约之上，完成 Browser Context、Visitor、
+Session 和 Dimensions workflow。下方 V1/V2 表述仅保留为实现历史；当前 runtime
+使用 Phase 7 PR0 合并后的唯一初始协议：
 
 ```text
 Browser SDK
-  → Protocol V2 Visitor ID / Browser Context
-  → Collector V1/V2 ingestion
+  → Unified Protocol Visitor ID / Browser Context
+  → Collector unified ingestion
   → PostgreSQL Raw Events
   → Context Normalizer / User-Agent Parser
   → Session Rebuilder

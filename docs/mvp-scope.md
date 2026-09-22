@@ -84,7 +84,7 @@ MVP 配置只支持单部署管理员边界。可以使用部署级 secret 或�
 
 ```text
 Phase 0–6
-  → Phase 7: MVP 功能完善
+  → Phase 7: MVP 功能完善和 capability contract
   → Phase 8: MVP 用户配置
   → Release Readiness: 测试、稳定性、部署和发布
   → Post-MVP extensions

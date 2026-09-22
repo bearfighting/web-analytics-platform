@@ -7,7 +7,6 @@ use sqlx::{PgPool, postgres::PgPoolOptions};
 use thiserror::Error;
 use tokio::sync::RwLock;
 
-use crate::feature_flags::{FeatureFlagError, FeatureFlagStore};
 use crate::protocol::{EventType, PageViewEvent};
 
 #[derive(Debug, Clone)]
@@ -113,19 +112,5 @@ impl EventSink for PostgresSink {
 
         transaction.commit().await?;
         Ok(())
-    }
-}
-
-#[async_trait]
-impl FeatureFlagStore for PostgresSink {
-    async fn protocol_v2_enabled(&self, site_id: &str) -> Result<bool, FeatureFlagError> {
-        let enabled = sqlx::query_scalar::<_, bool>(
-            "SELECT protocol_v2_enabled FROM analytics_feature_flags WHERE site_id = $1",
-        )
-        .bind(site_id)
-        .fetch_optional(&self.pool)
-        .await?
-        .unwrap_or(false);
-        Ok(enabled)
     }
 }

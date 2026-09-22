@@ -16,14 +16,13 @@ pub(crate) async fn claim_next_event(
             DateTime<Utc>,
             DateTime<Utc>,
             String,
-            i32,
             Option<String>,
             Option<i32>,
             Value,
         ),
     >(
         "SELECT id, event_id, site_id, occurred_at, received_at, path,
-                schema_version, visitor_id::text, context_schema_version, payload
+                visitor_id::text, context_schema_version, payload
          FROM raw_events
          WHERE processed_at IS NULL
          ORDER BY id
@@ -41,7 +40,6 @@ pub(crate) async fn claim_next_event(
                 occurred_at,
                 received_at,
                 path,
-                schema_version,
                 visitor_id,
                 context_schema_version,
                 payload,
@@ -52,7 +50,6 @@ pub(crate) async fn claim_next_event(
                 occurred_at,
                 received_at,
                 path,
-                schema_version,
                 visitor_id,
                 context_schema_version,
                 payload,

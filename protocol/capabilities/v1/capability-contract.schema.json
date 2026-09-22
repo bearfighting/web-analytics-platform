@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://web-analytics-platform.dev/schemas/capabilities/v1/capability-contract.schema.json",
+  "title": "Analytics Capability Contract",
+  "type": "object",
+  "properties": {
+    "capability_schema_version": { "const": 1 },
+    "capabilities": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": { "$ref": "#/$defs/capability" }
+    }
+  },
+  "required": ["capability_schema_version", "capabilities"],
+  "additionalProperties": false,
+  "$defs": {
+    "capability": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "enum": [
+            "page_views",
+            "browser_context",
+            "anonymous_visitors",
+            "sessions",
+            "dimensions",
+            "custom_events",
+            "web_vitals",
+            "conversions",
+            "funnels",
+            "geo"
+          ]
+        },
+        "status": { "enum": ["implemented", "planned"] },
+        "depends_on": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "page_views",
+              "browser_context",
+              "anonymous_visitors",
+              "sessions",
+              "dimensions",
+              "custom_events",
+              "web_vitals",
+              "conversions",
+              "funnels",
+              "geo"
+            ]
+          }
+        },
+        "input": {
+          "type": "object",
+          "properties": {
+            "event_types": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "type": "string" }
+            },
+            "required_fields": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "type": "string" }
+            }
+          },
+          "required": ["event_types", "required_fields"],
+          "additionalProperties": false
+        },
+        "raw_event": {
+          "type": "object",
+          "properties": {
+            "preserve": { "type": "boolean" },
+            "fields": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "type": "string" }
+            }
+          },
+          "required": ["preserve", "fields"],
+          "additionalProperties": false
+        },
+        "processor": {
+          "type": "object",
+          "properties": {
+            "facts": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "type": "string" }
+            },
+            "rebuild": { "enum": ["none", "incremental", "explicit_backfill"] }
+          },
+          "required": ["facts", "rebuild"],
+          "additionalProperties": false
+        },
+        "api": {
+          "type": "object",
+          "properties": {
+            "query_surface": { "enum": ["overview", "report", "future_report", "none"] },
+            "routes": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "type": "string" }
+            }
+          },
+          "required": ["query_surface", "routes"],
+          "additionalProperties": false
+        },
+        "dashboard": {
+          "type": "object",
+          "properties": {
+            "surface": { "enum": ["overview", "report", "future_report", "none"] },
+            "disabled": { "type": "string" },
+            "empty": { "type": "string" },
+            "error": { "type": "string" }
+          },
+          "required": ["surface", "disabled", "empty", "error"],
+          "additionalProperties": false
+        },
+        "security": {
+          "type": "object",
+          "properties": {
+            "consent": { "enum": ["required", "not_applicable"] },
+            "origin_and_ingest_key": { "enum": ["enforced", "not_applicable"] },
+            "privacy": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "type": "string" }
+            }
+          },
+          "required": ["consent", "origin_and_ingest_key", "privacy"],
+          "additionalProperties": false
+        },
+        "history": {
+          "type": "object",
+          "properties": {
+            "queryable_after_disabled": { "type": "boolean" },
+            "backfill": { "enum": ["never", "optional", "required"] }
+          },
+          "required": ["queryable_after_disabled", "backfill"],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "id",
+        "status",
+        "depends_on",
+        "input",
+        "raw_event",
+        "processor",
+        "api",
+        "dashboard",
+        "security",
+        "history"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

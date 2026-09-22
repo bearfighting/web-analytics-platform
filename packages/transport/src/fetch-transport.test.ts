@@ -39,8 +39,8 @@ function fixtureEvents(fixture: HttpFixture): readonly PageViewEvent[] {
   return (JSON.parse(fixture.request.body) as { events: PageViewEvent[] }).events;
 }
 
-const v2Event: AnalyticsEvent = {
-  schema_version: 2,
+const identifiedEvent: AnalyticsEvent = {
+  schema_version: 1,
   event_id: "01J00000000000000000000001",
   type: "page_view",
   site_id: "site_example",
@@ -67,19 +67,17 @@ function responseFor(fixture: HttpFixture): Response {
 }
 
 describe("FetchTransport", () => {
-  it("splits mixed V1 and V2 events into versioned requests", async () => {
+  it("sends identified and anonymous events in one unified request", async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(responseFor(acceptedFixture));
     const transport = new FetchTransport({
       endpoint,
       ingestKey: "public-key-example",
       fetch: fetchMock,
     });
-    await transport.sendBatch([...fixtureEvents(acceptedFixture), v2Event]);
+    await transport.sendBatch([...fixtureEvents(acceptedFixture), identifiedEvent]);
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(
-      fetchMock.mock.calls.map(([, init]) => JSON.parse(String(init?.body)).schema_version),
-    ).toEqual([1, 2]);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)).schema_version).toBe(1);
   });
 
   it("sends the canonical EventBatch request without manually setting Origin", async () => {

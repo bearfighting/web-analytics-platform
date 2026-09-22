@@ -1,0 +1,21 @@
+{
+  "id": "page_views",
+  "status": "implemented",
+  "depends_on": [],
+  "input": { "event_types": ["page_view"], "required_fields": ["site_id"] },
+  "raw_event": { "preserve": true, "fields": ["event_id"] },
+  "processor": { "facts": ["page_view_daily"], "rebuild": "incremental" },
+  "api": { "query_surface": "overview", "routes": ["/v1/sites/{site_id}/overview"] },
+  "dashboard": {
+    "surface": "overview",
+    "disabled": "page views remain enabled as the baseline capability",
+    "empty": "return zero metrics and empty tables",
+    "error": "show the dashboard error state"
+  },
+  "security": {
+    "consent": "required",
+    "origin_and_ingest_key": "enforced",
+    "privacy": ["site isolation"]
+  },
+  "history": { "queryable_after_disabled": true, "backfill": "optional" }
+}

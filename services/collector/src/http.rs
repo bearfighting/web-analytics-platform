@@ -14,7 +14,6 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::{
-    feature_flags::{FeatureFlagStore, StaticFeatureFlagStore},
     rate_limit::RateLimiter,
     security::{AccessError, KeyPolicy},
     sink::{EventSink, StoredEvent},
@@ -29,7 +28,6 @@ pub struct AppState {
     sink: Arc<dyn EventSink>,
     policy: Arc<KeyPolicy>,
     rate_limiter: Arc<RateLimiter>,
-    feature_flags: Arc<dyn FeatureFlagStore>,
 }
 
 pub fn router<S>(
@@ -41,26 +39,6 @@ pub fn router<S>(
 where
     S: EventSink + 'static,
 {
-    router_with_feature_flags(
-        validator,
-        sink,
-        policy,
-        rate_limiter,
-        StaticFeatureFlagStore::disabled(),
-    )
-}
-
-pub fn router_with_feature_flags<S, F>(
-    validator: Validator,
-    sink: S,
-    policy: KeyPolicy,
-    rate_limiter: RateLimiter,
-    feature_flags: F,
-) -> Router
-where
-    S: EventSink + 'static,
-    F: FeatureFlagStore + 'static,
-{
     Router::new()
         .route("/health", get(health))
         .route("/v1/events", post(events).options(preflight))
@@ -69,7 +47,6 @@ where
             sink: Arc::new(sink),
             policy: Arc::new(policy),
             rate_limiter: Arc::new(rate_limiter),
-            feature_flags: Arc::new(feature_flags),
         })
 }
 
@@ -134,14 +111,7 @@ async fn events(State(state): State<AppState>, request: Request<Body>) -> Respon
     let site_id = match batch_site_id(&value) {
         Ok(Some(site_id)) => site_id.to_owned(),
         Ok(None) => {
-            return validate_batch(
-                &state,
-                value,
-                None,
-                has_origin,
-                global_cors_origin.as_deref(),
-            )
-            .await;
+            return validate_batch(&state, value, has_origin, global_cors_origin.as_deref()).await;
         }
         Err(()) => {
             return with_cors(
@@ -189,51 +159,15 @@ async fn events(State(state): State<AppState>, request: Request<Body>) -> Respon
         );
     }
 
-    validate_batch(
-        &state,
-        value,
-        Some(&site_id),
-        has_origin,
-        Some(authorized.origin.as_str()),
-    )
-    .await
+    validate_batch(&state, value, has_origin, Some(authorized.origin.as_str())).await
 }
 
 async fn validate_batch(
     state: &AppState,
     value: Value,
-    site_id: Option<&str>,
     has_origin: bool,
     cors_origin: Option<&str>,
 ) -> Response {
-    if value.get("schema_version").and_then(Value::as_u64) == Some(2) {
-        let Some(site_id) = site_id else {
-            return with_cors(
-                ApiError::invalid_event_batch().into_response(),
-                has_origin,
-                cors_origin,
-            );
-        };
-        match state.feature_flags.protocol_v2_enabled(site_id).await {
-            Ok(true) => {}
-            Ok(false) => {
-                return with_cors(
-                    ApiError::invalid_event_batch().into_response(),
-                    has_origin,
-                    cors_origin,
-                );
-            }
-            Err(error) => {
-                tracing::error!(error = %error, "feature flag lookup failed");
-                return with_cors(
-                    ApiError::collector_error().into_response(),
-                    has_origin,
-                    cors_origin,
-                );
-            }
-        }
-    }
-
     let batch = match state.validator.validate(&value) {
         Ok(batch) => batch,
         Err(_) => {
@@ -247,18 +181,16 @@ async fn validate_batch(
 
     let accepted = batch.events.len();
     let received_at = Utc::now();
-    if batch.schema_version == 2 {
-        let latest_allowed = received_at + chrono::Duration::minutes(5);
-        if batch.events.iter().any(|event| {
-            chrono::DateTime::<Utc>::from_timestamp_millis(event.event.occurred_at)
-                .is_none_or(|occurred_at| occurred_at > latest_allowed)
-        }) {
-            return with_cors(
-                ApiError::invalid_occurred_at().into_response(),
-                has_origin,
-                cors_origin,
-            );
-        }
+    let latest_allowed = received_at + chrono::Duration::minutes(5);
+    if batch.events.iter().any(|event| {
+        chrono::DateTime::<Utc>::from_timestamp_millis(event.event.occurred_at)
+            .is_none_or(|occurred_at| occurred_at > latest_allowed)
+    }) {
+        return with_cors(
+            ApiError::invalid_occurred_at().into_response(),
+            has_origin,
+            cors_origin,
+        );
     }
     let events = batch
         .events

@@ -48,13 +48,7 @@ async fn serve(args: ServeArgs) -> Result<(), CollectorError> {
         std::env::var("DATABASE_URL").map_err(|_| CollectorError::MissingDatabaseUrl)?;
     let sink = PostgresSink::connect(&database_url).await?;
     let policy = collector::security::KeyPolicy::new(registry);
-    let app = collector::http::router_with_feature_flags(
-        validator,
-        sink.clone(),
-        policy,
-        RateLimiter::new(),
-        sink,
-    );
+    let app = collector::http::router(validator, sink.clone(), policy, RateLimiter::new());
 
     let listener = tokio::net::TcpListener::bind(address).await?;
 

@@ -1,0 +1,16 @@
+{
+  "id": "unknown",
+  "status": "planned",
+  "depends_on": [],
+  "input": { "event_types": ["page_view"], "required_fields": [] },
+  "raw_event": { "preserve": false, "fields": [] },
+  "processor": { "facts": [], "rebuild": "none" },
+  "api": { "query_surface": "none", "routes": [] },
+  "dashboard": { "surface": "none", "disabled": "none", "empty": "none", "error": "none" },
+  "security": {
+    "consent": "not_applicable",
+    "origin_and_ingest_key": "not_applicable",
+    "privacy": ["none"]
+  },
+  "history": { "queryable_after_disabled": true, "backfill": "never" }
+}

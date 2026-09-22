@@ -319,14 +319,16 @@ Checklist：
 - [x] 事件字段的必填性已确定。
 - [x] hash 行为已有明确决定。
 
-## Step 5 — 设计 Event Protocol V1
+## Step 5 — 设计 Event Protocol V1（历史目录结构）
+
+> 本节记录启动阶段的历史设计。Phase 7 PR0 已将开发期 V1/V2 合并为唯一初始协议；当前目录使用 `protocol/events/schemas`、`examples` 和 `fixtures`。
 
 创建：
 
 ```text
-protocol/events/v1/schemas/
-protocol/events/v1/examples/
-protocol/events/v1/fixtures/
+protocol/events/schemas/
+protocol/events/examples/
+protocol/events/fixtures/
 ```
 
 第一版只定义 Page View 相关协议：

@@ -1,5 +1,7 @@
 # Protocol Consolidation Refactoring Plan
 
+> Status: Completed in Phase 7 PR0
+
 ## 1. 背景和目标
 
 当前项目仍处于开发阶段，没有真实用户、已发布 SDK 或需要长期兼容的外部客户端。Phase 5/6 期间为了分别设计和实现 V1、V2，暂时保留了两套 Event Protocol、两套 schema validator、两套 fixture 目录和多条运行时分支。
@@ -15,14 +17,14 @@
 - 让未来真正的破坏性协议变更从统一的初始协议版本开始演进；
 - 不把开发阶段的 Phase 编号或临时迁移路径固化为长期架构。
 
-## 2. 当前状态
+## 2. 实施前状态
 
 当前仓库同时包含两种事件协议语义：
 
 - 旧 Page View 事件：`schema_version = 1`，没有正式 Visitor ID 和 Context pairing 规则；
 - Phase 6 事件：`schema_version = 2`，支持 Visitor ID、Context schema version 和 V2 校验。
 
-当前实现还包含：
+实施前的实现还包含：
 
 - Browser SDK 的 V1/V2 类型和 factory；
 - Transport 对不同版本 batch 的拆分；

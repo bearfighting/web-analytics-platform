@@ -60,7 +60,9 @@ Phase 5 不改变已经交付的 Page View 行为：
 - V1 事件即使没有 Visitor ID，也必须继续计入 Page Views，但不得被合并到任意共享的 anonymous fallback Visitor。
 - Phase 6 新增的 Visitor、Session 和 Dimension 聚合只能作为派生能力接入，不能要求 Phase 3/4 立即修改生产表或 API。
 
-Phase 5 PR1 只冻结实现边界；Protocol V2 和 canonical fixtures 在 PR2 完成，API response contract 和 Phase 6 migration plan 在 PR3 完成。生产 migration、Processor 扩展和新的 API endpoint 实现仍然留给 Phase 6。
+Phase 5 PR1–PR3 的 V1/V2 迁移描述是历史设计输入。Phase 7 PR0 已将
+Visitor、Context 和 Page View 语义合并到唯一的初始协议；生产 migration、
+Processor 扩展和 API endpoint 实现仍由 Phase 6 的已完成实现提供。
 
 ### 4.3 身份是匿名且站点隔离的
 

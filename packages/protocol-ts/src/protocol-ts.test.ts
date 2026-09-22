@@ -1,12 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  BrowserContextV1,
-  EventBatch,
-  EventBatchV2,
-  PageViewEvent,
-  PageViewEventV2,
-} from "./index";
+import type { BrowserContextV1, EventBatch, PageViewEvent } from "./index";
 
 describe("protocol types", () => {
   it("models a minimal PageViewEvent", () => {
@@ -43,7 +37,7 @@ describe("protocol types", () => {
     expect(invalidBatch.events).toHaveLength(1);
   });
 
-  it("models the active V2 contract without changing V1 types", () => {
+  it("models the unified identity and context contract", () => {
     const context: BrowserContextV1 = {
       language: "en-CA",
       timezone: "America/Toronto",
@@ -53,8 +47,8 @@ describe("protocol types", () => {
       screen_height: 1440,
       user_agent: "unknown",
     };
-    const event: PageViewEventV2 = {
-      schema_version: 2,
+    const event: PageViewEvent = {
+      schema_version: 1,
       event_id: "01J00000000000000000000001",
       type: "page_view",
       site_id: "site_example",
@@ -64,9 +58,9 @@ describe("protocol types", () => {
       path: "/about",
       context,
     };
-    const batch: EventBatchV2 = { schema_version: 2, events: [event] };
+    const batch: EventBatch = { schema_version: 1, events: [event] };
 
-    expect(batch.events[0].schema_version).toBe(2);
+    expect(batch.events[0].schema_version).toBe(1);
     expect(event.context?.user_agent).toBe("unknown");
   });
 });

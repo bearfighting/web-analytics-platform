@@ -119,12 +119,11 @@ async fn phase6_metadata_migration_is_additive_and_supports_rollback() {
     let flags = sqlx::query(
         "INSERT INTO analytics_feature_flags (site_id)
          VALUES ('site_pr1')
-         RETURNING protocol_v2_enabled, analytics_enabled",
+         RETURNING analytics_enabled",
     )
     .fetch_one(&pool)
     .await
     .expect("feature flags should use disabled defaults");
-    assert!(!flags.get::<bool, _>("protocol_v2_enabled"));
     assert!(!flags.get::<bool, _>("analytics_enabled"));
 
     let first_generation = "00000000-0000-4000-8000-000000000001";

@@ -24,7 +24,7 @@
     "db:migrate": "./scripts/db-migrate.sh",
     "test:migrations": "bash ./scripts/test-migrations.sh",
     "protocol:validate": "node ./scripts/validate-protocol.mjs",
-    "protocol:v2:validate": "node ./scripts/validate-event-protocol-v2.mjs",
+    "capabilities:validate": "node ./scripts/validate-capabilities.mjs",
     "http:validate": "node ./scripts/validate-http-fixtures.mjs",
     "analytics:contract:validate": "node ./scripts/validate-analytics-api-contract.mjs",
     "dashboard:validate": "pnpm --filter @web-analytics/dashboard test",

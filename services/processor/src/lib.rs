@@ -1,3 +1,4 @@
+mod capabilities;
 mod error;
 mod models;
 mod normalizer;
@@ -6,6 +7,7 @@ mod processor;
 mod queries;
 mod sessionizer;
 
+pub use capabilities::{CapabilityContract, CapabilityId, CapabilityRegistry, CapabilityStatus};
 pub use error::ProcessorError;
 pub use normalizer::{NormalizedContext, normalize_context};
 pub use parser::{ParsedUserAgent, UserAgentParser, WOOTHEE_VERSION, WootheeParser};

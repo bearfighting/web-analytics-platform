@@ -517,8 +517,8 @@ impl Processor {
                 "UPDATE analytics_rebuild_queue
                  SET status = 'completed', updated_at = NOW()
                  WHERE site_id = $1
-                   AND scope_from = $2
-                   AND scope_to = $3
+                   AND scope_from >= $2
+                   AND scope_to <= $3
                    AND rebuild_reason = 'backfill'
                    AND status IN ('pending', 'running')",
             )
@@ -614,13 +614,12 @@ async fn load_site_events(pool: &PgPool, site_id: &str) -> Result<Vec<RawEvent>,
             DateTime<Utc>,
             DateTime<Utc>,
             String,
-            i32,
             Option<String>,
             Option<i32>,
             serde_json::Value,
         ),
     >(
-        "SELECT id, event_id, occurred_at, received_at, path, schema_version,
+        "SELECT id, event_id, occurred_at, received_at, path,
                 visitor_id::text, context_schema_version, payload
          FROM raw_events
          WHERE site_id = $1 AND processed_at IS NOT NULL
@@ -637,7 +636,6 @@ async fn load_site_events(pool: &PgPool, site_id: &str) -> Result<Vec<RawEvent>,
             occurred_at,
             received_at,
             path,
-            schema_version,
             visitor_id,
             context_schema_version,
             payload,
@@ -648,7 +646,6 @@ async fn load_site_events(pool: &PgPool, site_id: &str) -> Result<Vec<RawEvent>,
             occurred_at,
             received_at,
             path,
-            schema_version,
             visitor_id,
             context_schema_version,
             payload,
@@ -666,7 +663,7 @@ async fn write_derived_results(
     let mut normalized_by_event_id: HashMap<i64, NormalizedContext> = HashMap::new();
     for event in events
         .iter()
-        .filter(|event| event.schema_version == 2 && event.context_schema_version.unwrap_or(1) == 1)
+        .filter(|event| event.context_schema_version == Some(1))
     {
         let context = event.payload.get("context");
         let user_agent = context

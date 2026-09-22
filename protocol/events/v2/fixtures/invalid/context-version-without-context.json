@@ -1,9 +1,0 @@
-{
-  "schema_version": 2,
-  "event_id": "01J00000000000000000000001",
-  "type": "page_view",
-  "site_id": "site_example",
-  "context_schema_version": 1,
-  "occurred_at": 1760000000000,
-  "path": "/about"
-}

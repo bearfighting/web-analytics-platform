@@ -16,13 +16,13 @@ interface MockTransport {
 
 async function loadPageViewValidator() {
   const schemaUrl = new URL(
-    "../../../protocol/events/v2/schemas/page-view-event.schema.json",
+    "../../../protocol/events/schemas/page-view-event.schema.json",
     import.meta.url,
   );
   const schema = JSON.parse(await readFile(schemaUrl, "utf8"));
   const contextSchema = JSON.parse(
     await readFile(
-      new URL("../../../protocol/contexts/v1/browser-context.schema.json", import.meta.url),
+      new URL("../../../protocol/contexts/browser-context.schema.json", import.meta.url),
       "utf8",
     ),
   );
@@ -33,7 +33,7 @@ async function loadPageViewValidator() {
   return ajv.compile(schema);
 }
 
-describe("generated Protocol V2 events", () => {
+describe("generated unified protocol events", () => {
   it("validate with the canonical page-view schema", async () => {
     const transport: MockTransport = {
       batches: [],

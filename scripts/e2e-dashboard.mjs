@@ -174,7 +174,7 @@ function enablePhase6(siteId) {
     "-v",
     "ON_ERROR_STOP=1",
     "-c",
-    `INSERT INTO analytics_feature_flags (site_id, protocol_v2_enabled, analytics_enabled) VALUES ('${siteId}', TRUE, TRUE)`,
+    `INSERT INTO analytics_feature_flags (site_id, analytics_enabled) VALUES ('${siteId}', TRUE)`,
   ]);
 }
 
@@ -199,7 +199,7 @@ async function postFixtureEvents(input) {
   }
 }
 
-async function postV2FixtureEvents(input) {
+async function postDimensionFixtureEvents(input) {
   for (const siteId of new Set(input.events.map((event) => event.site_id))) {
     const events = input.events.filter((event) => event.site_id === siteId);
     const response = await fetch(`${collectorUrl}/v1/events`, {
@@ -209,13 +209,13 @@ async function postV2FixtureEvents(input) {
         origin: "http://localhost:3000",
         "x-ingest-key": keys[siteId],
       },
-      body: JSON.stringify({ schema_version: 2, events }),
+      body: JSON.stringify({ schema_version: 1, events }),
     });
     const body = await response.json();
-    assert(response.status === 202, `Collector rejected V2 events: ${JSON.stringify(body)}`);
+    assert(response.status === 202, `Collector rejected dimension events: ${JSON.stringify(body)}`);
     assert(
       body.accepted === events.length,
-      `Collector accepted ${body.accepted} V2 events, expected ${events.length}`,
+      `Collector accepted ${body.accepted} dimension events, expected ${events.length}`,
     );
   }
 }
@@ -275,7 +275,7 @@ async function prepareFixture(data) {
 async function preparePhase6Fixture(data) {
   await resetDatabase();
   enablePhase6("site_playground");
-  await postV2FixtureEvents(data.input);
+  await postDimensionFixtureEvents(data.input);
   runProcessorOnce();
   runProcessorBackfill("2026-09-20", "2026-09-21");
 }
@@ -391,7 +391,7 @@ async function assertCustomDateRange(page) {
 }
 
 async function assertPhase6Dashboard(page) {
-  const data = await phase6Fixture("dashboard-v2");
+  const data = await phase6Fixture("dashboard-dimensions");
   await preparePhase6Fixture(data);
   await page.goto(rangeUrl("site_playground", "2026-09-20", "2026-09-21"));
   await expectMetric(page, "Unique Visitors", data.expected.visitors.unique_visitors);
@@ -406,7 +406,7 @@ async function assertPhase6Dashboard(page) {
   await expectReportRows(page, "Dimension Report", [
     `${data.expected.browser.value} ${data.expected.browser.page_views} ${data.expected.browser.unique_visitors} ${data.expected.browser.sessions}`,
   ]);
-  await page.getByText(/Data as of/).waitFor();
+  await page.locator(".freshness-current").waitFor();
   await page.locator('select[name="dimension"]').selectOption("language");
   await page.locator('button[type="submit"]').click();
   await page.waitForURL(/dimension=language/);
@@ -429,7 +429,7 @@ async function assertPhase6Disabled(page) {
 }
 
 async function assertPhase6Empty(page) {
-  const data = await phase6Fixture("dashboard-v2");
+  const data = await phase6Fixture("dashboard-dimensions");
   await preparePhase6Fixture(data);
   await page.goto(rangeUrl("site_playground", "2026-09-01", "2026-09-01"));
   assert(

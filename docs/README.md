@@ -9,6 +9,7 @@
 - [Phase 0 Design](phase-0-design.md)：项目启动阶段的详细步骤、Checklist 和验收标准。
 - [Event Protocol](event-protocol.md)：开发阶段 Event Protocol V1 基线；正式发布前以协议合并设计为准。
 - [Protocol Layout](../protocol/README.md)：事件、Context、服务契约和语义场景的稳定目录约定。
+- [Capability Contract](../protocol/capabilities/v1/capabilities.json)：10 个 Analytics capability 的机器可读边界和依赖定义。
 - [Protocol Consolidation Refactoring](protocol-consolidation-refactor.md)：上线前合并开发阶段 V1/V2 协议的目标、步骤和验收标准。
 - [Feature Modularization Design](feature-modularization-design.md)：协议收敛之后的观测能力模块化、动态配置和实现优先顺序；具体 MVP 阶段以 Phase 7/8 文档为准。
 - [Router Playground](router-playground.md)：Next.js App Router 实验场和导航场景。
@@ -24,6 +25,7 @@
 - [Analytics API OpenAPI Contract](analytics-api.openapi.json)：Analytics API v1 的机器可读契约，包含已启用的 Phase 6 reports。
 - [Ingest Key Guide](ingest-key.md)：Ingest Key 的生成、配置、Website 使用、Origin 关联和轮换流程。
 - [ADR-007：Capability-oriented Configuration](decisions/ADR-007-capability-oriented-configuration.md)：以用户能力而不是内部协议版本提供配置的架构决策。
+- [ADR-008：Internal Capability Boundaries](decisions/ADR-008-internal-capability-boundaries.md)：Phase 7 capability contract、依赖和跨层边界。
 
 `AGENTS.md` 位于仓库根目录，作为整个项目的协作和开发规则入口。
 

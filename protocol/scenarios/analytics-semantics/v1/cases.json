@@ -1,6 +1,6 @@
 {
   "contract_version": 1,
-  "schema_versions": { "event_v1": 1, "event_v2": 2, "context": 1 },
+  "schema_versions": { "event": 1, "context": 1 },
   "parser_version": "woothee-0.13.0",
   "cases": [
     {
@@ -27,9 +27,9 @@
       }
     },
     {
-      "id": "v2-identified-page-view",
-      "schema_version": 2,
-      "versions": { "event": 2, "context": 1, "parser": "woothee-0.13.0" },
+      "id": "identified-page-view",
+      "schema_version": 1,
+      "versions": { "event": 1, "context": 1, "parser": "woothee-0.13.0" },
       "events": [
         {
           "event_id": "01J00000000000000000000001",
@@ -51,8 +51,8 @@
     },
     {
       "id": "single-visitor-session",
-      "schema_version": 2,
-      "versions": { "event": 2, "context": 1, "parser": "woothee-0.13.0" },
+      "schema_version": 1,
+      "versions": { "event": 1, "context": 1, "parser": "woothee-0.13.0" },
       "events": [
         {
           "event_id": "01J00000000000000000000002",
@@ -80,8 +80,8 @@
     },
     {
       "id": "session-timeout-boundaries",
-      "schema_version": 2,
-      "versions": { "event": 2, "context": 1, "parser": "woothee-0.13.0" },
+      "schema_version": 1,
+      "versions": { "event": 1, "context": 1, "parser": "woothee-0.13.0" },
       "events": [
         {
           "event_id": "01J00000000000000000000004",
@@ -122,8 +122,8 @@
     },
     {
       "id": "midnight-split",
-      "schema_version": 2,
-      "versions": { "event": 2, "context": 1, "parser": "woothee-0.13.0" },
+      "schema_version": 1,
+      "versions": { "event": 1, "context": 1, "parser": "woothee-0.13.0" },
       "events": [
         {
           "event_id": "01J00000000000000000000007",
@@ -152,8 +152,8 @@
     },
     {
       "id": "multi-tab-shared-visitor",
-      "schema_version": 2,
-      "versions": { "event": 2, "context": 1, "parser": "woothee-0.13.0" },
+      "schema_version": 1,
+      "versions": { "event": 1, "context": 1, "parser": "woothee-0.13.0" },
       "events": [
         {
           "event_id": "01J00000000000000000000009",
@@ -184,8 +184,8 @@
     },
     {
       "id": "duplicate-and-late-events",
-      "schema_version": 2,
-      "versions": { "event": 2, "context": 1, "parser": "woothee-0.13.0" },
+      "schema_version": 1,
+      "versions": { "event": 1, "context": 1, "parser": "woothee-0.13.0" },
       "events": [
         {
           "event_id": "01J0000000000000000000000B",
@@ -231,8 +231,8 @@
     },
     {
       "id": "future-event-boundary",
-      "schema_version": 2,
-      "versions": { "event": 2, "context": 1, "parser": "woothee-0.13.0" },
+      "schema_version": 1,
+      "versions": { "event": 1, "context": 1, "parser": "woothee-0.13.0" },
       "events": [
         {
           "event_id": "01J0000000000000000000000D",
@@ -265,8 +265,8 @@
     },
     {
       "id": "site-isolated-visitor",
-      "schema_version": 2,
-      "versions": { "event": 2, "context": 1, "parser": "woothee-0.13.0" },
+      "schema_version": 1,
+      "versions": { "event": 1, "context": 1, "parser": "woothee-0.13.0" },
       "events": [
         {
           "event_id": "01J0000000000000000000000F",
@@ -297,8 +297,8 @@
     },
     {
       "id": "browser-context-normalization",
-      "schema_version": 2,
-      "versions": { "event": 2, "context": 1, "parser": "woothee-0.13.0" },
+      "schema_version": 1,
+      "versions": { "event": 1, "context": 1, "parser": "woothee-0.13.0" },
       "events": [
         {
           "event_id": "01J0000000000000000000000H",
@@ -344,8 +344,8 @@
     },
     {
       "id": "privacy-boundary",
-      "schema_version": 2,
-      "versions": { "event": 2, "context": 1, "parser": "woothee-0.13.0" },
+      "schema_version": 1,
+      "versions": { "event": 1, "context": 1, "parser": "woothee-0.13.0" },
       "events": [
         {
           "event_id": "01J0000000000000000000000J",

@@ -186,6 +186,8 @@ Country / IP 不属于本阶段必须内容。
 
 详细执行方案见：[phase-7-design.md](phase-7-design.md)。范围基线见：[MVP Scope](mvp-scope.md)。
 
+当前状态：PR0 Protocol Consolidation 和 PR1 Internal Capability Boundaries 已完成，下一步进入 PR2/PR3/PR4。
+
 目标：在现有 Phase 6 Analytics workflow 上完成 MVP 所需的产品功能。
 
 执行顺序：

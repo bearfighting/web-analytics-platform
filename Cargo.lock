@@ -1549,6 +1549,8 @@ dependencies = [
  "anyhow",
  "chrono",
  "clap",
+ "jsonschema",
+ "serde",
  "serde_json",
  "sha2",
  "sqlx",

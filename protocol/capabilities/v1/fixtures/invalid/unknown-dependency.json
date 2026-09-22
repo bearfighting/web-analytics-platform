@@ -1,0 +1,21 @@
+{
+  "id": "sessions",
+  "status": "implemented",
+  "depends_on": ["unknown_capability"],
+  "input": { "event_types": ["page_view"], "required_fields": ["visitor_id"] },
+  "raw_event": { "preserve": false, "fields": [] },
+  "processor": { "facts": ["sessions"], "rebuild": "explicit_backfill" },
+  "api": { "query_surface": "report", "routes": [] },
+  "dashboard": {
+    "surface": "report",
+    "disabled": "sessions unavailable",
+    "empty": "show zero sessions",
+    "error": "show the report error state"
+  },
+  "security": {
+    "consent": "required",
+    "origin_and_ingest_key": "enforced",
+    "privacy": ["site-scoped anonymous IDs"]
+  },
+  "history": { "queryable_after_disabled": true, "backfill": "required" }
+}

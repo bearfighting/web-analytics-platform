@@ -1,0 +1,6 @@
+{
+  "id": "page_views",
+  "status": "implemented",
+  "depends_on": [],
+  "input": { "event_types": ["page_view"], "required_fields": ["site_id"] }
+}

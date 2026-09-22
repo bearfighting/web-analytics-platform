@@ -2,7 +2,6 @@ use axum::{body::Body, http::Request};
 use chrono::Utc;
 use collector::{
     config::{SiteConfig, SiteRegistry},
-    feature_flags::FeatureFlagStore,
     http::router,
     protocol::{EventType, PageViewEvent},
     rate_limit::RateLimiter,
@@ -50,14 +49,14 @@ async fn setup() -> (PostgresSink, PgPool) {
 
 #[tokio::test]
 #[ignore = "requires PostgreSQL; run pnpm test:integration"]
-async fn stores_v2_metadata_and_reads_site_feature_flags() {
+async fn stores_unified_metadata_without_protocol_feature_flags() {
     let (sink, pool) = setup().await;
     let visitor_id = "550e8400-e29b-41d4-a716-446655440000";
     let mut event = stored_event(
         "site_example",
         "01J00000000000000000000004",
         json!({
-            "schema_version": 2,
+            "schema_version": 1,
             "event_id": "01J00000000000000000000004",
             "type": "page_view",
             "site_id": "site_example",
@@ -67,34 +66,13 @@ async fn stores_v2_metadata_and_reads_site_feature_flags() {
             "context_schema_version": 1
         }),
     );
-    event.event.schema_version = 2;
+    event.event.schema_version = 1;
     event.event.visitor_id = Some(visitor_id.to_owned());
     event.event.context_schema_version = Some(1);
 
-    assert!(
-        !sink
-            .protocol_v2_enabled("site_example")
-            .await
-            .expect("missing flag should be disabled")
-    );
-    sqlx::query(
-        "INSERT INTO analytics_feature_flags (site_id, protocol_v2_enabled)
-         VALUES ($1, TRUE)
-         ON CONFLICT (site_id) DO UPDATE SET protocol_v2_enabled = EXCLUDED.protocol_v2_enabled",
-    )
-    .bind("site_example")
-    .execute(&pool)
-    .await
-    .expect("feature flag should be writable");
-    assert!(
-        sink.protocol_v2_enabled("site_example")
-            .await
-            .expect("feature flag should be readable")
-    );
-
     sink.accept(vec![event])
         .await
-        .expect("V2 event should insert");
+        .expect("identified event should insert");
     let row = sqlx::query(
         "SELECT visitor_id::text AS visitor_id, context_schema_version, payload
          FROM raw_events WHERE event_id = $1",
@@ -102,12 +80,12 @@ async fn stores_v2_metadata_and_reads_site_feature_flags() {
     .bind("01J00000000000000000000004")
     .fetch_one(&pool)
     .await
-    .expect("V2 raw event should be queryable");
+    .expect("identified raw event should be queryable");
     assert_eq!(row.get::<String, _>("visitor_id"), visitor_id);
     assert_eq!(row.get::<i32, _>("context_schema_version"), 1);
     assert_eq!(
         row.get::<serde_json::Value, _>("payload")["schema_version"],
-        2
+        1
     );
 }
 

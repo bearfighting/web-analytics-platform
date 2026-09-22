@@ -7,7 +7,7 @@ cd "$ROOT_DIR"
 cargo test --workspace
 
 pnpm protocol:validate
-pnpm protocol:v2:validate
+pnpm capabilities:validate
 pnpm analytics:contract:validate
 pnpm http:validate
 pnpm --filter @web-analytics/protocol-ts test

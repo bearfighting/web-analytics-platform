@@ -1,0 +1,21 @@
+{
+  "id": "custom_events",
+  "status": "planned",
+  "depends_on": ["page_views"],
+  "input": { "event_types": ["custom_event"], "required_fields": ["event_name", "properties"] },
+  "raw_event": { "preserve": true, "fields": ["event_name", "properties"] },
+  "processor": { "facts": ["custom_event_facts"], "rebuild": "incremental" },
+  "api": { "query_surface": "future_report", "routes": [] },
+  "dashboard": {
+    "surface": "future_report",
+    "disabled": "not implemented",
+    "empty": "not implemented",
+    "error": "not implemented"
+  },
+  "security": {
+    "consent": "required",
+    "origin_and_ingest_key": "enforced",
+    "privacy": ["bounded properties"]
+  },
+  "history": { "queryable_after_disabled": true, "backfill": "optional" }
+}

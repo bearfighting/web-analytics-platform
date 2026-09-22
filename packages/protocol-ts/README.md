@@ -1,7 +1,9 @@
 # @web-analytics/protocol-ts
 
-TypeScript interfaces mirroring the active Event Protocol V1/V2 and Browser Context V1 contracts. JSON Schema remains the protocol source of truth.
+TypeScript interfaces mirroring the unified initial Event Protocol and Browser
+Context contract. JSON Schema remains the protocol source of truth.
 
 This package contains no runtime browser or framework dependencies.
 
-The V2 types are type-only design contracts. They do not enable V2 ingestion, Visitor ID generation, or Browser Context collection in the runtime SDK.
+The package contains only protocol types; Visitor ID generation and Browser
+Context collection remain runtime SDK responsibilities.

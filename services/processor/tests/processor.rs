@@ -61,7 +61,7 @@ async fn insert_raw_event(
     .expect("raw event should be insertable");
 }
 
-async fn insert_v2_event(
+async fn insert_identified_event(
     pool: &PgPool,
     id: &str,
     site_id: &str,
@@ -73,14 +73,14 @@ async fn insert_v2_event(
         "INSERT INTO raw_events
             (site_id, event_id, schema_version, event_type, occurred_at,
              received_at, path, payload, visitor_id, context_schema_version)
-         VALUES ($1, $2, 2, 'page_view', $3, $3 + INTERVAL '1 minute', $4, $5, $6::uuid, 1)",
+         VALUES ($1, $2, 1, 'page_view', $3, $3 + INTERVAL '1 minute', $4, $5, $6::uuid, 1)",
     )
     .bind(site_id)
     .bind(id)
     .bind(occurred_at)
     .bind(path)
     .bind(json!({
-        "schema_version": 2,
+        "schema_version": 1,
         "event_id": id,
         "type": "page_view",
         "site_id": site_id,
@@ -102,7 +102,7 @@ async fn insert_v2_event(
     .bind(visitor_id)
     .execute(pool)
     .await
-    .expect("v2 raw event should be insertable");
+    .expect("identified raw event should be insertable");
 }
 
 async fn cleanup_phase6_metadata(pool: &PgPool) {
@@ -196,7 +196,7 @@ async fn rebuild_writes_generation_facts_without_mutating_raw_payload() {
     let first = DateTime::parse_from_rfc3339("2026-09-18T23:30:00Z")
         .unwrap()
         .with_timezone(&Utc);
-    insert_v2_event(
+    insert_identified_event(
         &pool,
         "01J00000000000000000000020",
         site_id,
@@ -205,7 +205,7 @@ async fn rebuild_writes_generation_facts_without_mutating_raw_payload() {
         "/first",
     )
     .await;
-    insert_v2_event(
+    insert_identified_event(
         &pool,
         "01J00000000000000000000021",
         site_id,
@@ -214,7 +214,7 @@ async fn rebuild_writes_generation_facts_without_mutating_raw_payload() {
         "/same-session",
     )
     .await;
-    insert_v2_event(
+    insert_identified_event(
         &pool,
         "01J00000000000000000000022",
         site_id,
@@ -223,7 +223,7 @@ async fn rebuild_writes_generation_facts_without_mutating_raw_payload() {
         "/new-session",
     )
     .await;
-    insert_v2_event(
+    insert_identified_event(
         &pool,
         "01J00000000000000000000025",
         site_id,
@@ -402,7 +402,7 @@ async fn analytics_disabled_keeps_page_view_workflow_without_rebuild_queue() {
 
 #[tokio::test]
 #[ignore = "requires PostgreSQL; run pnpm test:integration"]
-async fn no_visitor_v2_event_contributes_dimensions_only_after_site_rebuild() {
+async fn no_visitor_event_contributes_dimensions_only_after_site_rebuild() {
     let (processor, pool) = setup().await;
     let site_id = "site_phase6_no_visitor";
     let occurred_at: DateTime<Utc> = "2026-09-18T12:00:00Z".parse().unwrap();
@@ -418,13 +418,13 @@ async fn no_visitor_v2_event_contributes_dimensions_only_after_site_rebuild() {
         "INSERT INTO raw_events
             (site_id, event_id, schema_version, event_type, occurred_at,
              received_at, path, payload, context_schema_version)
-         VALUES ($1, $2, 2, 'page_view', $3, $3 + INTERVAL '1 minute', '/', $4, 1)",
+         VALUES ($1, $2, 1, 'page_view', $3, $3 + INTERVAL '1 minute', '/', $4, 1)",
     )
     .bind(site_id)
     .bind("01J00000000000000000000030")
     .bind(occurred_at)
     .bind(json!({
-        "schema_version": 2,
+        "schema_version": 1,
         "event_id": "01J00000000000000000000030",
         "type": "page_view",
         "site_id": site_id,
@@ -610,7 +610,7 @@ async fn concurrent_queue_workers_publish_one_generation_without_failed_duplicat
     .execute(&pool)
     .await
     .unwrap();
-    insert_v2_event(
+    insert_identified_event(
         &pool,
         "01J00000000000000000000026",
         site_id,
@@ -677,7 +677,7 @@ async fn late_events_over_24_hours_wait_for_explicit_backfill() {
     .execute(&pool)
     .await
     .unwrap();
-    insert_v2_event(
+    insert_identified_event(
         &pool,
         "01J00000000000000000000024",
         site_id,

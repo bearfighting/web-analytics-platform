@@ -32,10 +32,11 @@ web-analytics-platform/
 │   ├── analytics-storage/
 │   └── storage-postgres/
 ├── protocol/
-│   ├── events/                     # Versioned event envelope contracts
-│   │   ├── v1/
-│   │   └── v2/
-│   ├── contexts/                   # Versioned nested context contracts
+│   ├── events/                     # Stable event envelope contracts
+│   │   ├── schemas/
+│   │   ├── examples/
+│   │   └── fixtures/
+│   ├── contexts/                   # Stable nested context contracts
 │   ├── contracts/                  # HTTP and Analytics API service contracts
 │   └── scenarios/                  # Cross-service semantic scenarios
 ├── tests/

@@ -10,8 +10,8 @@
 
 项目状态：
 
-- 已完成：Phase 0–6 核心 Analytics workflow、Phase 7 PR1 CI 回归基线；
-- 进行中：Phase 7 MVP 功能完善；
+- 已完成：Phase 0–6 核心 Analytics workflow、Phase 7 PR0 Protocol Consolidation、PR1 Internal Capability Boundaries 和 CI 回归基线；
+- 进行中：Phase 7 PR2/PR3/PR4 MVP capability implementation；
 - 计划中：Phase 8 用户配置和最后的 Release Readiness。
 
 当前已具备：
@@ -30,6 +30,8 @@
 - Page View Processor、daily/routes/totals 聚合和 processing Compose profile
 - Analytics API 的 Overview、Reports、Timeline、Top Pages 和 processing Compose profile
 - Dashboard 的 Overview、Timeline、Top Pages、Compose service 和 Playwright E2E workflow
+- 统一初始 Event Protocol、Visitor ID / Browser Context contract 和单一路径 Collector ingestion
+- Phase 7 capability contract、依赖图和跨语言 registry adapter
 
 Phase 0 的 Event Protocol、Router Playground、Docker 开发环境和基础工程治理已经完成。可以参考 [Getting Started](docs/getting-started.md) 启动项目。
 

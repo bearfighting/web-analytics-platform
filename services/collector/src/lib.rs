@@ -1,7 +1,6 @@
 pub mod cli;
 pub mod config;
 pub mod error;
-pub mod feature_flags;
 pub mod http;
 pub mod key;
 pub mod logging;

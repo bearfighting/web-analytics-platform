@@ -1,6 +1,6 @@
 # Phase 7 Design — MVP 功能完善
 
-> Status: Planned
+> Status: PR0 Protocol Consolidation and PR1 Internal Capability Boundaries complete
 > Scope: Protocol consolidation、内部 capability 边界和 MVP 产品能力
 
 ## 1. 阶段目标
@@ -38,7 +38,7 @@ PR2 和 PR4 在 PR1 完成后可以并行；PR5 必须等待 PR3；PR6 可以和
 
 验收：`protocol:validate`、TypeScript、Rust、Collector integration 和现有 Analytics/Dashboard E2E 全部通过；仓库不再有仅用于 V1/V2 rollout 的公共脚本和运行时分支。
 
-## 4. PR1 — Internal capability boundaries
+## 4. PR1 — Internal capability boundaries（已完成）
 
 定义以下内部 capability contract：
 

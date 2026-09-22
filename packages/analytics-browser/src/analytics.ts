@@ -1,5 +1,5 @@
 import {
-  createPageViewEventV2,
+  createPageViewEvent,
   processPageViewEvent,
   type BeforeSend,
   type Transport,
@@ -15,7 +15,7 @@ import {
 } from "./visitor-id";
 
 import type { NavigationEvent, NavigationObserver } from "@web-analytics/observer-core";
-import type { AnalyticsEvent, PageViewEventV2 } from "@web-analytics/protocol-ts";
+import type { AnalyticsEvent } from "@web-analytics/protocol-ts";
 
 export type AnalyticsConsent = "denied" | "granted";
 
@@ -94,10 +94,9 @@ export function createAnalytics(options: AnalyticsOptions): Analytics {
 
   const sendBatch = (events: AnalyticsEvent[]) => {
     const refreshed = events.map((event) => {
-      if (event.schema_version !== 2) return event;
       const visitorId = visitorIdStore.read();
       if (visitorId && isCanonicalVisitorId(visitorId)) return { ...event, visitor_id: visitorId };
-      const withoutVisitorId = { ...event } as PageViewEventV2;
+      const withoutVisitorId = { ...event };
 
       delete withoutVisitorId.visitor_id;
 
@@ -144,7 +143,7 @@ export function createAnalytics(options: AnalyticsOptions): Analytics {
 
     try {
       const visitorId = createVisitorId(visitorIdStore);
-      const event = createPageViewEventV2(navigation, {
+      const event = createPageViewEvent(navigation, {
         siteId: options.siteId,
         visitorId: visitorId ?? undefined,
         context: normalizeContext(contextProvider.getContext()),

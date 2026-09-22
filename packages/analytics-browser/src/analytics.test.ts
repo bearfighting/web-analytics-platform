@@ -147,7 +147,7 @@ describe("createAnalytics", () => {
     expect(transport.batches).toEqual([
       [
         {
-          schema_version: 2,
+          schema_version: 1,
           event_id: "01J00000000000000000000000",
           type: "page_view",
           site_id: "site_example",
