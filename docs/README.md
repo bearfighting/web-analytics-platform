@@ -26,6 +26,7 @@
 - [Ingest Key Guide](ingest-key.md)：Ingest Key 的生成、配置、Website 使用、Origin 关联和轮换流程。
 - [ADR-007：Capability-oriented Configuration](decisions/ADR-007-capability-oriented-configuration.md)：以用户能力而不是内部协议版本提供配置的架构决策。
 - [ADR-008：Internal Capability Boundaries](decisions/ADR-008-internal-capability-boundaries.md)：Phase 7 capability contract、依赖和跨层边界。
+- PR2 Router Adapters：React Router 7 和 TanStack Router v1 的 NavigationObserver 集成。
 
 `AGENTS.md` 位于仓库根目录，作为整个项目的协作和开发规则入口。
 

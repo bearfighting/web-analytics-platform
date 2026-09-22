@@ -1,15 +1,14 @@
 "use client";
 
-import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useRef } from "react";
-
-import { createNavigationEvent } from "./navigation-event";
 import {
+  createNavigationEvent,
   createRouteIdentity,
   isHashOnlyChange,
   isHashOnlyUrlChange,
   resolveNavigationType,
-} from "./navigation-state";
+} from "@web-analytics/observer-core";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useRef } from "react";
 
 import type {
   NavigationEvent,

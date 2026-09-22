@@ -1,6 +1,6 @@
 # Phase 7 Design — MVP 功能完善
 
-> Status: PR0 Protocol Consolidation and PR1 Internal Capability Boundaries complete
+> Status: PR0 Protocol Consolidation, PR1 Internal Capability Boundaries and PR2 Router Adapters complete
 > Scope: Protocol consolidation、内部 capability 边界和 MVP 产品能力
 
 ## 1. 阶段目标
@@ -14,7 +14,7 @@ Phase 7 不改变现有 Page View、Visitor、Session 和 Dimension 的已确认
 ```text
 PR0 Protocol consolidation
   → PR1 Internal capability boundaries
-  → PR2 Router adapters
+  → PR2 Router adapters（已完成）
   → PR3 Custom Events
   → PR4 Web Vitals
   → PR5 Conversion and Funnel
@@ -66,15 +66,17 @@ geo
 
 本 PR 不实现 Dashboard 配置表单，不把 capability 开关直接暴露为环境变量。
 
-## 5. PR2 — Router adapters
+## 5. PR2 — Router adapters（已完成）
 
-实现 React Router 和 TanStack Router Adapter：
+实现 React Router 7 和 TanStack Router v1 Adapter：
 
 - 只实现 `NavigationObserver`；
 - 复用 Analytics Core、Browser SDK、Visitor ID 和 Transport；
 - 覆盖 initial、push、replace、pop、search params 和动态路由；
 - 明确 hash-only navigation 行为；
 - 不在 Adapter 中实现 Session、统计或发送逻辑。
+
+实现位于 `observer-react-router` 和 `observer-tanstack-router`，并通过两个独立 playground 与真实浏览器导航验证。Hash-only navigation 不产生标准 NavigationEvent。
 
 验收：每个 Adapter 都有 observer contract test、Browser SDK integration test 和至少一个真实 Router fixture。
 
