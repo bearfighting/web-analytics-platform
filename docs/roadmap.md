@@ -186,7 +186,7 @@ Country / IP 不属于本阶段必须内容。
 
 详细执行方案见：[phase-7-design.md](phase-7-design.md)。范围基线见：[MVP Scope](mvp-scope.md)。
 
-当前状态：PR0 Protocol Consolidation、PR1 Internal Capability Boundaries 和 PR2 Router Adapters 已完成，下一步进入 PR3/PR4。
+当前状态：PR0 Protocol Consolidation、PR1 Internal Capability Boundaries 和 PR2 Router Adapters 已完成，PR2.5 design complete，下一步实现 PR2.5，再进入 PR3/PR4。
 
 目标：在现有 Phase 6 Analytics workflow 上完成 MVP 所需的产品功能。
 
@@ -196,6 +196,7 @@ Country / IP 不属于本阶段必须内容。
 Protocol consolidation
   → internal capability boundaries
   → Router adapters
+  → Unified Router entry and development profiles
   → Custom Events
   → Web Vitals
   → Conversion / Funnel
@@ -210,6 +211,15 @@ Protocol consolidation
 详细执行方案见：[phase-8-design.md](phase-8-design.md)。
 
 目标：让用户通过 Dashboard 配置功能能力、Origin、Ingest Key、隐私和必要的业务设置，不暴露 Protocol、schema、generation 或 parser version。
+
+执行顺序：
+
+```text
+capability configuration model and migration
+  → configuration API and dependency validation
+  → Dashboard configuration UI
+  → runtime refresh, rollback and E2E
+```
 
 交付：
 

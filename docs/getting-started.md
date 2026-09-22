@@ -30,6 +30,23 @@ http://localhost:3000
 
 当前 Playground 提供常见 Next.js App Router 导航场景和 Navigation Debug Panel。
 
+Phase 7 PR2.5 计划提供统一的 Router playground 选择入口。目标用法如下；当前实现前请继续使用默认的 Next playground：
+
+```bash
+pnpm dev --router next
+pnpm dev --router react
+pnpm dev --router tanstack
+```
+
+对应的 Docker Compose 目标用法如下：
+
+```bash
+pnpm docker:dev --router react
+pnpm docker:dev --router tanstack --with-backend
+```
+
+这些参数化命令属于 Phase 7 PR2.5 设计，尚未改变当前默认启动行为。
+
 可测试页面：
 
 ```text

@@ -1,6 +1,6 @@
 # Phase 7 Design — MVP 功能完善
 
-> Status: PR0 Protocol Consolidation, PR1 Internal Capability Boundaries and PR2 Router Adapters complete
+> Status: PR0 Protocol Consolidation, PR1 Internal Capability Boundaries and PR2 Router Adapters complete; PR2.5 design frozen
 > Scope: Protocol consolidation、内部 capability 边界和 MVP 产品能力
 
 ## 1. 阶段目标
@@ -15,6 +15,7 @@ Phase 7 不改变现有 Page View、Visitor、Session 和 Dimension 的已确认
 PR0 Protocol consolidation
   → PR1 Internal capability boundaries
   → PR2 Router adapters（已完成）
+  → PR2.5 Unified Router entry and development profiles
   → PR3 Custom Events
   → PR4 Web Vitals
   → PR5 Conversion and Funnel
@@ -22,7 +23,7 @@ PR0 Protocol consolidation
   → PR7 MVP functional acceptance
 ```
 
-PR2 和 PR4 在 PR1 完成后可以并行；PR5 必须等待 PR3；PR6 可以和 PR3/PR4 并行，但必须先冻结隐私边界。
+PR2.5 是 PR2 的开发体验补充，不改变 Router Adapter 的观察契约；PR3 和 PR4 可以在 PR2.5 完成前后并行；PR5 必须等待 PR3；PR6 可以和 PR3/PR4 并行，但必须先冻结隐私边界。
 
 ## 3. PR0 — Protocol consolidation
 
@@ -80,7 +81,124 @@ geo
 
 验收：每个 Adapter 都有 observer contract test、Browser SDK integration test 和至少一个真实 Router fixture。
 
-## 6. PR3 — Custom Events
+## 6. PR2.5 — Unified Router Entry and Development Profiles
+
+### 目标和边界
+
+PR2.5 在 PR2 独立 Adapter 之上提供一致的用户接入体验和一致的本地开发入口：
+
+- 用户只需要创建一次 `analytics`，再挂载一个统一命名的 Router Bridge；
+- Router-specific Adapter 仍保持独立 package、独立 peer dependency 和独立生命周期；
+- `analytics-browser` 不自动探测 Router，不依赖 React Router 或 TanStack Router，不把 Router 类型暴露到 SDK 核心；
+- 开发者可以通过参数选择 Next、React Router 或 TanStack Router playground；
+- Docker Compose 可以只启动指定 playground，并与 backend、storage、processing、dashboard profiles 组合使用。
+
+PR2.5 不实现自动 Router 检测、多个 Router 同时挂载、Router 配置持久化、capability 配置、Protocol 版本选择或新的 NavigationEvent 语义。
+
+### 统一 Router 接入 API
+
+新增一个 facade package，例如 `@web-analytics/router-adapters`。Facade 只负责统一入口和 re-export，不重新实现观察逻辑：
+
+```text
+@web-analytics/router-adapters/react-router
+  → @web-analytics/observer-react-router
+  → @web-analytics/observer-core
+
+@web-analytics/router-adapters/tanstack-router
+  → @web-analytics/observer-tanstack-router
+  → @web-analytics/observer-core
+```
+
+两个 subpath 都导出同名组件 `RouterAnalyticsBridge`，使应用代码只需替换 Router 集成的 import：
+
+```tsx
+import { createAnalytics } from "@web-analytics/analytics-browser";
+import { RouterAnalyticsBridge } from "@web-analytics/router-adapters/react-router";
+
+const analytics = createAnalytics({ siteId: "site_demo", transport });
+
+function App() {
+  return (
+    <BrowserRouter>
+      <RouterAnalyticsBridge analytics={analytics} />
+      <Routes />
+    </BrowserRouter>
+  );
+}
+```
+
+TanStack Router 只替换为：
+
+```tsx
+import { RouterAnalyticsBridge } from "@web-analytics/router-adapters/tanstack-router";
+```
+
+Facade 必须满足：
+
+- 统一 `RouterAnalyticsBridge` 命名和 props 语义；
+- 内部把 `analytics` 绑定到现有 `NavigationEventSink`，不要求用户手动创建 observer 或调用 `analytics.observe()`；
+- 不在 package root 静态引入两个 Router，保持按 subpath tree-shaking；
+- 对应 Router 依赖继续作为 subpath package 的 peer dependency；
+- Provider 约束保持明确：Bridge 必须位于对应 Router Provider 内；
+- 仍支持多个消费者，但不允许同一个页面隐式挂载多个不同 Router Adapter。
+
+不采用 `analytics.observeRouter("react-router")` 作为唯一 API。Router Adapter 依赖 React hooks，必须在对应 Provider 的组件树中执行；普通初始化函数无法正确表达这个生命周期约束。
+
+### 开发服务器参数化
+
+统一开发命令：
+
+```bash
+pnpm dev --router next
+pnpm dev --router react
+pnpm dev --router tanstack
+```
+
+允许提供等价的简写：`pnpm dev:next`、`pnpm dev:react`、`pnpm dev:tanstack`。
+
+脚本必须使用固定 allowlist，不接受任意 package 名称：
+
+| 参数       | workspace package                           | 默认端口 |
+| ---------- | ------------------------------------------- | -------- |
+| `next`     | `@web-analytics/nextjs-router-playground`   | `3000`   |
+| `react`    | `@web-analytics/react-router-playground`    | `3101`   |
+| `tanstack` | `@web-analytics/tanstack-router-playground` | `3102`   |
+
+未知参数必须返回使用说明和非零退出码。默认 `pnpm dev` 继续启动 Next playground，端口、host 和额外 Vite/Next 参数可以透传，但不能改变 Router 选择的 allowlist。
+
+### Docker Compose playground profiles
+
+Compose 为每个 playground 提供独立 service/profile：`playground-next`、`playground-react` 和 `playground-tanstack`。
+
+推荐通过统一 wrapper 使用：
+
+```bash
+pnpm docker:dev --router next
+pnpm docker:dev --router react
+pnpm docker:dev --router tanstack
+pnpm docker:dev --router react --with-backend
+```
+
+等价的底层 Compose 命令必须保持可用：
+
+```bash
+docker compose \
+  --profile playground-react \
+  --profile backend \
+  --profile storage \
+  --profile processing \
+  up --build --wait
+```
+
+要求：只启动所选 playground；使用统一的 transport、endpoint、ingest key 和 site ID 环境变量；backend、storage、processing、dashboard 仍是独立 profile；不同 playground 使用不冲突的默认端口并允许环境变量覆盖；默认 Compose 开发行为继续保持 Next 兼容；wrapper 对参数和 profile 组合进行校验，错误时不启动部分服务。
+
+### 验证和完成标准
+
+必须覆盖 facade export contract、两个 Router 的统一 Bridge integration、开发参数校验、三个 Compose profile config、指定 playground 启动和错误参数 E2E，以及 initial、push、replace、pop、search、hash-only 行为不变。现有 `pnpm e2e:router-adapters`、Analytics E2E 和 Dashboard E2E 必须无回归。
+
+PR2.5 完成后，新用户只需要选择对应 Router 的一个 facade import 并挂载统一命名的 Bridge；开发者只需要修改一个 `--router` 参数即可切换 playground，不需要手动修改 Compose service、SDK observer wiring 或 transport 代码。
+
+## 7. PR3 — Custom Events
 
 ### Contract
 
@@ -114,7 +232,7 @@ SDK event()
 - Dashboard 基础事件列表或聚合展示；
 - 完整 E2E。
 
-## 7. PR4 — Web Vitals
+## 8. PR4 — Web Vitals
 
 首版支持 LCP、INP、CLS、FCP 和 TTFB。MVP 固定返回 `count`、`p75` 和 `good / needs_improvement / poor` 样本数量，不要求 p50、p90 或 attribution 聚合。MVP 查询按 site、date range 和 route 聚合，每个 Page View 每个 metric 只保留最后一次有效上报；样本不足时返回 `insufficient_data`。还必须明确：
 
@@ -127,7 +245,7 @@ SDK event()
 
 验收覆盖 browser mock、真实浏览器采集、非法 metric、重复 metric、Processor 聚合和 Dashboard 展示。
 
-## 8. PR5 — Conversion and Funnel
+## 9. PR5 — Conversion and Funnel
 
 Conversion/Funnel 依赖 Custom Events，Phase 7 只实现内部能力和固定 contract，不实现用户配置页面。首版只支持明确的事件型规则：
 
@@ -139,7 +257,7 @@ Conversion/Funnel 依赖 Custom Events，Phase 7 只实现内部能力和固定 
 
 必须提供定义、查询和错误 contract，并覆盖重复事件、乱序事件、超时事件、空漏斗和非法定义场景。测试可以使用 fixture 或部署级静态定义；用户创建和修改定义属于 Phase 8。
 
-## 9. PR6 — Geo
+## 10. PR6 — Geo
 
 ### Geo PR1
 
@@ -162,7 +280,7 @@ Conversion/Funnel 依赖 Custom Events，Phase 7 只实现内部能力和固定 
 
 Geo PR2 可以延期而不阻塞其他 MVP capability。是否纳入本次 MVP release 必须在 MVP scope 和 RC checklist 中明确记录。
 
-## 10. 测试策略
+## 11. 测试策略
 
 功能开发期间同步完成：
 
@@ -176,7 +294,7 @@ Geo PR2 可以延期而不阻塞其他 MVP capability。是否纳入本次 MVP r
 
 完整 CI、浏览器矩阵、migration regression、Collector hardening 和部署验证统一放在 [Release Readiness](release-readiness-design.md)。
 
-## 11. PR7 — MVP functional acceptance
+## 12. PR7 — MVP functional acceptance
 
 PR7 汇总 Phase 7 的功能验收，不新增产品能力。必须验证：
 
@@ -193,7 +311,7 @@ PR7 汇总 Phase 7 的功能验收，不新增产品能力。必须验证：
 
 如果 Geo PR2 未通过评估，PR7 必须记录延期原因和后续验收条件，不得把它默认为已交付。
 
-## 12. Phase 7 退出条件
+## 13. Phase 7 退出条件
 
 - PR0–PR7 的 contract、实现、fixture、功能 E2E 和最终功能验收完成；
 - Page View、Visitor、Session、Dimensions 结果无回归；
