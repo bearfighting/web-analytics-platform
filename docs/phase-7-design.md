@@ -1,6 +1,6 @@
 # Phase 7 Design — MVP 功能完善
 
-> Status: PR0 Protocol Consolidation, PR1 Internal Capability Boundaries and PR2 Router Adapters complete; PR2.5 design frozen
+> Status: PR0 Protocol Consolidation, PR1 Internal Capability Boundaries and PR2 Router Adapters complete; PR2.1 and PR2.5 design frozen
 > Scope: Protocol consolidation、内部 capability 边界和 MVP 产品能力
 
 ## 1. 阶段目标
@@ -15,6 +15,7 @@ Phase 7 不改变现有 Page View、Visitor、Session 和 Dimension 的已确认
 PR0 Protocol consolidation
   → PR1 Internal capability boundaries
   → PR2 Router adapters（已完成）
+  → PR2.1 Contract namespace consolidation
   → PR2.5 Unified Router entry and development profiles
   → PR3 Custom Events
   → PR4 Web Vitals
@@ -23,7 +24,7 @@ PR0 Protocol consolidation
   → PR7 MVP functional acceptance
 ```
 
-PR2.5 是 PR2 的开发体验补充，不改变 Router Adapter 的观察契约；PR3 和 PR4 可以在 PR2.5 完成前后并行；PR5 必须等待 PR3；PR6 可以和 PR3/PR4 并行，但必须先冻结隐私边界。
+PR2.1 是协议目录和 contract namespace 的基础清理，必须先于 PR2.5、PR3 和 PR4；PR2.5 是 PR2 的开发体验补充，不改变 Router Adapter 的观察契约；PR2.5、PR3 和 PR4 在 PR2.1 完成后可以并行；PR5 必须等待 PR3；PR6 可以和 PR3/PR4 并行，但必须先冻结隐私边界。
 
 ## 3. PR0 — Protocol consolidation
 
@@ -81,7 +82,56 @@ geo
 
 验收：每个 Adapter 都有 observer contract test、Browser SDK integration test 和至少一个真实 Router fixture。
 
-## 6. PR2.5 — Unified Router Entry and Development Profiles
+## 6. PR2.1 — Contract Namespace Consolidation
+
+### 目标和边界
+
+Event Protocol 的 V1/V2 内容已经合并，但仓库中仍存在不同 contract 使用 `v1` 目录、版本字段和历史路径的情况。PR2.1 在正式进入后续能力开发前，统一当前 contract namespace，避免把不同语义的版本号误解为并行 runtime 协议。
+
+本 PR 不新增 breaking protocol，不实现兼容 runtime，不改变 Page View、Visitor、Session、Dimensions、Analytics API 或 Dashboard 结果。
+
+### 统一规则
+
+- Event Protocol 只有一份 canonical schema、examples 和 fixtures；所有当前事件都使用 `schema_version: 1`，不保留 Event V1/V2 双目录；
+- 当前已确认的 V2 能力直接属于唯一初始协议，包括 `visitor_id`、Browser Context 和 `context_schema_version`；
+- `context_schema_version` 只表示 Browser Context 语义版本，不表示 Event Protocol rollout；
+- capability、semantic scenario 和内部 contract 的 source path 使用稳定的 current/canonical namespace，不通过多个版本目录表达当前实现；
+- `/v1/events` 和 `/v1/sites/...` 如果继续作为公开 HTTP/API baseline，必须明确它们是唯一公开接口版本，不代表存在 V1/V2 runtime 双轨；
+- 只有未来真正发生 breaking change 时，才允许引入新的公开 API 或 Event Protocol 版本。
+
+### 预期清理
+
+- 删除 `protocol/events/v1`、`protocol/events/v2` 等残留或空目录；
+- 审查并收敛 `protocol/capabilities/v1`、`protocol/contexts/v1`、`protocol/scenarios/analytics-semantics/v1` 以及内部 contract fixture 的路径和版本命名；
+- 将当前内部 contract 的 canonical layout 固定为：
+
+  ```text
+  protocol/events/{schemas,examples,fixtures}/
+  protocol/capabilities/{capabilities.json,capability-contract.schema.json}/
+  protocol/contexts/browser-context.schema.json
+  protocol/scenarios/analytics-semantics/cases.json
+  protocol/contracts/analytics-api/current/
+  protocol/contracts/http-ingestion/current/
+  ```
+
+- `analytics-api/current` 和 `http-ingestion/current` 的 source path 不携带内部版本目录；如果公开 HTTP API 继续使用 `/v1/sites/...` 和 `/v1/events`，该 `/v1` 只表示唯一当前公开 API baseline；
+- 将 `event-batch-mixed` 等历史迁移语义 fixture 改为 generic unsupported-schema fixture；
+- 将 `rejects_legacy_v2_batch` 等测试名称改为 `rejects_unsupported_schema_version`；
+- 清理 `legacy_v2`、`protocol_v2_enabled`、V1/V2 rollout 等 runtime、测试和脚本命名；
+- 更新 Rust、TypeScript、fixture validator、CI 和文档引用；
+- 增加校验，禁止重新引入 Event Protocol 的 V1/V2 双目录或 runtime version branch。
+
+历史 Phase 5/6 设计文档可以保留迁移背景，但必须明确它们不定义当前 runtime contract。生产 schema 继续使用编译期嵌入或稳定 canonical path，不通过工作目录或临时环境变量选择协议版本。
+
+### 验收
+
+- 只有一份当前 Event Protocol schema 和 fixture namespace；
+- 代码、脚本、测试和文档不再依赖 Event Protocol V1/V2 双轨；
+- 从任意工作目录执行 Rust、TypeScript 和 fixture validation 都能找到 canonical resources；
+- `pnpm protocol:validate`、`pnpm analytics:contract:validate`、`pnpm http:validate`、`pnpm check`、`pnpm test`、integration 和相关 E2E 通过；
+- PR2.5、PR3 和 PR4 不需要再为 protocol path 或版本命名做额外兼容处理。
+
+## 7. PR2.5 — Unified Router Entry and Development Profiles
 
 ### 目标和边界
 
@@ -198,7 +248,7 @@ docker compose \
 
 PR2.5 完成后，新用户只需要选择对应 Router 的一个 facade import 并挂载统一命名的 Bridge；开发者只需要修改一个 `--router` 参数即可切换 playground，不需要手动修改 Compose service、SDK observer wiring 或 transport 代码。
 
-## 7. PR3 — Custom Events
+## 8. PR3 — Custom Events
 
 ### Contract
 
@@ -232,7 +282,7 @@ SDK event()
 - Dashboard 基础事件列表或聚合展示；
 - 完整 E2E。
 
-## 8. PR4 — Web Vitals
+## 9. PR4 — Web Vitals
 
 首版支持 LCP、INP、CLS、FCP 和 TTFB。MVP 固定返回 `count`、`p75` 和 `good / needs_improvement / poor` 样本数量，不要求 p50、p90 或 attribution 聚合。MVP 查询按 site、date range 和 route 聚合，每个 Page View 每个 metric 只保留最后一次有效上报；样本不足时返回 `insufficient_data`。还必须明确：
 
@@ -245,7 +295,7 @@ SDK event()
 
 验收覆盖 browser mock、真实浏览器采集、非法 metric、重复 metric、Processor 聚合和 Dashboard 展示。
 
-## 9. PR5 — Conversion and Funnel
+## 10. PR5 — Conversion and Funnel
 
 Conversion/Funnel 依赖 Custom Events，Phase 7 只实现内部能力和固定 contract，不实现用户配置页面。首版只支持明确的事件型规则：
 
@@ -257,7 +307,7 @@ Conversion/Funnel 依赖 Custom Events，Phase 7 只实现内部能力和固定 
 
 必须提供定义、查询和错误 contract，并覆盖重复事件、乱序事件、超时事件、空漏斗和非法定义场景。测试可以使用 fixture 或部署级静态定义；用户创建和修改定义属于 Phase 8。
 
-## 10. PR6 — Geo
+## 11. PR6 — Geo
 
 ### Geo PR1
 
@@ -280,7 +330,7 @@ Conversion/Funnel 依赖 Custom Events，Phase 7 只实现内部能力和固定 
 
 Geo PR2 可以延期而不阻塞其他 MVP capability。是否纳入本次 MVP release 必须在 MVP scope 和 RC checklist 中明确记录。
 
-## 11. 测试策略
+## 12. 测试策略
 
 功能开发期间同步完成：
 
@@ -294,7 +344,7 @@ Geo PR2 可以延期而不阻塞其他 MVP capability。是否纳入本次 MVP r
 
 完整 CI、浏览器矩阵、migration regression、Collector hardening 和部署验证统一放在 [Release Readiness](release-readiness-design.md)。
 
-## 12. PR7 — MVP functional acceptance
+## 13. PR7 — MVP functional acceptance
 
 PR7 汇总 Phase 7 的功能验收，不新增产品能力。必须验证：
 
@@ -311,7 +361,7 @@ PR7 汇总 Phase 7 的功能验收，不新增产品能力。必须验证：
 
 如果 Geo PR2 未通过评估，PR7 必须记录延期原因和后续验收条件，不得把它默认为已交付。
 
-## 13. Phase 7 退出条件
+## 14. Phase 7 退出条件
 
 - PR0–PR7 的 contract、实现、fixture、功能 E2E 和最终功能验收完成；
 - Page View、Visitor、Session、Dimensions 结果无回归；

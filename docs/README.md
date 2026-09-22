@@ -27,6 +27,7 @@
 - [ADR-007：Capability-oriented Configuration](decisions/ADR-007-capability-oriented-configuration.md)：以用户能力而不是内部协议版本提供配置的架构决策。
 - [ADR-008：Internal Capability Boundaries](decisions/ADR-008-internal-capability-boundaries.md)：Phase 7 capability contract、依赖和跨层边界。
 - PR2 Router Adapters：React Router 7 和 TanStack Router v1 的 NavigationObserver 集成。
+- Phase 7 PR2.1：Contract namespace consolidation，收敛协议路径、版本命名和跨语言资源引用。
 - Phase 7 PR2.5：统一 Router facade、`RouterAnalyticsBridge` 和参数化 playground / Compose profiles，详见 [Phase 7 Design](phase-7-design.md)。
 
 `AGENTS.md` 位于仓库根目录，作为整个项目的协作和开发规则入口。
