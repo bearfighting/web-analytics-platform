@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -48,7 +48,7 @@ try {
   console.log(`E2E analytics workflow passed for ${fixtureNames.length} fixtures.`);
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
-  printLogs();
+  await writeDiagnostics();
   process.exitCode = 1;
 } finally {
   runCompose(["down", "--volumes", "--remove-orphans"], { allowFailure: true });
@@ -117,23 +117,29 @@ async function postEvents(events, ingestKey) {
 }
 
 async function runProcessorOnce() {
-  processorOutput += runCompose(
-    [
-      "run",
-      "--rm",
-      "--no-deps",
-      "--build",
-      "--entrypoint",
-      "cargo",
-      "processor",
-      "run",
-      "-p",
-      "processor",
-      "--",
-      "--once",
-    ],
-    { capture: true },
-  );
+  try {
+    processorOutput += runCompose(
+      [
+        "run",
+        "--rm",
+        "--no-deps",
+        "--build",
+        "--entrypoint",
+        "cargo",
+        "processor",
+        "run",
+        "-p",
+        "processor",
+        "--",
+        "--once",
+      ],
+      { capture: true },
+    );
+  } catch (error) {
+    const cause = error.cause ?? error;
+    processorOutput += [cause.stdout, cause.stderr].filter(Boolean).join("\n");
+    throw error;
+  }
 }
 
 async function resetDatabase() {
@@ -289,20 +295,36 @@ function runCompose(args, options = {}) {
     return execFileSync("docker", [...composeBaseArgs, ...args], {
       cwd: root,
       encoding: "utf8",
-      stdio: options.capture ? ["ignore", "pipe", "inherit"] : "inherit",
+      stdio: options.capture ? ["ignore", "pipe", "pipe"] : "inherit",
     });
   } catch (error) {
-    if (options.allowFailure) return "";
+    if (options.allowFailure) {
+      return [error.stdout, error.stderr].filter(Boolean).join("\n");
+    }
     throw new Error(`docker compose ${args.join(" ")} failed`);
   }
 }
 
-function printLogs() {
-  console.error("\nE2E service logs:\n");
-  if (processorOutput) console.error("Processor one-shot output:\n", processorOutput);
-  runCompose(["logs", "--no-color", "collector", "processor", "analytics-api", "db-migrate"], {
-    allowFailure: true,
-  });
+async function writeDiagnostics() {
+  const artifactDirectory = path.join(root, "artifacts", "analytics-e2e");
+  await mkdir(artifactDirectory, { recursive: true });
+  await writeFile(
+    path.join(artifactDirectory, "compose-config.txt"),
+    runCompose(["config"], { capture: true, allowFailure: true }),
+  );
+  await writeFile(
+    path.join(artifactDirectory, "compose-ps.txt"),
+    runCompose(["ps", "--all"], { capture: true, allowFailure: true }),
+  );
+  await writeFile(
+    path.join(artifactDirectory, "service-logs.txt"),
+    runCompose(["logs", "--no-color", "collector", "processor", "analytics-api", "db-migrate"], {
+      capture: true,
+      allowFailure: true,
+    }),
+  );
+  await writeFile(path.join(artifactDirectory, "processor-output.txt"), processorOutput);
+  console.error(`E2E analytics diagnostics saved in ${artifactDirectory}`);
 }
 
 function assert(condition, message) {

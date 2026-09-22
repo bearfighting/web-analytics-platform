@@ -98,23 +98,24 @@ Migration、部署和 release 工具不属于 Collector、Processor 或 Analytic
 
 ### PR1 — CI and regression baseline
 
-- CI 启动 PostgreSQL service 或使用独立 Compose profile。
-- 执行 `pnpm db:migrate` 和 `pnpm test:integration`。
-- 执行 `pnpm e2e:analytics`，保留 `pnpm e2e:dashboard`。
+- CI 使用 PostgreSQL 17 service 执行 migration regression 和 `pnpm test:integration`。
+- `pnpm test:migrations` 在当前数据库上执行首次 migration、重复 migration、migration history/checksum 和核心表/索引/约束校验，并在隔离数据库中验证旧 history 升级到当前版本；历史 migration 只通过新增 migration 扩展，不直接修改。
+- CI 执行 `pnpm e2e:analytics`，保留 `pnpm e2e:dashboard`，两个 E2E 使用独立 Compose project 和测试 volume。
 - 验证空数据库首次 migration、已有数据库升级和重复 migration。
-- 上传 integration/E2E 日志，失败时保留 PostgreSQL、Collector、Processor 和 API 日志。
-- 统一 CI 与本地 release candidate 使用的命令。
+- Integration 失败时保存 `artifacts/integration/`；Analytics E2E 失败时保存 `artifacts/analytics-e2e/`，包括 Compose config、service status、Collector、Processor、Analytics API、db-migrate 日志和 Processor 输出；Dashboard E2E 即使在服务启动或浏览器初始化前失败，也保存截图/trace（若可用）和 Compose 诊断。
+- `validate` job 显式执行 Rust format、clippy、test、build，并解析 backend/storage/processing/dashboard 全部 Compose profiles。
+- CI 与本地 release candidate 使用相同的 `pnpm test:migrations`、`pnpm test:integration`、`pnpm e2e:analytics` 和 `pnpm e2e:dashboard` 命令。
 
 ### PR2 — Browser compatibility and SDK quality
 
 固定第一版支持矩阵：
 
-| 浏览器 | CI 覆盖 | 范围 |
-| --- | --- | --- |
-| Chromium | 必须 | SDK 初始化、consent、storage、navigation、transport |
-| Firefox | 必须 | 同上 |
-| WebKit/Safari compatibility | 必须 | 同上 |
-| 旧版浏览器 | 不承诺 | 明确不支持和失败行为 |
+| 浏览器                      | CI 覆盖 | 范围                                                |
+| --------------------------- | ------- | --------------------------------------------------- |
+| Chromium                    | 必须    | SDK 初始化、consent、storage、navigation、transport |
+| Firefox                     | 必须    | 同上                                                |
+| WebKit/Safari compatibility | 必须    | 同上                                                |
+| 旧版浏览器                  | 不承诺  | 明确不支持和失败行为                                |
 
 同时增加：
 
@@ -194,8 +195,7 @@ git diff --check
 
 ```bash
 export DATABASE_URL=postgres://analytics:analytics@localhost:5432/analytics
-pnpm db:migrate
-pnpm db:migrate
+pnpm test:migrations
 pnpm test:integration
 pnpm e2e:analytics
 pnpm e2e:dashboard

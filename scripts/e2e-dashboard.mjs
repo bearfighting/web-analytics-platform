@@ -1,7 +1,7 @@
 /* global console, fetch, process, setTimeout */
 
 import { execFileSync } from "node:child_process";
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -54,10 +54,10 @@ function runCompose(args, options = {}) {
     return execFileSync("docker", [...composeBaseArgs, ...args], {
       cwd: root,
       encoding: "utf8",
-      stdio: options.capture ? ["ignore", "pipe", "inherit"] : "inherit",
+      stdio: options.capture ? ["ignore", "pipe", "pipe"] : "inherit",
     });
   } catch (error) {
-    if (options.allowFailure) return "";
+    if (options.allowFailure) return `${error.stdout ?? ""}${error.stderr ?? ""}`;
     throw new Error(`docker compose ${args.join(" ")} failed`, { cause: error });
   }
 }
@@ -515,19 +515,46 @@ try {
   await page.close();
   console.log("Dashboard E2E workflow passed.");
 } catch (error) {
-  if (page || browserContext) {
-    const artifactDirectory = path.join(root, "artifacts", "dashboard-e2e");
-    await mkdir(artifactDirectory, { recursive: true });
-    if (page)
+  const artifactDirectory = path.join(root, "artifacts", "dashboard-e2e");
+  await mkdir(artifactDirectory, { recursive: true });
+  if (page) {
+    try {
       await page.screenshot({ path: path.join(artifactDirectory, "failure.png"), fullPage: true });
-    if (browserContext)
+    } catch (artifactError) {
+      console.error(`Dashboard failure screenshot could not be saved: ${artifactError}`);
+    }
+  }
+  if (browserContext) {
+    try {
       await browserContext.tracing.stop({ path: path.join(artifactDirectory, "trace.zip") });
+    } catch (artifactError) {
+      console.error(`Dashboard trace could not be saved: ${artifactError}`);
+    }
+  }
+  try {
+    await writeFile(
+      path.join(artifactDirectory, "compose-config.txt"),
+      runCompose(["config"], { capture: true, allowFailure: true }),
+    );
+    await writeFile(
+      path.join(artifactDirectory, "compose-ps.txt"),
+      runCompose(["ps", "--all"], { capture: true, allowFailure: true }),
+    );
+    await writeFile(
+      path.join(artifactDirectory, "service-logs.txt"),
+      runCompose(
+        ["logs", "--no-color", "dashboard", "collector", "analytics-api", "postgres", "db-migrate"],
+        {
+          capture: true,
+          allowFailure: true,
+        },
+      ),
+    );
     console.error(`Dashboard E2E artifacts saved in ${artifactDirectory}`);
+  } catch (artifactError) {
+    console.error(`Dashboard Compose diagnostics could not be saved: ${artifactError}`);
   }
   console.error(error instanceof Error ? (error.stack ?? error.message) : String(error));
-  runCompose(["logs", "--no-color", "dashboard", "collector", "analytics-api"], {
-    allowFailure: true,
-  });
   process.exitCode = 1;
 } finally {
   if (browserContext) await browserContext.close();

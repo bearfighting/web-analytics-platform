@@ -135,8 +135,16 @@ Phase 3 PostgreSQL Storage 需要先启动 storage profile 并执行 migration�
 docker compose --profile storage up -d --wait postgres
 export DATABASE_URL=postgres://analytics:analytics@localhost:5432/analytics
 pnpm db:migrate
-DATABASE_URL=postgres://analytics:analytics@localhost:5432/analytics pnpm test:integration
+pnpm test:migrations
+pnpm test:integration
 ```
+
+`pnpm test:migrations` 需要 PostgreSQL、`psql` 和 `CREATEDB` 权限，会验证首次/重复 migration、
+旧 history 升级、history/checksum 以及核心 schema。升级验证使用独立临时数据库，
+完成后自动删除。Analytics E2E 使用独立 Compose project 和
+测试 volume；失败诊断写入 `artifacts/analytics-e2e/`，不会删除现有开发数据库
+volume。Dashboard E2E 的截图、trace 和 Compose 诊断写入
+`artifacts/dashboard-e2e/`。
 
 ## 技术方向
 

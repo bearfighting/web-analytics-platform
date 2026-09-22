@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
-use sqlx::postgres::PgPoolOptions;
+use sqlx::{migrate::Migrator, postgres::PgPoolOptions};
+use std::borrow::Cow;
 
 pub async fn run_from_environment() -> Result<()> {
     let database_url = std::env::var("DATABASE_URL")
@@ -8,13 +9,38 @@ pub async fn run_from_environment() -> Result<()> {
 }
 
 pub async fn run(database_url: &str) -> Result<()> {
+    let migrator = sqlx::migrate!("../../migrations");
+    run_with_migrator(database_url, &migrator).await
+}
+
+pub async fn run_until(database_url: &str, target_version: i64) -> Result<()> {
+    let full_migrator = sqlx::migrate!("../../migrations");
+    anyhow::ensure!(
+        full_migrator.version_exists(target_version),
+        "target migration version does not match any known migration"
+    );
+    let migrations: Vec<_> = full_migrator
+        .iter()
+        .filter(|migration| migration.version <= target_version)
+        .cloned()
+        .collect();
+    let migrator = Migrator {
+        migrations: Cow::Owned(migrations),
+        ignore_missing: false,
+        locking: true,
+        no_tx: false,
+    };
+    run_with_migrator(database_url, &migrator).await
+}
+
+async fn run_with_migrator(database_url: &str, migrator: &Migrator) -> Result<()> {
     let pool = PgPoolOptions::new()
         .max_connections(1)
         .connect(database_url)
         .await
         .context("failed to connect to PostgreSQL for database migrations")?;
 
-    sqlx::migrate!("../../migrations")
+    migrator
         .run(&pool)
         .await
         .context("database migrations failed")?;

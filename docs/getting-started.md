@@ -175,6 +175,15 @@ export DATABASE_URL=postgres://analytics:analytics@localhost:5432/analytics
 pnpm db:migrate
 ```
 
+执行完整 migration regression。该命令要求 `DATABASE_URL` 和本机可用的
+`psql`，会验证首次执行、重复执行、migration history/checksum 以及核心
+表、索引和约束，并在隔离临时数据库中验证旧 migration history 升级到当前版本。
+执行用户需要拥有 `CREATEDB` 权限：
+
+```bash
+pnpm test:migrations
+```
+
 运行 PostgreSQL 集成测试：
 
 ```bash
@@ -210,6 +219,7 @@ pnpm e2e:analytics
 ```
 
 该命令会启动独立的 PostgreSQL、Collector、Processor one-shot 和 Analytics API 测试环境，逐个执行 canonical fixtures，结束后自动清理自己的容器和 volume，不影响用户已有 PostgreSQL volume。
+失败时会把 Compose config、service status 和 Collector、Processor、Analytics API、db-migrate 日志写入 `artifacts/analytics-e2e/`。
 
 单独运行 Protocol 校验：
 
@@ -315,7 +325,12 @@ Transport 不自动重试，也不持久化发送失败的事件。Collector 的
 
 ## CI
 
-GitHub Actions 会复用本地检查命令，并额外验证 Docker Compose 配置。CI 不构建或启动 Docker 镜像。
+GitHub Actions 会复用本地检查命令，并额外验证 Docker Compose 配置。CI 的
+`integration` job 使用 PostgreSQL 17 service，先运行 `pnpm test:migrations`，
+再运行 `pnpm test:integration`；独立的 `analytics-e2e` 和 `dashboard-e2e`
+job 分别运行两个 E2E 命令。失败诊断 artifact 位于 `artifacts/analytics-e2e/`
+和 `artifacts/dashboard-e2e/`，CI 会上传它们供下载。migration job 必须先于
+Collector、Processor 和 Analytics API 启动。
 
 Collector 配置文件路径可以通过 `COLLECTOR_CONFIG` 指定；示例值见 `.env.example`。
 

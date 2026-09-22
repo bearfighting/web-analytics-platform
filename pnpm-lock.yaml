@@ -78,6 +78,9 @@ importers:
       eslint-plugin-import:
         specifier: ^2.31.0
         version: 2.32.0(@typescript-eslint/parser@8.70.0(eslint@9.39.5)(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.5)
+      eslint-plugin-react-hooks:
+        specifier: 5.2.0
+        version: 5.2.0(eslint@9.39.5)
       prettier:
         specifier: ^3.5.3
         version: 3.9.7
@@ -121,6 +124,9 @@ importers:
       '@eslint/eslintrc':
         specifier: ^3.2.0
         version: 3.3.7
+      '@next/eslint-plugin-next':
+        specifier: 15.5.24
+        version: 15.5.24
       '@types/node':
         specifier: ^22.13.4
         version: 22.20.3

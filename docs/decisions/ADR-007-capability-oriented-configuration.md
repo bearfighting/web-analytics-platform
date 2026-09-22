@@ -35,4 +35,3 @@ Protocol consolidation
   → configuration API and persistence
   → Dashboard capability management
 ```
-

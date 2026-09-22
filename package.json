@@ -22,6 +22,7 @@
     "docker:backend": "./scripts/docker-backend.sh",
     "docker:processing": "./scripts/docker-processing.sh",
     "db:migrate": "./scripts/db-migrate.sh",
+    "test:migrations": "bash ./scripts/test-migrations.sh",
     "protocol:validate": "node ./scripts/validate-protocol.mjs",
     "protocol:v2:validate": "node ./scripts/validate-event-protocol-v2.mjs",
     "http:validate": "node ./scripts/validate-http-fixtures.mjs",
