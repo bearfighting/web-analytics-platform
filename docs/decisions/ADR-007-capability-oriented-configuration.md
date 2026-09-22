@@ -20,9 +20,9 @@
 
 ## Consequences
 
-- 当前 Phase 7 先完成协议收敛和稳定化，不提前实现 Dashboard 动态能力配置。
-- 后续需要先定义 capability contract、依赖、关闭语义、历史数据语义和配置刷新策略，再实现配置 API 与 Dashboard UI。
-- `analytics_enabled` 可以暂时保留为现有 Phase 6 派生能力开关，但后续应评估如何映射到 capability model。
+- Phase 7 先完成协议收敛和 capability contract，Phase 8 再实现 Dashboard 动态能力配置。
+- 需要先定义 capability contract、依赖、关闭语义、历史数据语义和配置刷新策略，再实现配置 API 与 Dashboard UI。
+- `analytics_enabled` 只作为迁移前的过渡字段；Phase 8 必须将其映射到明确的 capability 状态，并定义默认值、失败回滚、旧字段保留和历史数据查询语义。
 - Dashboard 不显示 V1/V2、schema version、feature flag 或内部 rollout 状态。
 - 新的 Custom Events、Web Vitals 和 Conversion 等能力必须分别完成协议、实现、fixture 和 E2E 验证，不能通过通用配置表提前声明为空模块。
 
@@ -30,8 +30,7 @@
 
 ```text
 Protocol consolidation
-  → Phase 7 stabilization
-  → internal capability boundaries
-  → configuration API and persistence
+  → Phase 7 MVP feature completion
+  → Phase 8 configuration API and persistence
   → Dashboard capability management
 ```

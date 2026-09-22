@@ -4,7 +4,7 @@
 
 项目按线性方式推进：一次只实施一个主要模块，完成并验证后再添加下一个模块。模块之间通过明确的契约衔接，不提前创建没有实际内容的长期空 package。
 
-MVP 的最低成功标准是：一个 Next.js App Router 网站接入 SDK 后，可以在 Dashboard 看到基础浏览统计。当前规划的完整 MVP 范围还包括 Phase 7 的稳定化和 Phase 8 的产品能力。
+MVP 的最低成功标准是：一个网站接入 SDK 后，可以在 Dashboard 看到并配置完整的浏览、事件和基础性能分析。完整范围以 [MVP Scope](mvp-scope.md) 为准，发布前的测试、稳定性和部署门槛由 [MVP Release Readiness](release-readiness-design.md) 定义。
 
 ## Phase 0 — Project Foundation
 
@@ -115,7 +115,7 @@ Rust / Cargo workspace 不属于 Phase 0，等进入 Backend 阶段时再建立�
 - Analytics API 的最小实现
 - Client → Collector → PostgreSQL → Processor → Analytics API E2E workflow
 
-本阶段不实现 Visitor、Session、Browser Dimensions 或复杂实时处理；这些能力需要先完成独立的数据契约和 SDK 语义设计。
+本阶段不实现 Visitor、Session、Browser Dimensions 或低延迟处理；这些能力需要先完成独立的数据契约和 SDK 语义设计。
 
 验收：Client SDK → Backend → PostgreSQL → Processor → Analytics API 完整链路可运行，重复事件不会造成重复 Page View 统计。
 
@@ -182,83 +182,71 @@ Country / IP、指纹识别和跨设备识别不属于本阶段设计目标。
 
 Country / IP 不属于本阶段必须内容。
 
-## Phase 7 — Stabilization
+## Phase 7 — MVP Feature Completion
 
-详细执行方案见：[phase-7-design.md](phase-7-design.md)。
+详细执行方案见：[phase-7-design.md](phase-7-design.md)。范围基线见：[MVP Scope](mvp-scope.md)。
 
-目标：在不扩大产品范围的前提下完成协议收敛、稳定性验证和第一个 release candidate 准备。
+目标：在现有 Phase 6 Analytics workflow 上完成 MVP 所需的产品功能。
+
+执行顺序：
+
+```text
+Protocol consolidation
+  → internal capability boundaries
+  → Router adapters
+  → Custom Events
+  → Web Vitals
+  → Conversion / Funnel
+  → Geo
+  → MVP functional acceptance
+```
+
+本阶段每项能力都必须完成 contract、实现、fixture、API/Dashboard 和最小 E2E，但不承担最终发布所需的完整浏览器矩阵和部署验证。
+
+## Phase 8 — MVP Configuration and Capability Management
+
+详细执行方案见：[phase-8-design.md](phase-8-design.md)。
+
+目标：让用户通过 Dashboard 配置功能能力、Origin、Ingest Key、隐私和必要的业务设置，不暴露 Protocol、schema、generation 或 parser version。
 
 交付：
 
-- 浏览器兼容性测试
-- SDK Bundle size 检查
-- Collector 错误处理
-- PostgreSQL migration 测试
-- End-to-end regression fixtures
-- 基础 retention
-- 部署文档
-- npm SDK 发布流程
+- capability 配置模型和 migration；
+- 配置 API 和依赖校验；
+- Origin / Ingest Key 管理；
+- Conversion / Funnel 定义管理；
+- Dashboard 配置界面；
+- Collector、Processor、API 的统一配置语义；
+- 配置生效、缓存、回退和回滚；
+- 配置变更后的 E2E。
 
-实施顺序和验收标准以 Phase 7 设计文档为准。Protocol consolidation 是发布前置步骤；retention 在策略批准前只允许 dry-run，不启用自动删除。
+## MVP Release Readiness
 
-## Phase 8 — MVP Product Completion
+详细执行方案见：[release-readiness-design.md](release-readiness-design.md)。
 
-详细执行方案待补充，开始实施前新增 `docs/phase-8-design.md`。
+这是 MVP 的最后阶段，集中完成：
 
-目标：在 Phase 7 稳定化基础上补齐 MVP 所需的产品能力，但不把高隐私风险和高数据量能力混入稳定化阶段。
+- CI、migration regression 和 integration test；
+- Analytics E2E 和 Dashboard E2E；
+- 浏览器矩阵和 SDK bundle/package 检查；
+- Collector runtime hardening；
+- retention policy 和 dry-run；
+- 部署、backup、rollback 和 npm release；
+- 干净环境 Release Candidate checklist。
 
-Phase 8 的完成与 Phase 7 一起构成 MVP 发布范围：
+## Phase 9 — Post-MVP Product Extensions
 
-```text
-Phase 6 Analytics workflow
-  → Phase 7 Stabilization and release readiness
-  → Phase 8 MVP Product Completion
-```
-
-建议交付顺序：
-
-- Router Adapter 扩展：React Router、TanStack Router 等具体 Adapter。
-- Custom Events：协议、Collector 接收、Raw Event 保存、Processor 处理和 API 查询契约。
-- Web Vitals：浏览器采集、指标 schema、聚合语义和 Dashboard/API 展示。
-- Visitor、Session、Dimension 语义修订：只有在确认当前 Phase 5/6 语义不足时才修改，并通过新的 ADR、generation 和兼容性测试完成。
-- Conversion / Funnel：基于事件的转化定义、漏斗计算和查询 API。
-- Geo PR1：基础 Geo 维度，例如 country/country code；不保存原始 IP，使用可版本化的解析结果。
-- Geo PR2：在确认基础 Geo 的数据质量和隐私边界后，再增加 region/city 等扩展维度。
-
-Phase 8 每项能力必须独立完成：
-
-```text
-Protocol / contract
-  → migration and domain model
-  → SDK / Collector / Processor
-  → API / Dashboard
-  → canonical fixtures
-  → end-to-end verification
-```
-
-Phase 8 不应直接修改 Phase 7 的稳定性目标；如果需要 breaking protocol 或 API 变更，必须先更新设计文档和迁移方案。
-
-Phase 8 实现新能力时，必须同步建立稳定的内部 capability 边界，但暂不要求提供用户可编辑的动态站点配置。用户配置 API、Dashboard 管理、运行时刷新和回滚属于 Phase 8 之后的独立产品配置阶段。
-
-Phase 8 明确保持单体部署边界：继续使用 PostgreSQL、批处理或 one-shot Processor 和现有 HTTP API，不引入消息队列、缓存集群、流处理平台或其他分布式基础设施。Geo PR2 是否实施，取决于 Geo PR1 的数据质量、部署资产和隐私评估，不默认扩大 MVP 范围。
-
-## Phase 9 — Advanced Analytics and Infrastructure
-
-Phase 9 用于需要独立隐私、安全和高数据量设计的高级能力：
+Phase 9 只保留需要独立隐私和产品设计的后续能力：
 
 - Replay。
 - Heatmap。
 - 高级 Geo：例如 geospatial polygon、ISP/ASN、VPN/proxy detection 等。
-- ClickHouse / Kafka 等专用基础设施。
-- 多组织和复杂权限。
 
-Replay 和 Heatmap 默认不属于 MVP。除非出现明确需求，否则不提前创建对应的 Protocol、migration、package 或服务。
-
-Realtime 也不属于当前 MVP 路线。实时推送、持续流式消费、消息队列、缓存集群和分布式聚合只有在出现明确吞吐量或延迟需求后再重新规划。
+Replay 和 Heatmap 不属于 MVP。除非出现明确需求，否则不提前创建对应的 Protocol、migration、package 或服务。
 
 ## 后续专项 — Deployment Modes
 
-当前 Phase 7、Phase 8 和 Phase 9 完成后，再详细设计两种部署模式：
+当前 MVP 功能和发布准备完成后，再详细设计两种部署模式：
 
 ### Single-node Edition
 
@@ -269,13 +257,13 @@ Realtime 也不属于当前 MVP 路线。实时推送、持续流式消费、消
 - 内置 Collector、Analytics API 和 Processor worker；
 - 内置 Dashboard 静态资源；
 - 本地 migration、backup 和 restore 命令；
-- 不依赖 PostgreSQL、消息队列、缓存或其他外部基础设施。
+- 不依赖 PostgreSQL 或其他外部基础设施。
 
-Single-node Edition 明确限制为单机、单写入进程和有限吞吐，不承诺水平扩展或多实例共享数据库文件。
+Single-node Edition 明确限制为单机、单写入进程和本地部署，不承诺多实例共享数据库文件。
 
 ### PostgreSQL Edition
 
-面向更完整的部署体验和较高数据量，继续支持独立组件：
+面向标准自托管部署，继续支持独立组件：
 
 ```text
 db-migrate
@@ -285,33 +273,16 @@ db-migrate
   → dashboard
 ```
 
-PostgreSQL Edition 可以支持多 worker、较高并发和独立运维，但仍不默认引入分布式消息队列、缓存集群或流处理平台。
-
-### Queue 和 Storage 方向
-
-两种部署模式共享 Protocol、领域语义、Processor、API contract、Dashboard 和 canonical fixtures，只替换 Storage、Migration、Queue 和 Runtime packaging：
-
-- SQLite 使用普通 queue table、事务和单 worker；
-- PostgreSQL 使用普通 queue table、事务和 `SKIP LOCKED`；
-- 不把 pg queue 插件作为强制依赖；
-- 将来确有吞吐量需求时，再增加外部 queue adapter；
-- SQLite 和 PostgreSQL 使用各自 migration，但共享逻辑 schema contract 和跨数据库 fixture。
-
-实施时预计拆为：
-
-- Deployment PR1：Queue abstraction、SQLite storage 和 SQLite migration；
-- Deployment PR2：统一 server runtime、tarball packaging、backup/restore 和 single-node E2E。
-
-该专项暂不进入当前 Phase 7 或 Phase 8 的实现范围。开始实施前新增独立设计文档，例如 `docs/deployment-modes-design.md`，并重新评估 SQLite/PostgreSQL 的功能矩阵、升级路径和数据迁移方案。
+PostgreSQL Edition 继续支持独立运维。该专项不属于当前 MVP，开始实施前新增独立设计文档，并重新评估 SQLite/PostgreSQL 的功能矩阵、升级路径和数据迁移方案。
 
 ## 后续方向
 
 只有出现真实需求后再考虑：
 
 - Error Analytics
-- [观测能力模块化与动态配置](feature-modularization-design.md)：Phase 8 在实现新能力时完成内部 capability 边界；Phase 8 之后再实现配置 API、持久化、Dashboard 管理、动态刷新和回滚。用户不配置 Protocol 版本、schema 或内部 rollout flag。
-- 模块化实施顺序固定为：统一协议 → 稳定现有 MVP → Phase 8 内部能力模块化 → 配置 API/持久化 → Dashboard 配置 → 动态刷新与回滚。
-- 非实时趋势 Summary / Insights API
+- [观测能力模块化与动态配置](feature-modularization-design.md)：Phase 7 建立内部 capability 边界，Phase 8 实现配置 API、持久化、Dashboard 管理、动态刷新和回滚。用户不配置 Protocol 版本、schema 或内部 rollout flag。
+- 模块化实施顺序固定为：统一协议 → MVP 功能模块 → capability 配置模型 → 配置 API/持久化 → Dashboard 配置 → 动态刷新与回滚。
+- 趋势 Summary / Insights API
   - 面向总体趋势和多维度聚合查询。
   - 可以评估 PostgreSQL Materialized View、rollup table 或其他预计算方案。
   - 需要单独定义数据新鲜度、刷新策略、`data_as_of` 语义和维度查询 contract。

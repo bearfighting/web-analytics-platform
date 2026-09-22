@@ -4,12 +4,13 @@
 
 - [Architecture Design](architecture-design.md)：长期架构目标和系统边界。
 - [Roadmap](roadmap.md)：线性开发阶段和交付顺序。
+- [MVP Scope](mvp-scope.md)：MVP 功能范围、排除项、完成定义和发布门槛。
 - [Monorepo Design](monorepo-design.md)：仓库结构、模块职责和 Workspace 策略。
 - [Phase 0 Design](phase-0-design.md)：项目启动阶段的详细步骤、Checklist 和验收标准。
 - [Event Protocol](event-protocol.md)：开发阶段 Event Protocol V1 基线；正式发布前以协议合并设计为准。
 - [Protocol Layout](../protocol/README.md)：事件、Context、服务契约和语义场景的稳定目录约定。
 - [Protocol Consolidation Refactoring](protocol-consolidation-refactor.md)：上线前合并开发阶段 V1/V2 协议的目标、步骤和验收标准。
-- [Feature Modularization Design](feature-modularization-design.md)：协议收敛之后的观测能力模块化、动态配置和实现优先顺序。
+- [Feature Modularization Design](feature-modularization-design.md)：协议收敛之后的观测能力模块化、动态配置和实现优先顺序；具体 MVP 阶段以 Phase 7/8 文档为准。
 - [Router Playground](router-playground.md)：Next.js App Router 实验场和导航场景。
 - [Phase 1 Design](phase-1-design.md)：Client SDK、Observer 和 Transport 的实施计划。
 - [Phase 2 Design](phase-2-design.md)：Backend Collector、HTTP 契约和基础安全控制的历史实施计划。
@@ -17,7 +18,9 @@
 - [Phase 4 Design](phase-4-design.md)：Dashboard、Analytics API Query Client 和完整 Dashboard workflow 的实施计划。
 - [Phase 5 Design](phase-5-design.md)：Analytics Semantics、Visitor、Session、Browser Context 和 Dimensions 的历史契约设计。
 - [Phase 6 Design](phase-6-design.md)：Browser Visitor ID、临时 Protocol V2 rollout、Sessionization、Dimensions、Analytics API 和 Dashboard 的历史实施计划。
-- [Phase 7 Design](phase-7-design.md)：Protocol consolidation、稳定性、CI、retention、部署和 npm 发布的执行计划。
+- [Phase 7 Design](phase-7-design.md)：MVP 功能完善、Protocol consolidation 和 capability 边界。
+- [Phase 8 Design](phase-8-design.md)：MVP 用户配置、配置 API 和 Dashboard 能力管理。
+- [Release Readiness](release-readiness-design.md)：MVP 最后的完整回归、稳定性、部署和发布验证。
 - [Analytics API OpenAPI Contract](analytics-api.openapi.json)：Analytics API v1 的机器可读契约，包含已启用的 Phase 6 reports。
 - [Ingest Key Guide](ingest-key.md)：Ingest Key 的生成、配置、Website 使用、Origin 关联和轮换流程。
 - [ADR-007：Capability-oriented Configuration](decisions/ADR-007-capability-oriented-configuration.md)：以用户能力而不是内部协议版本提供配置的架构决策。

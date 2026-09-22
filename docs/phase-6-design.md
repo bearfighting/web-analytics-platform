@@ -40,10 +40,10 @@ Phase 6 的实现必须保持 Phase 3/4 Page View workflow 可独立运行。Vis
 
 ## 3. 不属于本阶段
 
-- 登录用户、组织身份、跨设备合并或第三方广告 ID。
+- 登录用户、跨设备合并或第三方广告 ID。
 - IP 持久化、精确地理位置、指纹识别和国家推断。
 - Client-side `session_id`、客户端 Session 统计或客户端聚合。
-- Realtime websocket、Kafka、ClickHouse、复杂分布式 exactly-once 或跨区域部署。
+- 低延迟 websocket、复杂跨实例一致性或跨区域部署。
 - 站点时区报表；Phase 6 继续使用 UTC calendar date。
 - 自定义事件、Conversion、Funnel、Replay、Heatmap 和 A/B Testing。
 - 对历史 Page View API contract 的 breaking change。
@@ -608,4 +608,4 @@ Phase 6 完成前必须在 PostgreSQL 和浏览器环境中验证：
 - 新 API 和 Dashboard 已通过完整 E2E。
 - 关闭 Phase 6 feature flags 后现有 Page View API、Processor 和 Dashboard workflow 不变。
 
-Phase 6 完成后进入 Phase 7 Stabilization。
+Phase 6 完成后进入 Phase 7 MVP Feature Completion；完整测试、部署和发布验证见 Release Readiness 设计。

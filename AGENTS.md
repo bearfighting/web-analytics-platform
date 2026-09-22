@@ -92,8 +92,8 @@ Client SDK → Backend Collector → Storage / Processor / API → Dashboard
 - React Router、TanStack Router 等其他 Adapter 的具体实现
 - Conversion、Funnels、Replay、Heatmap、A/B Testing
 - 精确地理位置、IP 持久化、指纹识别、跨设备识别
-- Kafka、ClickHouse、Redis Cluster 和复杂实时流处理
-- 复杂迟到事件修正和 distributed exactly-once
+- 超出当前 MVP 的基础设施扩展和复杂实时处理
+- 复杂迟到事件修正
 
 ## 不可破坏的架构边界
 

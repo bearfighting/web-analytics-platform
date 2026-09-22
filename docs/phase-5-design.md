@@ -36,8 +36,8 @@ Visitor、Session 和维度聚合的生产实现留到 Phase 6。没有通过本
 - 正式实现 Visitor ID 生成或持久化。
 - 正式实现 Sessionization、Visitor/Session 聚合或 Dashboard 指标。
 - Country、IP 持久化、精确地理位置、指纹识别或跨设备识别。
-- 登录用户 ID、组织身份、广告 ID 或第三方身份合并。
-- Realtime Session、分布式 Session claim/lease 或复杂迟到事件修正。
+- 登录用户 ID、广告 ID 或第三方身份合并。
+- 低延迟 Session、跨实例 Session claim/lease 或复杂迟到事件修正。
 - 新增图表库、客户端缓存库或新的 Dashboard 数据聚合逻辑。
 - 在没有契约的情况下修改 Event Protocol V1 的必填字段。
 

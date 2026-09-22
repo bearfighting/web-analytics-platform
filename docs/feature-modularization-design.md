@@ -11,15 +11,14 @@
 
 ```text
 Protocol consolidation
-  → 现有 MVP 稳定化
+  → MVP 功能完善
   → 内部能力模块化
-  → Phase 8 新能力按模块实现
-  → 配置 API 和持久化
+  → Phase 8 配置 API 和持久化
   → Dashboard 功能配置
   → 动态策略刷新与端到端验证
 ```
 
-本设计不提前改变当前 Phase 7 的实现范围，也不要求在 Protocol consolidation 之前引入动态配置中心。
+本设计不要求在 Protocol consolidation 或 MVP capability contract 冻结之前引入动态配置中心。
 
 ## 2. 设计原则
 
@@ -36,7 +35,7 @@ Protocol consolidation
 - `anonymous_visitors`：站点隔离的匿名 Visitor ID；
 - `sessions`：服务端 Sessionization；
 - `dimensions`：Browser、Device、OS、Referrer、UTM 等聚合；
-- `custom_events`、`web_vitals`、`conversions`：后续模块，不能提前创建空实现。
+- `custom_events`、`web_vitals`、`conversions`、`funnels`、`geo`：MVP 扩展模块，必须在 Phase 7 具备实际 contract 和实现后才能加入配置模型。
 
 模块内部仍可拆分 SDK、Collector、Processor、API 和 Dashboard，但共享统一协议、权限和数据生命周期边界。
 
@@ -48,6 +47,8 @@ Protocol consolidation
 sessions       → anonymous_visitors
 dimensions     → browser_context
 conversions    → custom_events
+funnels        → conversions / custom_events
+geo            → geo resolver / versioned dataset
 ```
 
 不能要求用户理解 `context_schema_version`、generation、parser version 或 Processor rollout。
@@ -121,15 +122,15 @@ site_ingest_policies
 - SDK 和 Transport 只发送统一协议；
 - Collector 只保留一条校验和接收路径；
 - 删除 `protocol_v2_enabled` 运行时分支；
-- 保留 `analytics_enabled` 的产品/处理语义，直到后续 capability 模型替代它。
+- 在 Phase 8 migration 完成前保留 `analytics_enabled` 的产品/处理语义；迁移完成后由 capability 状态取代它。
 
 验收重点是现有 Page View、Visitor、Session、Dimension 和 Dashboard 结果不变。
 
-### Step 1 — 稳定化现有能力
+### Step 1 — MVP capability boundaries
 
-在 Phase 7 完成 migration、E2E、浏览器兼容性、Collector hardening、retention 和发布基线。此阶段不新增动态站点配置，也不把当前开发期 feature flag 直接升级为用户配置。
+在 Phase 7 为 Page Views、Browser Context、Visitors、Sessions、Dimensions、Custom Events、Web Vitals、Conversions、Funnels 和 Geo 定义稳定的内部边界。此阶段不新增动态站点配置，也不把当前开发期 feature flag 直接升级为用户配置。
 
-### Step 2 — 内部能力边界
+### Step 2 — Capability contract implementation
 
 在新增用户配置前，先为现有能力定义稳定的内部边界：
 
@@ -141,9 +142,9 @@ site_ingest_policies
 
 每个模块都必须先有 contract、fixture、错误语义和关闭行为，再进行代码拆分。
 
-这一步在 Phase 8 开始新增 Custom Events、Web Vitals 等能力时同步完成。Phase 8 的每项能力必须先定义模块边界，再实现 SDK、Collector、Processor、API 和 Dashboard。
+这一步在 Phase 7 实现 Custom Events、Web Vitals 等能力时同步完成。每项能力必须先定义模块边界，再实现 SDK、Collector、Processor、API 和 Dashboard。
 
-### Step 3 — 配置 API 和持久化
+### Step 3 — Phase 8 配置 API 和持久化
 
 先实现服务端配置模型，再实现 Dashboard 表单。至少需要：
 
@@ -156,7 +157,7 @@ site_ingest_policies
 
 环境变量只保留为 bootstrap、部署级默认值或紧急关闭开关，不能继续作为日常站点管理入口。
 
-`analytics_enabled` 只作为当前 Phase 6 的过渡总开关。目标模型中应拆成明确的 capability 状态：`page_views`、`anonymous_visitors`、`sessions`、`dimensions` 等。迁移期间必须定义旧字段到 capability 的映射，以及关闭后历史数据是否仍可查询。
+`analytics_enabled` 只作为当前 Phase 6 的过渡总开关。Phase 8 migration 必须将其映射为明确的 capability 状态：`page_views`、`anonymous_visitors`、`sessions`、`dimensions` 等，并定义默认值、失败回滚、旧字段是否保留以及关闭后历史数据是否仍可查询。该映射是 Phase 8 的必需交付，不再作为未来待评估事项。
 
 ### Step 4 — Dashboard 功能配置
 
@@ -183,16 +184,16 @@ Dashboard 不显示 Protocol 版本、schema、generation、parser version 或�
 
 ## 5. 首批模块的依赖与优先级
 
-| 优先级 | 用户能力 | 依赖 | 说明 |
-| --- | --- | --- | --- |
-| P0 | Page Views | 无 | 当前 MVP 基线，默认启用 |
-| P1 | Browser Context | consent、统一协议 | 先稳定采集边界，再暴露可选字段 |
-| P1 | Anonymous Visitors | consent、first-party storage | 继续由服务端定义身份语义 |
-| P1 | Sessions | Anonymous Visitors | 用户不配置 Session 算法细节 |
-| P1 | Dimensions | Browser Context、Processor parser | 用户只选择是否启用维度能力 |
-| P2 | Custom Events | 新事件类型 contract | 单独设计 contract，不混入 Page View |
-| P2 | Web Vitals | SDK 采集和指标语义 | 需要独立采样与数据量评估 |
-| P3 | Conversions / Funnels | Custom Events | 需要定义业务配置、回溯和版本化 |
+| 优先级 | 用户能力              | 依赖                              | 说明                                |
+| ------ | --------------------- | --------------------------------- | ----------------------------------- |
+| P0     | Page Views            | 无                                | 当前 MVP 基线，默认启用             |
+| P1     | Browser Context       | consent、统一协议                 | 先稳定采集边界，再暴露可选字段      |
+| P1     | Anonymous Visitors    | consent、first-party storage      | 继续由服务端定义身份语义            |
+| P1     | Sessions              | Anonymous Visitors                | 用户不配置 Session 算法细节         |
+| P1     | Dimensions            | Browser Context、Processor parser | 用户只选择是否启用维度能力          |
+| P2     | Custom Events         | 新事件类型 contract               | 单独设计 contract，不混入 Page View |
+| P2     | Web Vitals            | SDK 采集和指标语义                | 需要独立采样与数据量评估            |
+| P3     | Conversions / Funnels | Custom Events                     | 需要定义业务配置、回溯和版本化      |
 
 ## 6. 必须提前回答的问题
 
@@ -208,7 +209,7 @@ Dashboard 不显示 Protocol 版本、schema、generation、parser version 或�
 - PostgreSQL Edition 与未来 Single-node Edition 如何共享配置语义；
 - 配置服务不可用时，数据接收和处理是否继续使用最后已知配置。
 
-以上问题在实现配置 API 前必须形成独立 ADR 或 Phase 8/后续配置设计文档；不能在 Dashboard UI 开发过程中隐式决定。
+以上问题在实现配置 API 前必须形成独立 ADR 或 Phase 8 设计补充；不能在 Dashboard UI 开发过程中隐式决定。
 
 ## 7. 完成定义
 

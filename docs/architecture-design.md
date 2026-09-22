@@ -12,33 +12,33 @@
 
 它最初主要解决：
 
-* Page Views
-* Visitors
-* Sessions
-* Routes
-* Referrers
-* UTM
-* Geography
-* Device / Browser
-* 基础 Custom Events
+- Page Views
+- Visitors
+- Sessions
+- Routes
+- Referrers
+- UTM
+- Geography
+- Device / Browser
+- 基础 Custom Events
 
 但系统架构不与某个具体 Web Framework、Router、数据库或 Dashboard 实现绑定。
 
 Next.js 将作为 first-class integration，同时支持：
 
-* Next.js App Router
-* React Router
-* TanStack Router
-* Manual Integration
+- Next.js App Router
+- React Router
+- TanStack Router
+- Manual Integration
 
 未来可以继续扩展：
 
-* Vue Router
-* SvelteKit
-* Solid Router
-* Astro
-* 普通 SPA
-* 非 Framework Web Application
+- Vue Router
+- SvelteKit
+- Solid Router
+- Astro
+- 普通 SPA
+- 非 Framework Web Application
 
 核心设计思想：
 
@@ -60,7 +60,7 @@ Next.js 将作为 first-class integration，同时支持：
 
 ## 2.1 Primary Goals
 
-项目长期目标是建立可扩展的 Web Analytics Platform。第一阶段（MVP）只聚焦 Next.js App Router 的浏览器端浏览统计：
+项目长期目标是建立可扩展的 Web Analytics Platform。MVP 聚焦浏览器端浏览、事件和基础性能分析，Next.js App Router 是首个一等集成，其他 Router Adapter 在 MVP 功能完善阶段加入：
 
 1. 提供可靠的 Page View Analytics
 2. 支持 SPA Navigation
@@ -68,9 +68,9 @@ Next.js 将作为 first-class integration，同时支持：
 4. 通过通用 Observer Contract 保持 Framework / Router 解耦
 5. 保持 Client SDK 足够轻量
 6. 支持基础匿名 Visitor 和简单 Session
-7. 支持后续扩展新的 Router Adapter 和 Analytics Event
+7. 支持 MVP 范围内的 Router Adapter 和 Analytics Event，并为后续 Adapter 保留扩展契约
 
-更完整的多 Site、Privacy Governance、Self-hosting 和其他 Router 支持属于后续阶段能力。
+更复杂的隐私治理、导出和报表产品能力属于后续阶段；MVP 仍提供基础的站点配置、consent、Origin 和 Ingest Key 管理。
 
 ---
 
@@ -78,16 +78,16 @@ Next.js 将作为 first-class integration，同时支持：
 
 第一阶段不追求：
 
-* 完整用户行为分析
-* Advertising Tracking
-* Cross-site Tracking
-* User Profiling
-* Session Replay
-* Heatmap
-* A/B Testing
-* Marketing Automation
-* 大规模实时流处理
-* 亿级事件基础设施
+- 完整用户行为分析
+- Advertising Tracking
+- Cross-site Tracking
+- User Profiling
+- Session Replay
+- Heatmap
+- A/B Testing
+- Marketing Automation
+- 复杂实时流处理
+- 亿级事件基础设施
 
 第一阶段首先把：
 
@@ -317,9 +317,7 @@ Browser APIs
 
 ```ts
 interface NavigationObserver {
-  subscribe(
-    listener: (event: NavigationEvent) => void
-  ): () => void;
+  subscribe(listener: (event: NavigationEvent) => void): () => void;
 }
 ```
 
@@ -337,12 +335,7 @@ interface NavigationEvent {
 
   referrer?: string;
 
-  navigationType?:
-    | "initial"
-    | "push"
-    | "replace"
-    | "pop"
-    | "unknown";
+  navigationType?: "initial" | "push" | "replace" | "pop" | "unknown";
 
   timestamp: number;
 }
@@ -478,7 +471,7 @@ Custom Event：
 
 ```ts
 analytics.track("vehicle_compare", {
-  vehicles: ["byd-seal", "model-3"]
+  vehicles: ["byd-seal", "model-3"],
 });
 ```
 
@@ -774,7 +767,7 @@ Page Views +2
 
 Processor / Storage 应该能够识别重复 Event。
 
-系统不需要追求严格 distributed exactly-once。
+系统不需要追求严格的一致性语义。
 
 目标是：
 
@@ -801,13 +794,7 @@ SiteStore
 PostgreSQL Adapter
 ```
 
-未来可能：
-
-```text
-ClickHouse
-DuckDB
-SQLite
-```
+后续存储实现必须另行定义兼容性、迁移和数据生命周期契约。
 
 ---
 
@@ -1047,7 +1034,7 @@ URL 可能包含：
 因此 SDK 应支持：
 
 ```ts
-beforeSend(event)
+beforeSend(event);
 ```
 
 用于：
@@ -1186,13 +1173,9 @@ PostgreSQL
 不需要第一阶段引入：
 
 ```text
-Kafka
-ClickHouse
-Redis Cluster
-Complex Stream Processing
+复杂基础设施
+复杂处理链路
 ```
-
-真正出现规模需求以后再升级。
 
 ---
 
@@ -1480,21 +1463,15 @@ Eventual Consistency
 几秒 ～ 数十秒
 ```
 
-而不是毫秒级 realtime。
-
-未来如果确实需要：
-
-```text
-Recent Events
-        +
-Finalized Aggregates
-```
-
-可以分别实现。
+而不是毫秒级更新。更短的新鲜度目标需要单独定义数据一致性和运行成本。
 
 ---
 
 # 32. MVP Scope
+
+本节保留架构层面的 MVP 摘要；完整范围、阶段顺序和发布门槛以 [docs/mvp-scope.md](mvp-scope.md) 为准。
+
+除产品能力外，MVP 还包含 capability 配置 API、Dashboard 配置、Origin/Ingest Key 管理，以及 Release Readiness 定义的完整测试和部署验证。
 
 Phase 0 只建立 Monorepo 基础骨架、Event Protocol V1、Next.js Router Playground 和 Docker / Docker Compose 开发环境。
 
@@ -1505,7 +1482,7 @@ MVP 完成后包含：
 ```text
 analytics-core
 analytics-browser
-observer-next
+observer-next、observer-react-router、observer-tanstack-router
 HTTP/Beacon transport
 ```
 
@@ -1539,6 +1516,11 @@ UTM
 Device
 Browser
 OS
+Custom Events
+Web Vitals
+Conversions
+Funnels
+Geo
 ```
 
 ### Dashboard
@@ -1551,28 +1533,23 @@ Routes
 Referrers
 Countries
 Devices
+Events
+Vitals
+Conversions
+Funnels
+Geo
 ```
 
 ---
 
 # 33. Future Extensions
 
-架构稳定以后可以增加：
+MVP 之后可以增加：
 
 ```text
-Web Vitals
-
 Error Analytics
 
 Performance Analytics
-
-Conversion Events
-
-Funnels
-
-Retention
-
-Realtime Analytics
 
 CLI
 
@@ -1581,19 +1558,7 @@ Workspace Integration
 Desktop Dashboard
 ```
 
-更远期可以支持：
-
-```text
-ClickHouse
-
-Stream Processing
-
-Distributed Collector
-
-Edge Collector
-```
-
-但这些都不是 MVP 的必要条件。
+这些能力不属于当前 MVP；是否规划新的产品模块或运行模式，留待真实产品需求出现后单独评估。
 
 ---
 
@@ -1643,7 +1608,7 @@ Privacy 是 architecture concern，而不是后期补丁。
 
 ### Rule 11
 
-Event 应支持基于 event_id 的简单去重和幂等处理；第一阶段不追求 distributed exactly-once。
+Event 应支持基于 event_id 的简单去重和幂等处理。
 
 ### Rule 12
 
@@ -1798,14 +1763,7 @@ HTTP
 
 已经足以验证完整架构。
 
-只有真实需求证明现有架构无法满足时，再引入：
-
-```text
-Kafka
-ClickHouse
-Distributed Processing
-Realtime Infrastructure
-```
+只有真实需求证明现有架构无法满足时，再重新评估基础设施边界。
 
 最终目标不是构建一个绑定 Next.js 的 Page View Script，而是建立一个：
 

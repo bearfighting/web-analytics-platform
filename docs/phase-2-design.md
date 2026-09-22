@@ -48,8 +48,8 @@ Phase 2 仍然采用线性实施方式。先确定 HTTP 契约，再建立 Rust 
 - Analytics API 和 Dashboard。
 - 服务端事件、Server SDK 或服务端请求采集。
 - BeaconTransport 的卸载语义和可靠发送保证。
-- 自动重试、离线队列、持久化 Buffer 或分布式限流。
-- 管理后台、Site 管理 API 或复杂权限系统。
+- 自动重试、离线队列、持久化 Buffer 或跨实例限流。
+- 管理后台或 Site 管理 API。
 - Custom Event、Web Vital、Error、Conversion 等事件类型。
 - IP 持久化、Geo enrichment、指纹和跨设备识别。
 
@@ -300,7 +300,7 @@ Phase 2 的配置字段使用 `ingest_keys: string[]`，允许多个 key 同时�
 - 不把限流信息写入 Analytics Event。
 - 限流策略和阈值通过配置注入，避免写死在 HTTP handler 中。
 
-首期不为了精确统计引入 Redis 或分布式协调。
+首期不为了精确统计引入额外协调组件。
 
 ## 8. Rust Backend 结构
 
@@ -660,7 +660,7 @@ analytics-browser
 - 合法 EventBatch 可以被 Collector 接收。
 - 非法 Protocol、未知 site、未允许 Origin、错误 Key 和超限请求会被明确拒绝。
 - CORS preflight 行为稳定。
-- 基础限流可以阻止明显滥用，但不承诺分布式一致性。
+- 基础限流可以阻止明显滥用，但不承诺跨实例一致性。
 - FetchTransport 可以在不依赖真实网络的单元测试中验证。
 - Client SDK 可以在 Docker Compose 中向 Collector 发送事件。
 - Collector 日志和错误响应足够支持开发调试。

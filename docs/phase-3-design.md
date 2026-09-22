@@ -13,7 +13,7 @@ Browser SDK → FetchTransport → Collector
   → PostgreSQL aggregates → Analytics API
 ```
 
-本阶段只保证 Page View 统计链路正确和可重复执行，不提前实现完整的 Visitor、Session、设备维度或实时基础设施。
+本阶段只保证 Page View 统计链路正确和可重复执行，不提前实现完整的 Visitor、Session、设备维度或低延迟处理。
 
 ## 2. 必须达成
 
@@ -33,8 +33,8 @@ Browser SDK → FetchTransport → Collector
 - Visitor ID、Visitor 统计、Sessionization、Bounce 和 Engagement。
 - Bot Detection、Geo、IP 持久化、User-Agent 解析。
 - UTM、Device、Browser、OS 聚合查询。
-- Kafka、Redis、复杂队列、分布式锁和 distributed exactly-once。
-- Site 管理 API、用户登录和复杂权限系统。
+- 复杂队列、跨实例协调和严格的一致性语义。
+- Site 管理 API 和用户登录。
 - Dashboard UI；Dashboard 留在 Phase 4。
 - BeaconTransport、离线队列和持久化 Browser Buffer。
 
@@ -58,7 +58,7 @@ raw_events → page_view_daily
 
 ### 4.3 先保证单进程幂等
 
-Phase 3 只要求单个 Processor 实例稳定运行。通过数据库唯一约束、事务和处理状态保证重复执行安全，不提前引入分布式协调。
+Phase 3 只要求单个 Processor 实例稳定运行。通过数据库唯一约束、事务和处理状态保证重复执行安全，不提前引入额外协调组件。
 
 ### 4.4 时间语义固定为 UTC
 

@@ -2,13 +2,17 @@
 
 一个 framework-agnostic、privacy-first、self-host friendly 的 Web Analytics Platform。
 
-项目第一阶段聚焦于：
+项目 MVP 聚焦于：
 
-> 为 Next.js App Router 网站提供浏览器端 Page View 和基础网站使用统计。
+> 为网站提供浏览器端浏览、事件和基础性能统计，并通过 Dashboard 管理和查看结果。
 
 ## 当前状态
 
-项目已完成 Phase 0、Phase 1、Phase 2、Phase 3 PR1–PR5，以及 Phase 4 Dashboard 的 PR1–PR5。
+项目状态：
+
+- 已完成：Phase 0–6 核心 Analytics workflow、Phase 7 PR1 CI 回归基线；
+- 进行中：Phase 7 MVP 功能完善；
+- 计划中：Phase 8 用户配置和最后的 Release Readiness。
 
 当前已具备：
 
@@ -47,25 +51,17 @@ Next.js Website
 
 ## MVP 范围
 
-项目最终聚焦于浏览器端可以获得的网页浏览信息，并按 roadmap 分阶段交付：
+MVP 的权威范围、阶段依赖和退出条件见 [MVP Scope](docs/mvp-scope.md)。当前 MVP 包含：
 
-```text
-Phase 3  Page Views、Pages / Paths
-Phase 5  Visitor、Session 和浏览器维度语义设计
-Phase 6  Referrer、UTM、Device、Browser、OS 等实现
-```
+- Page Views、Visitors、Sessions 和 Browser Context；
+- Referrer、UTM、Language、Timezone、Device、Browser、OS；
+- React Router 和 TanStack Router Adapter；
+- Custom Events 和 Web Vitals；
+- Conversion、Funnel 和基础 Geo；
+- capability 配置、Origin、Ingest Key 和隐私设置；
+- PostgreSQL Edition、Analytics API、Dashboard 和完整发布验证。
 
-当前已实现的浏览器 SDK 只负责 Page View 事件和基础 Browser Context；Visitor、Session 和维度统计不在当前 Phase 3 实现。
-
-第一阶段只实现 Next.js App Router Adapter，同时通过通用 `NavigationObserver` 接口为未来支持其他 Router 留出空间。
-
-暂不实现：
-
-- 服务端事件和 Server SDK
-- React Router、TanStack Router 等其他 Adapter
-- Conversion、Funnels、Replay、Heatmap 和 A/B Testing
-- 复杂 Geo、IP 持久化和指纹识别
-- Kafka、ClickHouse 和复杂实时流处理
+Replay、Heatmap、复杂 Geo、单机版部署和其他未来扩展不属于当前 MVP。
 
 ## 开发顺序
 
@@ -77,7 +73,9 @@ Phase 3  Storage、Processor、Analytics API
 Phase 4  Dashboard
 Phase 5  Analytics Semantics 和 Identity Design
 Phase 6  Browser 和 Analytics Dimensions
-Phase 7  Stabilization
+Phase 7  MVP 功能完善
+Phase 8  MVP 用户配置与能力管理
+Release Readiness  测试、稳定性、部署和发布
 ```
 
 ## 文档
@@ -86,6 +84,7 @@ Phase 7  Stabilization
 
 - [Architecture Design](docs/architecture-design.md)
 - [Roadmap](docs/roadmap.md)
+- [MVP Scope](docs/mvp-scope.md)
 - [Monorepo Design](docs/monorepo-design.md)
 - [Phase 0 Design](docs/phase-0-design.md)
 - [Event Protocol](docs/event-protocol.md)
@@ -94,6 +93,9 @@ Phase 7  Stabilization
 - [Phase 2 Design](docs/phase-2-design.md)
 - [Phase 3 Design](docs/phase-3-design.md)
 - [Phase 4 Design](docs/phase-4-design.md)
+- [Phase 7 Design](docs/phase-7-design.md)
+- [Phase 8 Design](docs/phase-8-design.md)
+- [Release Readiness](docs/release-readiness-design.md)
 - [Analytics API OpenAPI Contract](docs/analytics-api.openapi.json)
 
 项目协作规则见 [AGENTS.md](AGENTS.md)。CI 使用与本地相同的统一脚本，并额外验证 Docker Compose 配置。

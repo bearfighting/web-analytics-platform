@@ -1,242 +1,203 @@
-# Phase 7 Design — Stabilization and Release Readiness
+# Phase 7 Design — MVP 功能完善
 
-> Status: Implementation plan
-> Scope: Protocol consolidation、CI regression、Browser compatibility、SDK quality、Collector hardening、retention、deployment 和 npm release
+> Status: Planned
+> Scope: Protocol consolidation、内部 capability 边界和 MVP 产品能力
 
-## 1. Phase 7 定义
+## 1. 阶段目标
 
-Phase 7 不新增主要产品能力，而是把 Phase 6 的实现收敛为可以稳定验证、部署和发布的第一个 release candidate。
+Phase 7 把 Phase 6 的 Page View、Visitor、Session 和 Dimensions 基线扩展为完整的 MVP 功能集。本阶段优先完成用户可使用的产品能力，不处理最终发布所需的完整浏览器矩阵、部署和 npm 发布工作。
 
-目标 workflow：
+Phase 7 不改变现有 Page View、Visitor、Session 和 Dimension 的已确认语义，除非对应能力的 contract review 明确发现缺陷并新增 ADR。
 
-```text
-Protocol consolidation
-  → CI / migration verification
-  → Browser and SDK quality
-  → Collector runtime hardening
-  → Retention and privacy lifecycle
-  → Deployment and package release
-  → Release candidate verification
-```
-
-Phase 7 必须保持现有 Page View、Visitor、Session、Dimension、Analytics API 和 Dashboard 语义不变。除非本设计明确批准，稳定化工作不得借机增加新的统计能力或改变公开 contract。
-
-## 2. 当前基线
-
-### 2.1 已完成或已有基础
-
-- 根目录 `migrations/` 和独立 `tools/db-migrator` 已成为数据库 migration 的 owner。
-- `pnpm db:migrate`、PostgreSQL integration test、Analytics E2E 和 Dashboard E2E 已有统一入口。
-- Phase 3–6 的主要代码、schema、API contract、fixtures 和生成式数据 workflow 已存在。
-- Protocol 目录已按稳定领域划分；开发阶段 V1/V2 合并方案记录在 `docs/protocol-consolidation-refactor.md`。
-- CI 已执行依赖安装、类型检查、测试、构建、格式检查和 Dashboard E2E。
-
-### 2.2 Phase 7 仍需完成
-
-- 将 Protocol consolidation 从设计变成一次受控的 breaking refactor，并在发布前冻结最终 protocol。
-- 将 PostgreSQL migration、integration test 和 Analytics E2E 纳入标准 CI 验收。
-- 定义并自动验证浏览器支持矩阵和 SDK bundle size budget。
-- 审计 Collector 的超时、连接池、优雅关闭、错误脱敏、健康检查和失败重试边界。
-- 定义安全且可回滚的 Raw Event 与派生数据 retention 生命周期。
-- 补齐部署、备份、迁移、回滚、配置和 npm package 发布文档及自动化流程。
-
-## 3. 必须达成
-
-- 干净数据库和已有数据库都可以通过独立 migration runner 升级，且重复执行安全。
-- CI 能在真实 PostgreSQL 上执行 migration、integration test、Analytics E2E 和 Dashboard E2E。
-- SDK 在声明的浏览器矩阵中通过核心行为测试，产物大小有明确预算并在 CI 中阻止异常增长。
-- Collector 在数据库不可用、请求超限、请求超时、优雅关闭和内部错误场景下行为可预测，响应不泄露内部信息。
-- retention 删除不会产生孤立事实、错误聚合或无法恢复的半成品；默认不得隐式删除数据。
-- 部署顺序固定为：
+## 2. 依赖顺序
 
 ```text
-migration job → schema compatibility check → service deployment → health verification
+PR0 Protocol consolidation
+  → PR1 Internal capability boundaries
+  → PR2 Router adapters
+  → PR3 Custom Events
+  → PR4 Web Vitals
+  → PR5 Conversion and Funnel
+  → PR6 Geo
+  → PR7 MVP functional acceptance
 ```
 
-- SDK package 的名称、入口、类型声明、版本、变更记录和发布权限可被独立验证。
-- 完整 release candidate checklist 可以在干净环境重复执行。
+PR2 和 PR4 在 PR1 完成后可以并行；PR5 必须等待 PR3；PR6 可以和 PR3/PR4 并行，但必须先冻结隐私边界。
 
-## 4. 不属于本阶段
+## 3. PR0 — Protocol consolidation
 
-- 新 Router Adapter、Custom Events、Web Vitals、Conversion、Funnel、Replay 或 Heatmap。
-- 观测能力模块化、站点 capability 动态配置和 Dashboard 配置管理；这些工作必须在 Protocol consolidation 完成并经过本阶段稳定化后，按 [Feature Modularization Design](feature-modularization-design.md) 单独规划。
-- 新的 Visitor、Session、Dimension 或 API 统计语义。
-- Kafka、ClickHouse、Redis Cluster、Realtime 或多区域部署。
-- 真实用户迁移、跨设备身份合并或复杂组织权限。
-- 在 retention 策略未获批准前启用自动生产删除。
+以 [Protocol Consolidation Refactoring](protocol-consolidation-refactor.md) 为实施依据：
 
-## 5. 实施原则
+- 合并 V1/V2 schema、类型、fixtures 和 examples；
+- 统一为首次正式发布协议；
+- SDK 和 Transport 只构造、发送统一协议；
+- Collector 只保留一条 validation 和 ingestion path；
+- 删除 `protocol_v2_enabled` 和 mixed-version runtime branch；
+- 保留 `context_schema_version`，因为它描述 Browser Context，而不是 Event Protocol rollout；
+- 保持 `site_id + event_id` 幂等、Visitor、Session 和 Dimension 结果不变。
 
-### 5.1 先收敛 contract，再发布
+验收：`protocol:validate`、TypeScript、Rust、Collector integration 和现有 Analytics/Dashboard E2E 全部通过；仓库不再有仅用于 V1/V2 rollout 的公共脚本和运行时分支。
 
-开发阶段 V1/V2 protocol 的合并必须在 npm 发布和生产部署前完成。合并时同步更新 schema、TypeScript 类型、Rust 类型、fixtures、Collector、SDK、文档和验证脚本。
+## 4. PR1 — Internal capability boundaries
 
-### 5.2 数据安全优先
+定义以下内部 capability contract：
 
-Raw Event 是重建 Page View、Visitor、Session 和 Dimension 的事实源。任何 retention、清理或迁移操作都必须明确影响范围、执行顺序、失败恢复和回滚限制。
-
-### 5.3 稳定化不改变业务语义
-
-Phase 7 的默认目标是发现问题、限制风险和提升可观测性，而不是修改聚合算法。需要改变公开语义时必须另建 ADR 或后续 Phase。
-
-### 5.4 独立基础设施 owner
-
-Migration、部署和 release 工具不属于 Collector、Processor 或 Analytics API 的业务启动流程。服务只消费已经完成兼容性检查的 schema。
-
-## 6. PR 拆分和依赖关系
-
-### PR0 — Protocol consolidation
-
-将开发阶段的 V1/V2 输入收敛为发布前的最终 protocol。具体字段、schema version、flag 清理和兼容策略以 `docs/protocol-consolidation-refactor.md` 为准。
-
-验收：
-
-- TypeScript、Rust、JSON Schema 和 fixtures 使用同一最终 contract。
-- Collector、SDK、Transport、Processor 和 E2E 不再依赖仅用于开发阶段的双版本分支。
-- API 和数据库 migration 不被无关修改。
-- 完成一次明确的兼容性/升级说明。
-
-### PR1 — CI and regression baseline
-
-- CI 使用 PostgreSQL 17 service 执行 migration regression 和 `pnpm test:integration`。
-- `pnpm test:migrations` 在当前数据库上执行首次 migration、重复 migration、migration history/checksum 和核心表/索引/约束校验，并在隔离数据库中验证旧 history 升级到当前版本；历史 migration 只通过新增 migration 扩展，不直接修改。
-- CI 执行 `pnpm e2e:analytics`，保留 `pnpm e2e:dashboard`，两个 E2E 使用独立 Compose project 和测试 volume。
-- 验证空数据库首次 migration、已有数据库升级和重复 migration。
-- Integration 失败时保存 `artifacts/integration/`；Analytics E2E 失败时保存 `artifacts/analytics-e2e/`，包括 Compose config、service status、Collector、Processor、Analytics API、db-migrate 日志和 Processor 输出；Dashboard E2E 即使在服务启动或浏览器初始化前失败，也保存截图/trace（若可用）和 Compose 诊断。
-- `validate` job 显式执行 Rust format、clippy、test、build，并解析 backend/storage/processing/dashboard 全部 Compose profiles。
-- CI 与本地 release candidate 使用相同的 `pnpm test:migrations`、`pnpm test:integration`、`pnpm e2e:analytics` 和 `pnpm e2e:dashboard` 命令。
-
-### PR2 — Browser compatibility and SDK quality
-
-固定第一版支持矩阵：
-
-| 浏览器                      | CI 覆盖 | 范围                                                |
-| --------------------------- | ------- | --------------------------------------------------- |
-| Chromium                    | 必须    | SDK 初始化、consent、storage、navigation、transport |
-| Firefox                     | 必须    | 同上                                                |
-| WebKit/Safari compatibility | 必须    | 同上                                                |
-| 旧版浏览器                  | 不承诺  | 明确不支持和失败行为                                |
-
-同时增加：
-
-- storage 异常、`crypto.randomUUID` 不可用、页面导航和 flush 测试；
-- SDK bundle size 初始预算、报告和 CI threshold；
-- 产物入口、类型声明、source map 和 tree-shaking 检查；
-- 不把测试浏览器矩阵扩展为未定义的长期兼容承诺。
-
-### PR3 — Collector and runtime hardening
-
-审计并测试：
-
-- HTTP request body、header、origin 和 ingest key 限制；
-- request、database acquire 和 shutdown timeout；
-- PostgreSQL pool 上限、连接失败和恢复行为；
-- SIGTERM/容器停止时的优雅关闭；
-- health/readiness 与 migration 状态的边界；
-- generic client error 和内部日志的脱敏；
-- rate limit、数据库失败和重复事件的稳定响应；
-- 不记录原始 User-Agent、Raw payload 或 ingest key。
-
-PR3 不改变 V1/V2 或最终 protocol 的业务语义。
-
-### PR4 — Retention and privacy lifecycle
-
-先固定 retention policy，再实现 job。至少定义：
-
-- Raw Event、normalized context、facts、generations 和 Page View aggregates 的保留关系；
-- global/site-level 配置和最小允许保留周期；
-- dry-run、候选数量、影响日期范围和审计记录；
-- 外键安全的删除顺序和批处理大小；
-- 删除后聚合重建或一致性校验；
-- 中断、重试、锁竞争和失败恢复；
-- 默认关闭，显式配置后才允许执行。
-
-Raw Event 不能单独删除而继续声称派生数据完整。若无法在本阶段确定生产策略，只实现 dry-run 和一致性检查，自动删除推迟到后续阶段。
-
-### PR5 — Deployment and npm release
-
-新增部署和发布文档，覆盖：
-
-- 环境变量、secret、Origin、ingest key 和数据库权限；
-- migration job、schema compatibility check、服务部署和健康验证；
-- backup、rollback、失败部署和旧 generation 恢复；
-- Docker image 构建和版本标记；
-- npm package metadata、public/private 边界、版本策略、变更记录和发布权限；
-- npm provenance、CI token、tag/release 和撤回流程。
-
-只有 PR0 完成后，SDK package 才能进入正式发布流程。
-
-### PR6 — Release candidate verification
-
-在干净环境执行完整 checklist，并记录结果：
-
-- migration 首次执行、升级和重复执行；
-- Collector、Processor、Analytics API 和 Dashboard workflow；
-- Chromium、Firefox、WebKit；
-- bundle size budget；
-- disabled flag、数据库失败、重启和优雅关闭；
-- retention dry-run 和数据一致性检查；
-- npm package 构建、pack 内容和安装 smoke test。
-
-## 7. CI 和验收命令
-
-基础验证：
-
-```bash
-cargo fmt --check
-pnpm check
-pnpm test
-pnpm format:check
-pnpm build
-git diff --check
+```text
+page_views
+browser_context
+anonymous_visitors
+sessions
+dimensions
+custom_events
+web_vitals
+conversions
+funnels
+geo
 ```
 
-数据库和 E2E 验证：
+每个 capability 必须记录：
 
-```bash
-export DATABASE_URL=postgres://analytics:analytics@localhost:5432/analytics
-pnpm test:migrations
-pnpm test:integration
-pnpm e2e:analytics
-pnpm e2e:dashboard
+- 输入事件和依赖；
+- Raw Event 是否保存原始字段；
+- Processor 派生事实和 rebuild 边界；
+- API 查询 contract；
+- Dashboard 展示、disabled、empty 和 error 状态；
+- consent、Origin、Ingest Key 和隐私边界。
+
+本 PR 不实现 Dashboard 配置表单，不把 capability 开关直接暴露为环境变量。
+
+## 5. PR2 — Router adapters
+
+实现 React Router 和 TanStack Router Adapter：
+
+- 只实现 `NavigationObserver`；
+- 复用 Analytics Core、Browser SDK、Visitor ID 和 Transport；
+- 覆盖 initial、push、replace、pop、search params 和动态路由；
+- 明确 hash-only navigation 行为；
+- 不在 Adapter 中实现 Session、统计或发送逻辑。
+
+验收：每个 Adapter 都有 observer contract test、Browser SDK integration test 和至少一个真实 Router fixture。
+
+## 6. PR3 — Custom Events
+
+### Contract
+
+定义独立于 Page View 的 Custom Event contract：
+
+- 稳定 event type 和 event name；
+- site 隔离和 event id 幂等；
+- properties 允许的 JSON 类型、深度、大小和 key 数量；
+- 禁止原始 IP、原始 User-Agent 和敏感身份字段；
+- occurred/received 时间语义；
+- 未知字段和非法 properties 的错误行为。
+
+### Workflow
+
+```text
+SDK event()
+  → Protocol validation
+  → Collector
+  → raw_events
+  → event facts / aggregates
+  → Analytics API
+  → Dashboard
 ```
 
-Release candidate 还必须执行：
+### 验收
 
-```bash
-pnpm pack --dry-run
-```
+- 单事件、多事件、重复事件、非法属性和超限 payload fixture；
+- Collector integration；
+- Processor 幂等和重处理测试；
+- API 查询和空数据状态；
+- Dashboard 基础事件列表或聚合展示；
+- 完整 E2E。
 
-具体 package 发布命令、浏览器安装命令和 retention job 命令在对应 PR 的实现文档中固定，不在 Phase 7 总入口中维护第二套命令。
+## 7. PR4 — Web Vitals
 
-## 8. 文档和 ADR 更新
+首版支持 LCP、INP、CLS、FCP 和 TTFB。MVP 固定返回 `count`、`p75` 和 `good / needs_improvement / poor` 样本数量，不要求 p50、p90 或 attribution 聚合。MVP 查询按 site、date range 和 route 聚合，每个 Page View 每个 metric 只保留最后一次有效上报；样本不足时返回 `insufficient_data`。还必须明确：
 
-本阶段必须同步维护：
+- 每次 Page View 的关联关系；
+- browser API 不可用时的降级；
+- 采样和重复上报规则；
+- metric value、rating 和 navigation type 的 schema；
+- raw metric 与聚合结果的保留关系；
+- Dashboard 的空数据和低样本提示。
 
-- `docs/phase-7-design.md`：本执行计划和退出条件；
-- `docs/protocol-consolidation-refactor.md`：PR0 完成后的最终结果；
-- `docs/roadmap.md`：每个 PR 的状态，不使用笼统的“已完成”；
-- `docs/getting-started.md`：本地 migration、测试和部署顺序；
-- 新增部署文档：生产环境 migration、健康检查、回滚和 backup；
-- 必要时在 `docs/decisions/` 新增 retention、browser support、bundle budget 和 release ADR。
+验收覆盖 browser mock、真实浏览器采集、非法 metric、重复 metric、Processor 聚合和 Dashboard 展示。
 
-## 9. 风险和回滚
+## 8. PR5 — Conversion and Funnel
 
-- Protocol consolidation 是唯一预期的 breaking refactor，必须单独提交并提供升级说明。
-- migration 只能 additive；已执行 migration 不修改。
-- retention 删除属于破坏性操作，必须先 dry-run，并且默认关闭。
-- runtime hardening 失败时应回滚服务镜像，不回滚已成功执行的 schema migration。
-- generation 和派生事实仍通过现有 active/retired 机制回滚，Raw Event 不删除。
-- npm 发布失败不应影响已经部署的 Collector、Processor、API 或 Dashboard。
+Conversion/Funnel 依赖 Custom Events，Phase 7 只实现内部能力和固定 contract，不实现用户配置页面。首版只支持明确的事件型规则：
 
-## 10. Phase 7 退出条件
+- conversion 由 event name 和必要 properties 定义；
+- funnel 由有序 steps 定义；
+- 统计窗口、重复事件和缺失步骤语义固定；
+- 不引入用户登录身份或跨设备合并；
+- API 返回步骤数量、转化率和数据新鲜度。
 
-- PR0–PR6 的验收结果和已知限制已记录。
-- CI 覆盖 migration、integration、Analytics E2E、Dashboard E2E 和浏览器矩阵。
-- SDK bundle size、package 内容和类型入口通过检查。
-- Collector runtime failure、shutdown、redaction 和 readiness 行为有测试。
-- retention policy 已批准；若未批准，自动删除明确延期且 dry-run 仍安全。
-- 部署、backup、migration、rollback 和 npm release 文档可由新环境执行。
-- release candidate checklist 在干净环境完整通过。
+必须提供定义、查询和错误 contract，并覆盖重复事件、乱序事件、超时事件、空漏斗和非法定义场景。测试可以使用 fixture 或部署级静态定义；用户创建和修改定义属于 Phase 8。
 
-Phase 7 完成后，现有 Phase 6 Analytics workflow 达到稳定 release candidate。Phase 8 再补齐当前定义的 MVP 产品能力；新的统计能力和产品范围扩展必须进入后续 Phase。
+## 9. PR6 — Geo
+
+### Geo PR1
+
+- country / country code；
+- 不保存原始 IP；
+- 明确 provider、dataset 和 parser version；
+- 明确 provider 是随部署提供的本地数据集还是受控外部服务；
+- 明确数据文件、版本更新、缺失数据和离线部署行为；
+- 无法解析时使用 unknown；
+- API 和 Dashboard 支持按国家查看。
+
+### Geo PR2
+
+只有 Geo PR1 通过数据质量、隐私和部署评估后才实施 Geo PR2：
+
+- region / city；
+- 精度和 unknown 语义；
+- retention 和重新解析策略；
+- 不把精确位置作为默认展示或身份标识。
+
+Geo PR2 可以延期而不阻塞其他 MVP capability。是否纳入本次 MVP release 必须在 MVP scope 和 RC checklist 中明确记录。
+
+## 10. 测试策略
+
+功能开发期间同步完成：
+
+- contract fixtures；
+- TypeScript 和 Rust unit tests；
+- Collector integration；
+- Processor idempotency/rebuild tests；
+- API contract tests；
+- Dashboard component tests；
+- 每个 capability 的最小 E2E。
+
+完整 CI、浏览器矩阵、migration regression、Collector hardening 和部署验证统一放在 [Release Readiness](release-readiness-design.md)。
+
+## 11. PR7 — MVP functional acceptance
+
+PR7 汇总 Phase 7 的功能验收，不新增产品能力。必须验证：
+
+- Protocol consolidation 后的统一 schema、TypeScript、Rust 和 fixtures；
+- Page View、Visitor、Session、Dimensions 的结果无回归；
+- React Router 和 TanStack Router 的 initial、push、replace、pop、search params 和 hash 行为；
+- Custom Events 的单事件、多事件、重复事件、非法 properties 和超限 payload；
+- Web Vitals 的 `count`、`p75`、rating counts、低样本和 API empty state；
+- Conversion/Funnel 的重复、乱序、超时、空结果和非法定义；
+- Geo country 的解析成功、unknown 和 provider dataset version；
+- 所有可配置的 Analytics capability 的 enabled、disabled、invalid 和 empty 状态；
+- 所有 Router Adapter 的 observer contract、导航行为和最小 E2E；
+- Analytics API、Dashboard 和完整 MVP fixture workflow。
+
+如果 Geo PR2 未通过评估，PR7 必须记录延期原因和后续验收条件，不得把它默认为已交付。
+
+## 12. Phase 7 退出条件
+
+- PR0–PR7 的 contract、实现、fixture、功能 E2E 和最终功能验收完成；
+- Page View、Visitor、Session、Dimensions 结果无回归；
+- 所有可配置的 MVP Analytics capability 有明确 enabled、disabled、invalid 和 empty 语义；
+- 所有 MVP Router Adapter 有明确 observer contract、导航行为和最小 E2E；
+- Analytics API 和 Dashboard 能展示已承诺的 MVP 功能；
+- Geo PR2 是否纳入本次 MVP release 已记录决定；
+- Phase 8 的配置模型可以基于这些稳定 capability contract 开始设计；
+- 未把发布基础设施或内部协议细节暴露给最终用户。

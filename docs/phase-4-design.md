@@ -16,7 +16,7 @@ Analytics API
 
 Dashboard 只通过 Analytics API 查询，不直接访问 PostgreSQL，不实现统计逻辑，也不重新聚合 API 返回的数据。
 
-Phase 4 的目标是完成第一个可用的管理界面，而不是建立完整的组织、权限或 Analytics Semantics 系统。
+Phase 4 的目标是完成第一个可用的管理界面，而不是建立完整的账号或 Analytics Semantics 系统。
 
 ## 2. 必须达成
 
@@ -34,9 +34,9 @@ Phase 4 的目标是完成第一个可用的管理界面，而不是建立完整
 ## 3. 不属于本阶段
 
 - Visitor、Session、Bounce、Engagement 和 Browser Dimensions。
-- 用户登录、组织管理、复杂权限和站点管理 API。
+- 用户登录和站点管理 API。
 - Dashboard 统计逻辑、客户端重新聚合和本地数据库访问。
-- Realtime websocket、流式刷新和复杂缓存系统。
+- 流式刷新和复杂缓存系统。
 - Materialized View、趋势 Summary 或新的 Analytics API 维度。
 - 复杂图表编辑器、导出、报表分享和告警。
 - React Router、TanStack Router 或其他网站 Router Adapter。
