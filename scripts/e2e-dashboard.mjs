@@ -1,7 +1,7 @@
 /* global console, fetch, process, setTimeout */
 
 import { execFileSync } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -54,11 +54,23 @@ function runCompose(args, options = {}) {
     return execFileSync("docker", [...composeBaseArgs, ...args], {
       cwd: root,
       encoding: "utf8",
+      maxBuffer: 50 * 1024 * 1024,
       stdio: options.capture ? ["ignore", "pipe", "pipe"] : "inherit",
     });
   } catch (error) {
     if (options.allowFailure) return `${error.stdout ?? ""}${error.stderr ?? ""}`;
-    throw new Error(`docker compose ${args.join(" ")} failed`, { cause: error });
+
+    const stdout = error.stdout ?? "";
+    const stderr = error.stderr ?? "";
+    const status = error.status == null ? "unknown" : String(error.status);
+    const output = [stdout, stderr].filter(Boolean).join("\n").trim();
+    throw new Error(
+      [
+        `docker compose ${args.join(" ")} failed (exit code: ${status})`,
+        output ? `Docker output:\n${output}` : "Docker produced no captured output.",
+      ].join("\n"),
+      { cause: error },
+    );
   }
 }
 
@@ -476,17 +488,14 @@ let browser;
 let browserContext;
 let page;
 try {
+  const artifactDirectory = path.join(root, "artifacts", "dashboard-e2e");
+  await rm(artifactDirectory, { recursive: true, force: true });
   assertDashboardIsolation();
-  runCompose([
-    "up",
-    "-d",
-    "--build",
-    "--wait",
-    "postgres",
-    "collector",
-    "analytics-api",
-    "dashboard",
-  ]);
+  const composeOutput = runCompose(
+    ["up", "-d", "--build", "--wait", "postgres", "collector", "analytics-api", "dashboard"],
+    { capture: true },
+  );
+  process.stdout.write(composeOutput);
   await waitFor("Dashboard", `${dashboardUrl}/dashboard`);
   await assertDashboardRuntimeConfiguration();
   browser = await chromium.launch({ headless: true });

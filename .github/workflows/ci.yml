@@ -163,6 +163,8 @@ jobs:
 
   dashboard-e2e:
     runs-on: ubuntu-latest
+    env:
+      COMPOSE_PROGRESS: plain
 
     steps:
       - name: Checkout
@@ -187,6 +189,18 @@ jobs:
 
       - name: Run Dashboard E2E
         run: pnpm e2e:dashboard
+
+      - name: Print Dashboard E2E diagnostics
+        if: failure()
+        run: |
+          if [ -f artifacts/dashboard-e2e/compose-ps.txt ]; then
+            echo '===== Dashboard Compose services ====='
+            cat artifacts/dashboard-e2e/compose-ps.txt
+          fi
+          if [ -f artifacts/dashboard-e2e/service-logs.txt ]; then
+            echo '===== Dashboard Compose logs (last 250 lines) ====='
+            tail -n 250 artifacts/dashboard-e2e/service-logs.txt
+          fi
 
       - name: Upload Dashboard E2E artifacts
         if: failure()
