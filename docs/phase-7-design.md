@@ -238,4 +238,4 @@ pnpm pack --dry-run
 - 部署、backup、migration、rollback 和 npm release 文档可由新环境执行。
 - release candidate checklist 在干净环境完整通过。
 
-Phase 7 完成后，项目才进入第一个可对外发布的稳定版本准备阶段；新的统计能力和产品范围扩展进入后续 Phase。
+Phase 7 完成后，现有 Phase 6 Analytics workflow 达到稳定 release candidate。Phase 8 再补齐当前定义的 MVP 产品能力；新的统计能力和产品范围扩展必须进入后续 Phase。

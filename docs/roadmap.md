@@ -4,7 +4,7 @@
 
 项目按线性方式推进：一次只实施一个主要模块，完成并验证后再添加下一个模块。模块之间通过明确的契约衔接，不提前创建没有实际内容的长期空 package。
 
-整个 MVP 的成功标准是：一个 Next.js App Router 网站接入 SDK 后，可以在 Dashboard 看到基础浏览统计。
+MVP 的最低成功标准是：一个 Next.js App Router 网站接入 SDK 后，可以在 Dashboard 看到基础浏览统计。当前规划的完整 MVP 范围还包括 Phase 7 的稳定化和 Phase 8 的产品能力。
 
 ## Phase 0 — Project Foundation
 
@@ -169,7 +169,7 @@ Country / IP、指纹识别和跨设备识别不属于本阶段设计目标。
 
 目标：根据 Phase 5 已确认的语义，实现浏览器上下文、匿名 Visitor、Session 和对应查询能力。
 
-当前状态：Phase 6 PR1、PR2、PR3、PR4、PR5 实现和 E2E 验收已完成，待提交和发布。
+当前状态：Phase 6 PR1、PR2、PR3、PR4、PR5 实现和 E2E 验收已完成。
 
 交付：
 
@@ -201,19 +201,113 @@ Country / IP 不属于本阶段必须内容。
 
 实施顺序和验收标准以 Phase 7 设计文档为准。Protocol consolidation 是发布前置步骤；retention 在策略批准前只允许 dry-run，不启用自动删除。
 
+## Phase 8 — MVP Product Completion
+
+详细执行方案待补充，开始实施前新增 `docs/phase-8-design.md`。
+
+目标：在 Phase 7 稳定化基础上补齐 MVP 所需的产品能力，但不把高隐私风险和高数据量能力混入稳定化阶段。
+
+Phase 8 的完成与 Phase 7 一起构成 MVP 发布范围：
+
+```text
+Phase 6 Analytics workflow
+  → Phase 7 Stabilization and release readiness
+  → Phase 8 MVP Product Completion
+```
+
+建议交付顺序：
+
+- Router Adapter 扩展：React Router、TanStack Router 等具体 Adapter。
+- Custom Events：协议、Collector 接收、Raw Event 保存、Processor 处理和 API 查询契约。
+- Web Vitals：浏览器采集、指标 schema、聚合语义和 Dashboard/API 展示。
+- Visitor、Session、Dimension 语义修订：只有在确认当前 Phase 5/6 语义不足时才修改，并通过新的 ADR、generation 和兼容性测试完成。
+- Conversion / Funnel：基于事件的转化定义、漏斗计算和查询 API。
+- Geo PR1：基础 Geo 维度，例如 country/country code；不保存原始 IP，使用可版本化的解析结果。
+- Geo PR2：在确认基础 Geo 的数据质量和隐私边界后，再增加 region/city 等扩展维度。
+
+Phase 8 每项能力必须独立完成：
+
+```text
+Protocol / contract
+  → migration and domain model
+  → SDK / Collector / Processor
+  → API / Dashboard
+  → canonical fixtures
+  → end-to-end verification
+```
+
+Phase 8 不应直接修改 Phase 7 的稳定性目标；如果需要 breaking protocol 或 API 变更，必须先更新设计文档和迁移方案。
+
+Phase 8 明确保持单体部署边界：继续使用 PostgreSQL、批处理或 one-shot Processor 和现有 HTTP API，不引入消息队列、缓存集群、流处理平台或其他分布式基础设施。Geo PR2 是否实施，取决于 Geo PR1 的数据质量、部署资产和隐私评估，不默认扩大 MVP 范围。
+
+## Phase 9 — Advanced Analytics and Infrastructure
+
+Phase 9 用于需要独立隐私、安全和高数据量设计的高级能力：
+
+- Replay。
+- Heatmap。
+- 高级 Geo：例如 geospatial polygon、ISP/ASN、VPN/proxy detection 等。
+- ClickHouse / Kafka 等专用基础设施。
+- 多组织和复杂权限。
+
+Replay 和 Heatmap 默认不属于 MVP。除非出现明确需求，否则不提前创建对应的 Protocol、migration、package 或服务。
+
+Realtime 也不属于当前 MVP 路线。实时推送、持续流式消费、消息队列、缓存集群和分布式聚合只有在出现明确吞吐量或延迟需求后再重新规划。
+
+## 后续专项 — Deployment Modes
+
+当前 Phase 7、Phase 8 和 Phase 9 完成后，再详细设计两种部署模式：
+
+### Single-node Edition
+
+面向个人项目、小型网站、本地或内网部署，目标是通过一个 tarball 和一个命令启动完整功能：
+
+- 一个统一的 analytics server；
+- SQLite 文件数据库；
+- 内置 Collector、Analytics API 和 Processor worker；
+- 内置 Dashboard 静态资源；
+- 本地 migration、backup 和 restore 命令；
+- 不依赖 PostgreSQL、消息队列、缓存或其他外部基础设施。
+
+Single-node Edition 明确限制为单机、单写入进程和有限吞吐，不承诺水平扩展或多实例共享数据库文件。
+
+### PostgreSQL Edition
+
+面向更完整的部署体验和较高数据量，继续支持独立组件：
+
+```text
+db-migrate
+  → collector
+  → processor
+  → analytics-api
+  → dashboard
+```
+
+PostgreSQL Edition 可以支持多 worker、较高并发和独立运维，但仍不默认引入分布式消息队列、缓存集群或流处理平台。
+
+### Queue 和 Storage 方向
+
+两种部署模式共享 Protocol、领域语义、Processor、API contract、Dashboard 和 canonical fixtures，只替换 Storage、Migration、Queue 和 Runtime packaging：
+
+- SQLite 使用普通 queue table、事务和单 worker；
+- PostgreSQL 使用普通 queue table、事务和 `SKIP LOCKED`；
+- 不把 pg queue 插件作为强制依赖；
+- 将来确有吞吐量需求时，再增加外部 queue adapter；
+- SQLite 和 PostgreSQL 使用各自 migration，但共享逻辑 schema contract 和跨数据库 fixture。
+
+实施时预计拆为：
+
+- Deployment PR1：Queue abstraction、SQLite storage 和 SQLite migration；
+- Deployment PR2：统一 server runtime、tarball packaging、backup/restore 和 single-node E2E。
+
+该专项暂不进入当前 Phase 7 或 Phase 8 的实现范围。开始实施前新增独立设计文档，例如 `docs/deployment-modes-design.md`，并重新评估 SQLite/PostgreSQL 的功能矩阵、升级路径和数据迁移方案。
+
 ## 后续方向
 
 只有出现真实需求后再考虑：
 
-- React Router / TanStack Router Adapter
-- Custom Events
-- Web Vitals
 - Error Analytics
-- Conversion / Funnel
-- 更复杂的 Geo
-- Realtime
-- ClickHouse / Kafka
-- 多组织和复杂权限
+- 模块化采集与分析能力：允许站点按需组合 Page Views、Browser Context、Anonymous Visitor、Sessions、Geo、Custom Events、Web Vitals 和 Conversion/Funnel 等模块，并分别控制 site configuration、visitor consent、server policy 和 operator authorization。
 - 非实时趋势 Summary / Insights API
   - 面向总体趋势和多维度聚合查询。
   - 可以评估 PostgreSQL Materialized View、rollup table 或其他预计算方案。
