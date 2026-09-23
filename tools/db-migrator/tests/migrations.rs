@@ -42,6 +42,16 @@ const EXPECTED_MIGRATIONS: &[(i64, &str, &str)] = &[
         "deprecate protocol v2 flag",
         "8368271f14da20308fe96d8460b8de942529f7cf2a283c9b4f348b548156b62c3f1920fd56972c6cd0df4c6a82882e37",
     ),
+    (
+        20260923000900,
+        "add custom event facts",
+        "1a76130b66261dc1bb7957ea0241f1616179c2ef7e8d8cc5590cf358187a04e0c28bdafacbd643a0140d2e1d22b762cc",
+    ),
+    (
+        20260923001000,
+        "add web vital facts",
+        "2e4ac3134a6fcdae7cc7566174ad1485553c8897257f3fe04288cedab3ed378684b46a40a678b27c34d31703cad87850",
+    ),
 ];
 
 #[tokio::test]

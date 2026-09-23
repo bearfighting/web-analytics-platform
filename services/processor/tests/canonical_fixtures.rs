@@ -84,7 +84,7 @@ async fn insert_fixture_event(pool: &PgPool, event: &Value, received_at: DateTim
     .bind(event["type"].as_str().unwrap())
     .bind(occurred_at)
     .bind(received_at)
-    .bind(event["path"].as_str().unwrap())
+    .bind(event.get("path").and_then(Value::as_str))
     .bind(event.get("url").and_then(|value| value.as_str()))
     .bind(event.get("title").and_then(|value| value.as_str()))
     .bind(event.get("referrer").and_then(|value| value.as_str()))
