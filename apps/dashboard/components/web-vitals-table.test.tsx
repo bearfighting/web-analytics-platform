@@ -1,15 +1,19 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+
 import { AnalyticsApiClientError } from "../lib/analytics-api/errors";
-import type { WebVitalsResponse } from "../lib/analytics-api/types";
+
 import { WebVitalsTable } from "./web-vitals-table";
+
+import type { WebVitalsResponse } from "../lib/analytics-api/types";
 
 const context = { siteId: "site_example", dateRange: { from: "2026-09-01", to: "2026-09-02" } };
 const response: WebVitalsResponse = {
   site_id: "site_example",
   from: "2026-09-01",
   to: "2026-09-02",
+  total: 3,
   items: [
     {
       path: "/pricing",

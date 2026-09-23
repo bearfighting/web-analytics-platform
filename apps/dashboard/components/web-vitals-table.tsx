@@ -1,6 +1,8 @@
 import React from "react";
+
 import { EmptyState } from "./states/empty-state";
 import { ErrorState } from "./states/error-state";
+
 import type { WebVitalsResponse } from "../lib/analytics-api/types";
 import type { DashboardOverviewContext } from "../lib/dashboard-overview";
 import type { DashboardReportState } from "../lib/dashboard-reports";

@@ -59,6 +59,7 @@ export function webVitalsPath(
 ): string {
   const q = new URLSearchParams({ limit: String(limit) });
   if (path !== undefined) q.set("path", path);
+
   return `/v1/sites/${encodeURIComponent(siteId)}/reports/${from}/${to}/web-vitals?${q.toString()}`;
 }
 

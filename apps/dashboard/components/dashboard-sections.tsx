@@ -8,9 +8,9 @@ import { EventReportTable } from "./event-report-table";
 import { LegacyDashboardSections } from "./legacy-dashboard-sections";
 import { Phase6DashboardSections } from "./phase6-dashboard-sections";
 import { Phase6LoadingState } from "./phase6-loading-state";
-import { WebVitalsTable } from "./web-vitals-table";
 import { ErrorState } from "./states/error-state";
 import { LoadingState } from "./states/loading-state";
+import { WebVitalsTable } from "./web-vitals-table";
 
 import type { AnalyticsApiClient } from "../lib/analytics-api/client";
 import type { AnalyticsDimension } from "../lib/analytics-api/types";
