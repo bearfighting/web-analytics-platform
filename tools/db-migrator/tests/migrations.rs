@@ -37,6 +37,11 @@ const EXPECTED_MIGRATIONS: &[(i64, &str, &str)] = &[
         "create phase6 pr4 dimensions",
         "49fdaabb77834423beb44f88c7229276d39ca5fa5d39e428bcca11ffdfdd6db09d0895eba50f1970e1110076ec02d78e",
     ),
+    (
+        20260922000800,
+        "deprecate protocol v2 flag",
+        "8368271f14da20308fe96d8460b8de942529f7cf2a283c9b4f348b548156b62c3f1920fd56972c6cd0df4c6a82882e37",
+    ),
 ];
 
 #[tokio::test]
