@@ -7,11 +7,11 @@ use sqlx::{PgPool, postgres::PgPoolOptions};
 use thiserror::Error;
 use tokio::sync::RwLock;
 
-use crate::protocol::{EventType, PageViewEvent};
+use crate::protocol::AnalyticsEvent;
 
 #[derive(Debug, Clone)]
 pub struct StoredEvent {
-    pub event: PageViewEvent,
+    pub event: AnalyticsEvent,
     pub payload: Value,
     pub received_at: DateTime<Utc>,
 }
@@ -33,7 +33,7 @@ pub trait EventSink: Send + Sync {
 
 #[derive(Clone, Default)]
 pub struct InMemorySink {
-    events: Arc<RwLock<Vec<PageViewEvent>>>,
+    events: Arc<RwLock<Vec<AnalyticsEvent>>>,
 }
 
 impl InMemorySink {
@@ -42,7 +42,7 @@ impl InMemorySink {
     }
 
     #[allow(dead_code)]
-    pub async fn snapshot(&self) -> Vec<PageViewEvent> {
+    pub async fn snapshot(&self) -> Vec<AnalyticsEvent> {
         self.events.read().await.clone()
     }
 }
@@ -79,11 +79,9 @@ impl EventSink for PostgresSink {
         let mut transaction = self.pool.begin().await?;
 
         for stored in events {
-            let occurred_at = DateTime::<Utc>::from_timestamp_millis(stored.event.occurred_at)
+            let occurred_at = DateTime::<Utc>::from_timestamp_millis(stored.event.occurred_at())
                 .ok_or(SinkError::InvalidTimestamp)?;
-            let event_type = match stored.event.event_type {
-                EventType::PageView => "page_view",
-            };
+            let event_type = stored.event.event_type_name();
 
             sqlx::query(
                 "INSERT INTO raw_events
@@ -93,18 +91,18 @@ impl EventSink for PostgresSink {
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::uuid, $12, $13)
                  ON CONFLICT (site_id, event_id) DO NOTHING",
             )
-            .bind(stored.event.site_id)
-            .bind(stored.event.event_id)
-            .bind(i32::from(stored.event.schema_version))
+            .bind(stored.event.site_id())
+            .bind(stored.event.event_id())
+            .bind(i32::from(stored.event.schema_version()))
             .bind(event_type)
             .bind(occurred_at)
             .bind(stored.received_at)
-            .bind(stored.event.path)
-            .bind(stored.event.url)
-            .bind(stored.event.title)
-            .bind(stored.event.referrer)
-            .bind(stored.event.visitor_id)
-            .bind(stored.event.context_schema_version)
+            .bind(stored.event.path())
+            .bind(stored.event.url())
+            .bind(stored.event.title())
+            .bind(stored.event.referrer())
+            .bind(stored.event.visitor_id())
+            .bind(stored.event.context_schema_version())
             .bind(stored.payload)
             .execute(&mut *transaction)
             .await?;

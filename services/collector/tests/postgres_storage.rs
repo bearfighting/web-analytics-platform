@@ -3,7 +3,7 @@ use chrono::Utc;
 use collector::{
     config::{SiteConfig, SiteRegistry},
     http::router,
-    protocol::{EventType, PageViewEvent},
+    protocol::{AnalyticsEvent, EventType, PageViewEvent},
     rate_limit::RateLimiter,
     security::KeyPolicy,
     sink::{EventSink, PostgresSink, SinkError, StoredEvent},
@@ -66,9 +66,11 @@ async fn stores_unified_metadata_without_protocol_feature_flags() {
             "context_schema_version": 1
         }),
     );
-    event.event.schema_version = 1;
-    event.event.visitor_id = Some(visitor_id.to_owned());
-    event.event.context_schema_version = Some(1);
+    if let AnalyticsEvent::PageView(page_view) = &mut event.event {
+        page_view.schema_version = 1;
+        page_view.visitor_id = Some(visitor_id.to_owned());
+        page_view.context_schema_version = Some(1);
+    }
 
     sink.accept(vec![event])
         .await
@@ -91,7 +93,7 @@ async fn stores_unified_metadata_without_protocol_feature_flags() {
 
 fn stored_event(site_id: &str, event_id: &str, payload: serde_json::Value) -> StoredEvent {
     StoredEvent {
-        event: PageViewEvent {
+        event: AnalyticsEvent::PageView(PageViewEvent {
             schema_version: 1,
             event_id: event_id.to_owned(),
             event_type: EventType::PageView,
@@ -104,7 +106,7 @@ fn stored_event(site_id: &str, event_id: &str, payload: serde_json::Value) -> St
             context: None,
             visitor_id: None,
             context_schema_version: None,
-        },
+        }),
         payload,
         received_at: Utc::now(),
     }
@@ -185,7 +187,9 @@ async fn batch_rolls_back_when_a_later_event_cannot_be_stored() {
         "01J00000000000000000000001",
         json!({"event_id": "01J00000000000000000000001"}),
     );
-    invalid.event.occurred_at = i64::MAX;
+    if let AnalyticsEvent::PageView(page_view) = &mut invalid.event {
+        page_view.occurred_at = i64::MAX;
+    }
 
     let result = sink
         .accept(vec![

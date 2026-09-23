@@ -20,12 +20,14 @@
 - [Phase 5 Design](phase-5-design.md)：Analytics Semantics、Visitor、Session、Browser Context 和 Dimensions 的历史契约设计。
 - [Phase 6 Design](phase-6-design.md)：Browser Visitor ID、临时 Protocol V2 rollout、Sessionization、Dimensions、Analytics API 和 Dashboard 的历史实施计划。
 - [Phase 7 Design](phase-7-design.md)：MVP 功能完善、Protocol consolidation 和 capability 边界。
+- [Phase 7 PR3 Custom Events Design](phase-7-pr3-custom-events-design.md)：Custom Event 协议、属性限制、隐私、处理、查询和验收设计。
 - [Phase 8 Design](phase-8-design.md)：MVP 用户配置、配置 API 和 Dashboard 能力管理。
 - [Release Readiness](release-readiness-design.md)：MVP 最后的完整回归、稳定性、部署和发布验证。
 - [Analytics API OpenAPI Contract](analytics-api.openapi.json)：Analytics API v1 的机器可读契约，包含已启用的 Phase 6 reports。
 - [Ingest Key Guide](ingest-key.md)：Ingest Key 的生成、配置、Website 使用、Origin 关联和轮换流程。
 - [ADR-007：Capability-oriented Configuration](decisions/ADR-007-capability-oriented-configuration.md)：以用户能力而不是内部协议版本提供配置的架构决策。
 - [ADR-008：Internal Capability Boundaries](decisions/ADR-008-internal-capability-boundaries.md)：Phase 7 capability contract、依赖和跨层边界。
+- [ADR-009：Custom Events Contract](decisions/ADR-009-custom-events-contract.md)：Custom Event 的协议类型、有界属性、幂等、存储与报告边界。
 - PR2 Router Adapters：React Router 7 和 TanStack Router v1 的 NavigationObserver 集成。
 - Phase 7 PR2.1：Contract namespace consolidation，收敛协议路径、版本命名和跨语言资源引用。
 - Phase 7 PR2.5：统一 Router facade、`RouterAnalyticsBridge` 和参数化 playground / Compose profiles，详见 [Phase 7 Design](phase-7-design.md)。

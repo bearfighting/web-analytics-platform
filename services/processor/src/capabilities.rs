@@ -287,10 +287,10 @@ mod tests {
             &[CapabilityId::AnonymousVisitors]
         );
         assert!(registry.is_implemented(CapabilityId::PageViews));
-        assert!(!registry.is_implemented(CapabilityId::CustomEvents));
+        assert!(registry.is_implemented(CapabilityId::CustomEvents));
         assert_eq!(
             registry.get(CapabilityId::CustomEvents).unwrap().status,
-            CapabilityStatus::Planned
+            CapabilityStatus::Implemented
         );
     }
 
@@ -324,7 +324,7 @@ mod tests {
             "../../../protocol/capabilities/capabilities.json"
         ))
         .expect("canonical manifest should be valid JSON");
-        manifest["capabilities"][5]["api"]["routes"] = serde_json::json!(["/runtime"]);
+        manifest["capabilities"][6]["api"]["routes"] = serde_json::json!(["/runtime"]);
         assert!(matches!(
             CapabilityRegistry::from_json(&manifest.to_string()),
             Err(super::CapabilityRegistryError::PlannedRuntimeSurface(_))

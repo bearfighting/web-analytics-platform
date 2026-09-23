@@ -4,6 +4,8 @@ use thiserror::Error;
 pub enum ProcessorError {
     #[error("processor database operation failed: {0}")]
     Database(#[from] sqlx::Error),
+    #[error("raw event {0} has an invalid custom event payload")]
+    InvalidCustomEvent(String),
     #[error("processed raw event {0} was not updated")]
     RawEventNotUpdated(i64),
     #[error("no active generation exists for site {site_id}")]

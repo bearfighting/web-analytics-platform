@@ -1,6 +1,6 @@
 # Phase 7 Design — MVP 功能完善
 
-> Status: PR0 Protocol Consolidation, PR1 Internal Capability Boundaries, PR2 Router Adapters, PR2.1 Contract Namespace Consolidation and PR2.5 Unified Router Entry complete
+> Status: PR0/PR1/PR2/PR2.1/PR2.5 implementation complete; PR3 Custom Events implementation and E2E acceptance complete
 > Scope: Protocol consolidation、内部 capability 边界和 MVP 产品能力
 
 ## 1. 阶段目标
@@ -17,7 +17,7 @@ PR0 Protocol consolidation
   → PR2 Router adapters（已完成）
   → PR2.1 Contract namespace consolidation
   → PR2.5 Unified Router entry and development profiles
-  → PR3 Custom Events
+  → PR3 Custom Events ([design](phase-7-pr3-custom-events-design.md))
   → PR4 Web Vitals
   → PR5 Conversion and Funnel
   → PR6 Geo
@@ -259,6 +259,10 @@ docker compose \
 PR2.5 完成后，新用户只需要选择对应 Router 的一个 facade import 并挂载统一命名的 Bridge；开发者只需要修改一个 `--router` 参数即可切换 playground，不需要手动修改 Compose service、SDK observer wiring 或 transport 代码。
 
 ## 8. PR3 — Custom Events
+
+> Status: Design complete; implementation not started
+
+Detailed contract, limits, privacy boundary, persistence plan and acceptance sequence are frozen in [Phase 7 PR3 Custom Events Design](phase-7-pr3-custom-events-design.md) and [ADR-009](decisions/ADR-009-custom-events-contract.md).
 
 ### Contract
 

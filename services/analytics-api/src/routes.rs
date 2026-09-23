@@ -22,6 +22,10 @@ pub(crate) fn router(state: AppState) -> Router {
             get(handlers::reports::pages),
         )
         .route(
+            "/v1/sites/{site_id}/reports/{from}/{to}/events",
+            get(handlers::reports::events),
+        )
+        .route(
             "/v1/sites/{site_id}/reports/{from}/{to}/visitors",
             get(handlers::phase6::visitors),
         )

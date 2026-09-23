@@ -15,6 +15,7 @@ const requiredIds = new Set([
   "multi-site-isolation",
   "empty-date-range",
   "all-time-overview",
+  "custom-events",
 ]);
 const errors = [];
 
@@ -60,6 +61,7 @@ function validateOpenApi(document) {
     "/v1/sites/{site_id}/reports/{from}/{to}/overview",
     "/v1/sites/{site_id}/reports/{from}/{to}/timeline",
     "/v1/sites/{site_id}/reports/{from}/{to}/pages",
+    "/v1/sites/{site_id}/reports/{from}/{to}/events",
     "/v1/sites/{site_id}/reports/{from}/{to}/visitors",
     "/v1/sites/{site_id}/reports/{from}/{to}/sessions",
     "/v1/sites/{site_id}/reports/{from}/{to}/dimensions/{dimension}",
@@ -73,6 +75,7 @@ function validateOpenApi(document) {
     "/v1/sites/{site_id}/reports/{from}/{to}/overview": ["200", "400", "500"],
     "/v1/sites/{site_id}/reports/{from}/{to}/timeline": ["200", "400", "500"],
     "/v1/sites/{site_id}/reports/{from}/{to}/pages": ["200", "400", "500"],
+    "/v1/sites/{site_id}/reports/{from}/{to}/events": ["200", "400", "500"],
     "/v1/sites/{site_id}/reports/{from}/{to}/visitors": ["200", "400", "404", "500"],
     "/v1/sites/{site_id}/reports/{from}/{to}/sessions": ["200", "400", "404", "500"],
     "/v1/sites/{site_id}/reports/{from}/{to}/dimensions/{dimension}": ["200", "400", "404", "500"],
@@ -88,6 +91,8 @@ function validateOpenApi(document) {
     "RangeOverviewResponse",
     "TimelineResponse",
     "PagesResponse",
+    "EventsReportResponse",
+    "EventDailyItem",
     "VisitorSessionReportResponse",
     "DimensionReportResponse",
     "DimensionName",
@@ -109,6 +114,7 @@ function validateOpenApi(document) {
     "invalid_date_range",
     "date_range_too_large",
     "invalid_limit",
+    "invalid_event_name",
     "invalid_dimension",
     "analytics_not_enabled",
     "analytics_api_error",
@@ -119,6 +125,7 @@ function validateOpenApi(document) {
     "/v1/sites/{site_id}/reports/{from}/{to}/overview",
     "/v1/sites/{site_id}/reports/{from}/{to}/timeline",
     "/v1/sites/{site_id}/reports/{from}/{to}/pages",
+    "/v1/sites/{site_id}/reports/{from}/{to}/events",
     "/v1/sites/{site_id}/reports/{from}/{to}/visitors",
     "/v1/sites/{site_id}/reports/{from}/{to}/sessions",
     "/v1/sites/{site_id}/reports/{from}/{to}/dimensions/{dimension}",
@@ -249,7 +256,12 @@ function validateQueryCases(document) {
     if (!testCase.expected?.error_code)
       errors.push(`${testCase.id}: expected.error_code is required`);
   }
-  for (const code of ["invalid_date_range", "date_range_too_large", "invalid_limit"]) {
+  for (const code of [
+    "invalid_date_range",
+    "date_range_too_large",
+    "invalid_limit",
+    "invalid_event_name",
+  ]) {
     if (!document.cases.some((testCase) => testCase.expected.error_code === code))
       errors.push(`missing API contract case for ${code}`);
   }
@@ -324,7 +336,9 @@ function validateRawEventExpectations(fixture, fixtureName) {
     errors.push(`${fixtureName}: inserted plus duplicate counts must match input event count`);
   for (const event of rawEvents.events) {
     if (
-      !isEventIdentity(event) ||
+      !isSiteId(event.site_id) ||
+      typeof event.event_id !== "string" ||
+      event.event_id.length !== 26 ||
       !isIsoDateTime(event.received_at) ||
       !isEventIdentity(event.payload)
     ) {
@@ -343,7 +357,8 @@ function validateScenarioSemantics(fixture, fixtureName) {
   const rawEvents = fixture.expected?.raw_events;
   const totalsBySite = new Map();
   for (const event of rawEvents?.events ?? [])
-    totalsBySite.set(event.site_id, (totalsBySite.get(event.site_id) ?? 0) + 1);
+    if (event.type === "page_view")
+      totalsBySite.set(event.site_id, (totalsBySite.get(event.site_id) ?? 0) + 1);
   for (const total of fixture.expected?.page_view_totals ?? []) {
     if (total.page_views !== (totalsBySite.get(total.site_id) ?? 0))
       errors.push(`${fixtureName}: page_view_totals must equal inserted events per site`);
@@ -387,7 +402,7 @@ function validateScenarioSemantics(fixture, fixtureName) {
     if (
       event.payload.event_id !== event.event_id ||
       event.payload.site_id !== event.site_id ||
-      event.payload.path !== event.path
+      (event.payload.type === "page_view" && event.payload.path !== event.path)
     )
       errors.push(`${fixtureName}: raw event payload must preserve the event identity fields`);
   }
@@ -464,7 +479,13 @@ function validateTotalArray(items, fixtureName) {
 function validateApiResponses(api, fixtureName) {
   if (!api || typeof api !== "object")
     return errors.push(`${fixtureName}: expected.api must be an object`);
-  for (const name of ["overview", "range_overview", "timeline", "pages"]) {
+  for (const name of [
+    "overview",
+    "range_overview",
+    "timeline",
+    "pages",
+    ...(api.events ? ["events"] : []),
+  ]) {
     const response = api[name];
     if (
       !response ||
@@ -486,8 +507,13 @@ function validateApiResponses(api, fixtureName) {
       (!Number.isInteger(response.body.page_views) || response.body.page_views < 0)
     )
       errors.push(`${fixtureName}: ${name} page_views must be a non-negative integer`);
-    if ((name === "timeline" || name === "pages") && !Array.isArray(response.body.items))
+    if (
+      (name === "timeline" || name === "pages" || name === "events") &&
+      !Array.isArray(response.body.items)
+    )
       errors.push(`${fixtureName}: ${name} items must be an array`);
+    if (name === "events" && (!Number.isInteger(response.body.total) || response.body.total < 0))
+      errors.push(`${fixtureName}: events total must be a non-negative integer`);
     if (
       name === "timeline" &&
       !isSorted(response.body.items, (left, right) => left.day.localeCompare(right.day))
@@ -521,6 +547,17 @@ function comparePageItems(left, right) {
 }
 
 function isEventIdentity(event) {
+  if (event?.type === "custom_event")
+    return (
+      event.schema_version === 1 &&
+      isSiteId(event.site_id) &&
+      typeof event.event_id === "string" &&
+      event.event_id.length === 26 &&
+      Number.isInteger(event.occurred_at) &&
+      typeof event.event_name === "string" &&
+      event.properties &&
+      typeof event.properties === "object"
+    );
   return (
     event?.schema_version === 1 &&
     isSiteId(event?.site_id) &&

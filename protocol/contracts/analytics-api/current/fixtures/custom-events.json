@@ -1,0 +1,148 @@
+{
+  "id": "custom-events",
+  "description": "Custom events are processed without changing page view aggregates and exposed as daily name counts.",
+  "input": {
+    "received_at": "2026-09-18T12:05:05Z",
+    "events": [
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000011",
+        "type": "custom_event",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800000,
+        "event_name": "purchase_completed",
+        "properties": {
+          "currency": "USD",
+          "amount": 49.95
+        }
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000012",
+        "type": "custom_event",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800000,
+        "event_name": "checkout_started",
+        "properties": {
+          "source": "product"
+        }
+      }
+    ]
+  },
+  "processor": {
+    "mode": "once",
+    "input": "unprocessed_raw_events"
+  },
+  "expected": {
+    "raw_events": {
+      "inserted": 2,
+      "duplicates_ignored": 0,
+      "events": [
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000011",
+          "type": "custom_event",
+          "occurred_at": 1789732800000,
+          "received_at": "2026-09-18T12:05:05Z",
+          "path": null,
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000011",
+            "type": "custom_event",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800000,
+            "event_name": "purchase_completed",
+            "properties": {
+              "currency": "USD",
+              "amount": 49.95
+            }
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000012",
+          "type": "custom_event",
+          "occurred_at": 1789732800000,
+          "received_at": "2026-09-18T12:05:05Z",
+          "path": null,
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000012",
+            "type": "custom_event",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800000,
+            "event_name": "checkout_started",
+            "properties": {
+              "source": "product"
+            }
+          }
+        }
+      ]
+    },
+    "page_view_daily": [],
+    "page_view_routes": [],
+    "page_view_totals": [],
+    "api": {
+      "overview": {
+        "status": 200,
+        "body": {
+          "site_id": "site_playground",
+          "page_views": 0
+        }
+      },
+      "range_overview": {
+        "status": 200,
+        "body": {
+          "site_id": "site_playground",
+          "from": "2026-09-01",
+          "to": "2026-09-01",
+          "page_views": 0
+        }
+      },
+      "timeline": {
+        "status": 200,
+        "body": {
+          "site_id": "site_playground",
+          "from": "2026-09-01",
+          "to": "2026-09-01",
+          "items": []
+        }
+      },
+      "pages": {
+        "status": 200,
+        "body": {
+          "site_id": "site_playground",
+          "from": "2026-09-01",
+          "to": "2026-09-01",
+          "items": []
+        }
+      },
+      "events": {
+        "status": 200,
+        "body": {
+          "site_id": "site_playground",
+          "from": "2026-09-18",
+          "to": "2026-09-18",
+          "total": 2,
+          "items": [
+            {
+              "day": "2026-09-18",
+              "event_name": "checkout_started",
+              "event_count": 1
+            },
+            {
+              "day": "2026-09-18",
+              "event_name": "purchase_completed",
+              "event_count": 1
+            }
+          ],
+          "data_as_of": "<dynamic>",
+          "freshness_status": "current",
+          "aggregation_version": 1
+        }
+      }
+    }
+  }
+}

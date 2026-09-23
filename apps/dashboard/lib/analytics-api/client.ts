@@ -2,6 +2,8 @@ import { AnalyticsApiClientError } from "./errors";
 import {
   DEFAULT_PAGES_LIMIT,
   dimensionPath,
+  eventsPath,
+  isEventsResponse,
   isDimensionResponse,
   isAnalyticsApiErrorResponse,
   isOverviewResponse,
@@ -20,6 +22,7 @@ import {
 
 import type {
   OverviewResponse,
+  EventsResponse,
   PagesResponse,
   RangeOverviewResponse,
   TimelineResponse,
@@ -38,6 +41,13 @@ export interface AnalyticsApiClient {
   rangeOverview(siteId: string, from: string, to: string): Promise<RangeOverviewResponse>;
   timeline(siteId: string, from: string, to: string): Promise<TimelineResponse>;
   pages(siteId: string, from: string, to: string, limit?: number): Promise<PagesResponse>;
+  events(
+    siteId: string,
+    from: string,
+    to: string,
+    limit?: number,
+    eventName?: string,
+  ): Promise<EventsResponse>;
   visitors(siteId: string, from: string, to: string): Promise<VisitorSessionResponse>;
   sessions(siteId: string, from: string, to: string): Promise<VisitorSessionResponse>;
   dimension(
@@ -64,6 +74,12 @@ export function createAnalyticsApiClient(options: AnalyticsApiClientOptions): An
       requestJson(`${baseUrl}${timelinePath(siteId, from, to)}`, isTimelineResponse),
     pages: (siteId, from, to, limit = DEFAULT_PAGES_LIMIT) =>
       requestJson(`${baseUrl}${pagesPath(siteId, from, to, limit)}`, isPagesResponse),
+    events: (siteId, from, to, limit = 100, eventName) =>
+      requestJson(
+        `${baseUrl}${eventsPath(siteId, from, to, limit, eventName)}`,
+        (value): value is EventsResponse =>
+          isEventsResponse(value) && matchesRange(value, siteId, from, to),
+      ),
     visitors: (siteId, from, to) =>
       requestJson(
         `${baseUrl}${visitorsPath(siteId, from, to)}`,

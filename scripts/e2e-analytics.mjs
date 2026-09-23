@@ -25,7 +25,8 @@ const fixtureNames = [
   "multi-site-isolation.json",
   "empty-date-range.json",
   "all-time-overview.json",
-];
+  "custom-events.json",
+].filter((name) => !process.env.E2E_FIXTURES || process.env.E2E_FIXTURES.split(",").includes(name));
 
 const composeBaseArgs = [
   "compose",
@@ -94,6 +95,11 @@ async function runFixtures() {
       await assertFixture(fixture, startedAt, finishedAt, true);
     }
 
+    if (fixture.id === "custom-events") {
+      runCustomEventRebuild();
+      await assertFixture(fixture, startedAt, finishedAt);
+    }
+
     console.log(`PASS ${fixture.id}`);
   }
 }
@@ -142,6 +148,28 @@ async function runProcessorOnce() {
   }
 }
 
+function runCustomEventRebuild() {
+  runCompose(
+    [
+      "run",
+      "--rm",
+      "--no-deps",
+      "--build",
+      "--entrypoint",
+      "cargo",
+      "processor",
+      "run",
+      "-p",
+      "processor",
+      "--",
+      "--rebuild-custom-events",
+      "--site-id",
+      "site_playground",
+    ],
+    { capture: true },
+  );
+}
+
 async function resetDatabase() {
   runCompose([
     "exec",
@@ -170,7 +198,7 @@ async function assertFixture(fixture, startedAt, finishedAt, repeated = false) {
     schema_version: event.schema_version,
     event_type: event.type,
     occurred_at: event.occurred_at,
-    path: event.path,
+    path: event.path ?? null,
     payload: event.payload,
     processed: true,
   }));
@@ -225,6 +253,49 @@ async function assertApiResponses(api) {
     `/v1/sites/${api.pages.body.site_id}/reports/${api.pages.body.from}/${api.pages.body.to}/pages`,
     api.pages,
   );
+  if (api.events) {
+    const expected = structuredClone(api.events);
+    expected.body.data_as_of = undefined;
+    const response = await fetch(
+      `${analyticsUrl}/v1/sites/${api.events.body.site_id}/reports/${api.events.body.from}/${api.events.body.to}/events`,
+    );
+    const body = await response.json();
+    assert(
+      response.status === expected.status,
+      `events report expected HTTP ${expected.status}, got ${response.status}`,
+    );
+    assert(
+      body.data_as_of !== null,
+      "events report must expose its independent processed watermark",
+    );
+    delete body.data_as_of;
+    assertJsonEqual(body, expected.body, "events report response mismatch");
+
+    const filteredResponse = await fetch(
+      `${analyticsUrl}/v1/sites/${api.events.body.site_id}/reports/${api.events.body.from}/${api.events.body.to}/events?event_name=checkout_started&limit=1`,
+    );
+    const filtered = await filteredResponse.json();
+    assert(
+      filteredResponse.status === 200 &&
+        filtered.total === 1 &&
+        filtered.items.length === 1 &&
+        filtered.items[0].event_name === "checkout_started",
+      "event_name filter must match exactly and retain its complete filtered total",
+    );
+
+    const isolatedResponse = await fetch(
+      `${analyticsUrl}/v1/sites/site_alpha/reports/${api.events.body.from}/${api.events.body.to}/events`,
+    );
+    const isolated = await isolatedResponse.json();
+    assert(
+      isolatedResponse.status === 200 &&
+        isolated.total === 0 &&
+        isolated.items.length === 0 &&
+        isolated.data_as_of === null &&
+        isolated.freshness_status === "current",
+      "empty events reports must remain site-isolated and expose freshness",
+    );
+  }
   if (api.site_beta_overview)
     await assertApi(
       `/v1/sites/${api.site_beta_overview.body.site_id}/overview`,
@@ -332,7 +403,10 @@ function assert(condition, message) {
 }
 
 function assertJsonEqual(actual, expected, message) {
-  assert(JSON.stringify(sortJson(actual)) === JSON.stringify(sortJson(expected)), message);
+  assert(
+    JSON.stringify(sortJson(actual)) === JSON.stringify(sortJson(expected)),
+    `${message}\nactual=${JSON.stringify(actual)}\nexpected=${JSON.stringify(expected)}`,
+  );
 }
 
 function sortJson(value) {

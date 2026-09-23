@@ -3,6 +3,8 @@ import { ANALYTICS_DIMENSIONS } from "./types";
 import type {
   AnalyticsApiErrorResponse,
   OverviewResponse,
+  EventDailyItem,
+  EventsResponse,
   PageItem,
   PagesResponse,
   RangeOverviewResponse,
@@ -32,6 +34,19 @@ export function timelinePath(siteId: string, from: string, to: string): string {
 
 export function pagesPath(siteId: string, from: string, to: string, limit: number): string {
   return `/v1/sites/${encodeURIComponent(siteId)}/reports/${from}/${to}/pages?limit=${encodeURIComponent(String(limit))}`;
+}
+
+export function eventsPath(
+  siteId: string,
+  from: string,
+  to: string,
+  limit = 100,
+  eventName?: string,
+): string {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (eventName !== undefined) params.set("event_name", eventName);
+
+  return `/v1/sites/${encodeURIComponent(siteId)}/reports/${from}/${to}/events?${params.toString()}`;
 }
 
 export function visitorsPath(siteId: string, from: string, to: string): string {
@@ -94,6 +109,23 @@ export function isPagesResponse(value: unknown): value is PagesResponse {
   );
 }
 
+export function isEventsResponse(value: unknown): value is EventsResponse {
+  return (
+    isRecord(value) &&
+    isString(value.site_id) &&
+    isString(value.from) &&
+    isValidDate(value.from) &&
+    isString(value.to) &&
+    isValidDate(value.to) &&
+    isNonNegativeInteger(value.total) &&
+    Array.isArray(value.items) &&
+    value.items.every(isEventDailyItem) &&
+    isNullableDateTime(value.data_as_of) &&
+    isFreshnessStatus(value.freshness_status) &&
+    isPositiveInteger(value.aggregation_version)
+  );
+}
+
 export function isVisitorSessionResponse(value: unknown): value is VisitorSessionResponse {
   return (
     isRecord(value) &&
@@ -136,6 +168,17 @@ export function isAnalyticsApiErrorResponse(value: unknown): value is AnalyticsA
     isRecord(value.error) &&
     isString(value.error.code) &&
     isString(value.error.message)
+  );
+}
+
+function isEventDailyItem(value: unknown): value is EventDailyItem {
+  return (
+    isRecord(value) &&
+    isString(value.day) &&
+    isValidDate(value.day) &&
+    isString(value.event_name) &&
+    value.event_name.length > 0 &&
+    isNonNegativeInteger(value.event_count)
   );
 }
 

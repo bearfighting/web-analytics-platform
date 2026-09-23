@@ -183,7 +183,7 @@ async fn validate_batch(
     let received_at = Utc::now();
     let latest_allowed = received_at + chrono::Duration::minutes(5);
     if batch.events.iter().any(|event| {
-        chrono::DateTime::<Utc>::from_timestamp_millis(event.event.occurred_at)
+        chrono::DateTime::<Utc>::from_timestamp_millis(event.event.occurred_at())
             .is_none_or(|occurred_at| occurred_at > latest_allowed)
     }) {
         return with_cors(

@@ -11,7 +11,7 @@
 项目状态：
 
 - 已完成：Phase 0–6 核心 Analytics workflow、Phase 7 PR0 Protocol Consolidation、PR1 Internal Capability Boundaries、PR 2.1 Contract Namespace Consolidation 和 PR 2.5 Unified Router Entry；
-- 进行中：Phase 7 其余 MVP capability implementation；
+- 进行中：Phase 7 MVP capability implementation；PR3 Custom Events 已实现并通过协议、单测和端到端验收；后续为 Web Vitals、Conversion / Funnel 和 Geo；
 - 计划中：Phase 8 用户配置和最后的 Release Readiness。
 
 当前已具备：
@@ -32,6 +32,7 @@
 - Dashboard 的 Overview、Timeline、Top Pages、Compose service 和 Playwright E2E workflow
 - 统一初始 Event Protocol、Visitor ID / Browser Context contract 和单一路径 Collector ingestion
 - Phase 7 capability contract、依赖图和跨语言 registry adapter
+- Custom Events 从 Browser SDK 到 Dashboard 的完整链路，含隐私受限 properties、独立处理 watermark 和 daily event-name reports
 
 Phase 0 的 Event Protocol、Router Playground、Docker 开发环境和基础工程治理已经完成。可以参考 [Getting Started](docs/getting-started.md) 启动项目。
 

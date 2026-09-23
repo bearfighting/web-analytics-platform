@@ -10,6 +10,8 @@ use tracing::{error, info};
 struct Cli {
     #[arg(long, default_value_t = false)]
     once: bool,
+    #[arg(long, conflicts_with_all = ["rebuild", "backfill", "reparse", "once"], requires = "site_id")]
+    rebuild_custom_events: bool,
     #[arg(long, env = "PROCESSOR_POLL_INTERVAL_MS", default_value_t = 1_000)]
     poll_interval_ms: u64,
     #[arg(
@@ -44,6 +46,13 @@ async fn main() -> anyhow::Result<()> {
     let database_url = std::env::var("DATABASE_URL")
         .map_err(|_| anyhow::anyhow!("DATABASE_URL must be configured"))?;
     let processor = Processor::connect(&database_url).await?;
+
+    if cli.rebuild_custom_events {
+        let site_id = cli.site_id.as_deref().expect("clap requires --site-id");
+        let count = processor.rebuild_custom_event_facts(site_id).await?;
+        info!(site_id, facts = count, "custom event facts rebuilt");
+        return Ok(());
+    }
 
     if cli.rebuild || cli.backfill || cli.reparse {
         let site_id = cli

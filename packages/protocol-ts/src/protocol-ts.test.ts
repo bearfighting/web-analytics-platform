@@ -27,8 +27,8 @@ describe("protocol types", () => {
     expect(batch.events).toEqual([]);
   });
 
-  it("does not allow non-PageViewEvent items in a batch", () => {
-    // @ts-expect-error EventBatch only accepts PageViewEvent items.
+  it("allows only supported event variants in a batch", () => {
+    // @ts-expect-error EventBatch only accepts supported event variants.
     const invalidBatch: EventBatch = {
       schema_version: 1,
       events: [{ type: "custom" }],

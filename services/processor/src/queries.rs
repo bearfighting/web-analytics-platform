@@ -21,7 +21,7 @@ pub(crate) async fn claim_next_event(
             Value,
         ),
     >(
-        "SELECT id, event_id, site_id, occurred_at, received_at, path,
+        "SELECT id, event_id, site_id, occurred_at, received_at, COALESCE(path, ''),
                 visitor_id::text, context_schema_version, payload
          FROM raw_events
          WHERE processed_at IS NULL
@@ -134,7 +134,7 @@ pub(crate) async fn advance_page_view_watermark(
     let Some(max_received_at) = sqlx::query_scalar::<_, Option<DateTime<Utc>>>(
         "SELECT MAX(received_at)
          FROM raw_events
-         WHERE site_id = $1 AND processed_at IS NOT NULL",
+         WHERE site_id = $1 AND event_type = 'page_view' AND processed_at IS NOT NULL",
     )
     .bind(site_id)
     .fetch_one(&mut *connection)
@@ -147,6 +147,7 @@ pub(crate) async fn advance_page_view_watermark(
         "SELECT MIN(received_at)
          FROM raw_events
          WHERE site_id = $1
+           AND event_type = 'page_view'
            AND processed_at IS NULL
            AND received_at <= $2",
     )
@@ -170,6 +171,36 @@ pub(crate) async fn advance_page_view_watermark(
     .bind(watermark)
     .execute(&mut *connection)
     .await?;
+    Ok(())
+}
+
+pub(crate) async fn advance_custom_event_watermark(
+    connection: &mut PgConnection,
+    site_id: &str,
+) -> Result<(), sqlx::Error> {
+    let Some(max_received_at) = sqlx::query_scalar::<_, Option<DateTime<Utc>>>(
+        "SELECT MAX(received_at) FROM raw_events
+         WHERE site_id = $1 AND event_type = 'custom_event' AND processed_at IS NOT NULL",
+    )
+    .bind(site_id)
+    .fetch_one(&mut *connection)
+    .await?
+    else {
+        return Ok(());
+    };
+    let first_unprocessed = sqlx::query_scalar::<_, Option<DateTime<Utc>>>(
+        "SELECT MIN(received_at) FROM raw_events
+         WHERE site_id = $1 AND event_type = 'custom_event' AND processed_at IS NULL AND received_at <= $2",
+    ).bind(site_id).bind(max_received_at).fetch_one(&mut *connection).await?;
+    let watermark = first_unprocessed
+        .map(|value| value - chrono::Duration::microseconds(1))
+        .unwrap_or(max_received_at);
+    sqlx::query(
+        "INSERT INTO analytics_watermarks (site_id, generation_id, source_name, processed_received_watermark)
+         VALUES ($1, NULL, 'custom_events', $2)
+         ON CONFLICT (site_id, generation_id, source_name)
+         DO UPDATE SET processed_received_watermark = EXCLUDED.processed_received_watermark, updated_at = NOW()",
+    ).bind(site_id).bind(watermark).execute(&mut *connection).await?;
     Ok(())
 }
 

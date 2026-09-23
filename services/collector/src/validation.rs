@@ -5,7 +5,7 @@ use serde_json::Value;
 use thiserror::Error;
 use url::Url;
 
-use crate::protocol::PageViewEvent;
+use crate::protocol::{AnalyticsEvent, CustomEvent, PageViewEvent};
 
 #[derive(Debug, Clone)]
 pub struct ValidatedBatch {
@@ -15,7 +15,7 @@ pub struct ValidatedBatch {
 
 #[derive(Debug, Clone)]
 pub struct ValidatedEvent {
-    pub event: PageViewEvent,
+    pub event: AnalyticsEvent,
     pub payload: Value,
 }
 
@@ -23,6 +23,8 @@ const EVENT_BATCH_SCHEMA: &str =
     include_str!("../../../protocol/events/schemas/event-batch.schema.json");
 const PAGE_VIEW_SCHEMA: &str =
     include_str!("../../../protocol/events/schemas/page-view-event.schema.json");
+const CUSTOM_EVENT_SCHEMA: &str =
+    include_str!("../../../protocol/events/schemas/custom-event.schema.json");
 const CONTEXT_SCHEMA: &str = include_str!("../../../protocol/contexts/browser-context.schema.json");
 
 #[derive(Debug, Error)]
@@ -38,7 +40,8 @@ pub enum ValidationError {
 #[derive(Debug)]
 pub struct Validator {
     batch: JSONSchema,
-    event: JSONSchema,
+    page_view: JSONSchema,
+    custom_event: JSONSchema,
 }
 
 impl Validator {
@@ -47,6 +50,8 @@ impl Validator {
             serde_json::from_str(EVENT_BATCH_SCHEMA).map_err(ValidationError::BatchSchema)?;
         let page_view_schema: Value =
             serde_json::from_str(PAGE_VIEW_SCHEMA).map_err(ValidationError::PageViewSchema)?;
+        let custom_event_schema: Value =
+            serde_json::from_str(CUSTOM_EVENT_SCHEMA).map_err(ValidationError::PageViewSchema)?;
         let context_schema: Value =
             serde_json::from_str(CONTEXT_SCHEMA).map_err(ValidationError::PageViewSchema)?;
 
@@ -55,21 +60,37 @@ impl Validator {
             .should_validate_formats(true)
             .with_resolver(EmbeddedResolver {
                 page_view_schema: page_view_schema.clone(),
+                custom_event_schema: custom_event_schema.clone(),
                 context_schema: context_schema.clone(),
             })
             .compile(&batch_schema)
             .map_err(|error| ValidationError::Compile(error.to_string()))?;
-        let event = JSONSchema::options()
+        let page_view = JSONSchema::options()
             .with_draft(Draft::Draft202012)
             .should_validate_formats(true)
             .with_resolver(EmbeddedResolver {
                 page_view_schema: page_view_schema.clone(),
-                context_schema,
+                custom_event_schema: custom_event_schema.clone(),
+                context_schema: context_schema.clone(),
             })
             .compile(&page_view_schema)
             .map_err(|error| ValidationError::Compile(error.to_string()))?;
+        let custom_event = JSONSchema::options()
+            .with_draft(Draft::Draft202012)
+            .should_validate_formats(true)
+            .with_resolver(EmbeddedResolver {
+                page_view_schema: page_view_schema.clone(),
+                custom_event_schema: custom_event_schema.clone(),
+                context_schema: context_schema.clone(),
+            })
+            .compile(&custom_event_schema)
+            .map_err(|error| ValidationError::Compile(error.to_string()))?;
 
-        Ok(Self { batch, event })
+        Ok(Self {
+            batch,
+            page_view,
+            custom_event,
+        })
     }
 
     pub fn validate(&self, value: &Value) -> Result<ValidatedBatch, Vec<String>> {
@@ -83,8 +104,7 @@ impl Validator {
             .ok_or_else(|| vec!["events must be an array".to_owned()])?;
         let mut validated_events = Vec::with_capacity(events.len());
         for payload in events {
-            let event =
-                serde_json::from_value(payload.clone()).map_err(|error| vec![error.to_string()])?;
+            let event = self.validate_event(payload)?;
             validated_events.push(ValidatedEvent {
                 event,
                 payload: payload.clone(),
@@ -98,17 +118,32 @@ impl Validator {
     }
 
     #[allow(dead_code)]
-    pub fn validate_event(&self, value: &Value) -> Result<PageViewEvent, Vec<String>> {
-        if let Err(errors) = self.event.validate(value) {
+    pub fn validate_event(&self, value: &Value) -> Result<AnalyticsEvent, Vec<String>> {
+        let event_type = value.get("type").and_then(Value::as_str).unwrap_or("");
+        let schema = if event_type == "page_view" {
+            &self.page_view
+        } else {
+            &self.custom_event
+        };
+        if let Err(errors) = schema.validate(value) {
             return Err(errors.map(|error| error.to_string()).collect());
         }
-
-        serde_json::from_value(value.clone()).map_err(|error| vec![error.to_string()])
+        if event_type == "page_view" {
+            serde_json::from_value::<PageViewEvent>(value.clone())
+                .map(AnalyticsEvent::PageView)
+                .map_err(|e| vec![e.to_string()])
+        } else {
+            let event = serde_json::from_value::<CustomEvent>(value.clone())
+                .map_err(|e| vec![e.to_string()])?;
+            event.validate_properties().map_err(|e| vec![e])?;
+            Ok(AnalyticsEvent::Custom(event))
+        }
     }
 }
 
 struct EmbeddedResolver {
     page_view_schema: Value,
+    custom_event_schema: Value,
     context_schema: Value,
 }
 
@@ -123,6 +158,11 @@ impl SchemaResolver for EmbeddedResolver {
             == "https://web-analytics-platform.dev/schemas/events/page-view-event.schema.json"
         {
             return Ok(Arc::new(self.page_view_schema.clone()));
+        }
+        if url.as_str()
+            == "https://web-analytics-platform.dev/schemas/events/custom-event.schema.json"
+        {
+            return Ok(Arc::new(self.custom_event_schema.clone()));
         }
         if url.as_str()
             == "https://web-analytics-platform.dev/schemas/contexts/browser-context.schema.json"

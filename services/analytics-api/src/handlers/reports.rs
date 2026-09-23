@@ -6,7 +6,10 @@ use axum::{
 
 use crate::{
     errors::{ApiError, HandlerError},
-    models::{PageItem, PagesResponse, RangeOverviewResponse, TimelineItem, TimelineResponse},
+    models::{
+        EventDailyItem, EventsReportResponse, PageItem, PagesResponse, RangeOverviewResponse,
+        TimelineItem, TimelineResponse,
+    },
     queries,
     state::AppState,
     validation,
@@ -75,6 +78,52 @@ pub(crate) async fn pages(
         from,
         to,
         items,
+    })
+    .into_response())
+}
+
+pub(crate) async fn events(
+    State(state): State<AppState>,
+    Path((site_id, from, to)): Path<(String, String, String)>,
+    RawQuery(raw_query): RawQuery,
+) -> Result<Response, HandlerError> {
+    let range = validation::parse_range(&from, &to)?;
+    let (limit, event_name) = validation::parse_events_query(raw_query.as_deref())?;
+    let total = queries::custom_event_total(&state.pool, &site_id, range, event_name.as_deref())
+        .await
+        .map_err(ApiError::database)?;
+    let rows = queries::custom_event_daily_rows(
+        &state.pool,
+        &site_id,
+        range,
+        event_name.as_deref(),
+        limit,
+    )
+    .await
+    .map_err(ApiError::database)?;
+    let items = rows
+        .into_iter()
+        .map(|row| EventDailyItem {
+            day: row.day,
+            event_name: row.event_name,
+            event_count: row.event_count,
+        })
+        .collect();
+    let data_as_of = queries::custom_event_watermark(&state.pool, &site_id)
+        .await
+        .map_err(ApiError::database)?;
+    let freshness_status = queries::custom_event_freshness(&state.pool, &site_id)
+        .await
+        .map_err(ApiError::database)?;
+    Ok(Json(EventsReportResponse {
+        site_id,
+        from,
+        to,
+        total,
+        items,
+        data_as_of,
+        freshness_status,
+        aggregation_version: 1,
     })
     .into_response())
 }

@@ -1,0 +1,54 @@
+import React from "react";
+
+import { EmptyState } from "./states/empty-state";
+import { ErrorState } from "./states/error-state";
+
+import type { EventsResponse } from "../lib/analytics-api/types";
+import type { DashboardOverviewContext } from "../lib/dashboard-overview";
+import type { DashboardReportState } from "../lib/dashboard-reports";
+
+export function EventReportTable({
+  context,
+  state,
+}: {
+  context: DashboardOverviewContext;
+  state: DashboardReportState<EventsResponse>;
+}) {
+  return (
+    <section className="card" aria-labelledby="events-heading">
+      <h2 id="events-heading">Custom Events</h2>
+      {state.status === "error" ? (
+        <ErrorState context={context} message={state.error.message} />
+      ) : state.status === "disabled" ? (
+        <p role="status">Custom Events are unavailable.</p>
+      ) : state.data.items.length === 0 ? (
+        <EmptyState context={context} />
+      ) : (
+        <>
+          <p className="metric" data-events={state.data.total}>
+            {state.data.total}
+          </p>
+          <table className="data-table">
+            <caption className="table-caption">Custom Event counts by UTC date</caption>
+            <thead>
+              <tr>
+                <th scope="col">Event</th>
+                <th scope="col">Date</th>
+                <th scope="col">Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              {state.data.items.map((item) => (
+                <tr key={`${item.event_name}:${item.day}`}>
+                  <td>{item.event_name}</td>
+                  <td>{item.day}</td>
+                  <td>{item.event_count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+    </section>
+  );
+}

@@ -211,7 +211,7 @@ describe("createAnalytics", () => {
     const analytics = createAnalytics({
       siteId: "site_example",
       transport,
-      beforeSend: (event) => ({ ...event, title: "Changed" }),
+      beforeSend: (event) => (event.type === "page_view" ? { ...event, title: "Changed" } : event),
       createEventId: () => "01J00000000000000000000001",
       now: () => 201,
       contextProvider: unknownContextProvider,
@@ -220,7 +220,7 @@ describe("createAnalytics", () => {
     analytics.observe(observer);
     observer.emit(navigation);
     await analytics.flush();
-    expect(transport.batches[0]?.[0].title).toBe("Changed");
+    expect(transport.batches[0]?.[0]).toMatchObject({ type: "page_view", title: "Changed" });
 
     const dropped = createAnalytics({
       siteId: "site_example",

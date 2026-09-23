@@ -29,6 +29,7 @@ pub fn parse_date_range_for_test(from: &str, to: &str) -> Result<(), &'static st
             errors::RequestError::DateRangeTooLarge => "date_range_too_large",
             errors::RequestError::InvalidLimit => "invalid_limit",
             errors::RequestError::InvalidDimension => "invalid_dimension",
+            errors::RequestError::InvalidEventName => "invalid_event_name",
         })
 }
 

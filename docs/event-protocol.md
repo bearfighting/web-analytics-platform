@@ -6,6 +6,8 @@
 
 ## PageViewEvent
 
+Protocol V1 accepts both `page_view` and the independent `custom_event` variant described in the PR3 design.
+
 Page View 事件使用 JSON Schema 2020-12 描述，字段使用 `snake_case`：
 
 | 字段                     | 必填 | 规则                          |
@@ -24,6 +26,10 @@ Page View 事件使用 JSON Schema 2020-12 描述，字段使用 `snake_case`：
 | `context`                | 否   | 完整 Browser Context 对象     |
 
 顶层未知字段允许存在，为未来的非破坏性扩展保留空间。
+
+## CustomEvent
+
+Custom Events use `type: "custom_event"`, require `event_name` and bounded object `properties`, and may include an existing site-scoped `visitor_id`. They do not carry Page View fields. See [PR3 Custom Events Design](phase-7-pr3-custom-events-design.md) for the exact limits.
 
 ## EventBatch
 
@@ -45,7 +51,7 @@ Event Batch 包含 1–100 条 PageViewEvent：
 }
 ```
 
-Batch 必须非空，且每一项都必须符合统一 PageViewEvent。Batch 顶层未知字段同样允许存在。
+Batch 必须非空，且每一项都必须符合 Page View 或 Custom Event schema；一个 batch 只能包含一个 site_id。Batch 顶层未知字段同样允许存在。
 
 ## 版本策略
 
@@ -55,7 +61,7 @@ Batch 必须非空，且每一项都必须符合统一 PageViewEvent。Batch 顶
 - 有 Context 时必须同时提供 `context_schema_version`；有 `context_schema_version` 时必须同时提供 Context。
 - 客户端不得发送 `session_id`；Session 由 Processor 派生。
 - Collector 拒绝 `occurred_at` 晚于 `received_at + 5 minutes` 的事件。
-- 新事件类型和破坏性修改使用新的 schema version。
+- 新事件类型可以作为带独立 tagged schema 的类型加入当前协议版本，不改变已有事件类型的字段语义；旧 Collector 会拒绝尚不认识的事件类型，因此必须先部署支持该类型的 Collector，再由 SDK 发送。修改已有事件字段语义或共享 batch 规则且破坏兼容性时，才引入新的公开协议版本。
 - PR3 不实现版本转换或旧版本迁移。
 - `CustomEvent`、Web Vital、错误和转化事件留到后续阶段。
 

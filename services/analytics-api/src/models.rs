@@ -135,3 +135,29 @@ pub(crate) struct PageRow {
     pub(crate) path: String,
     pub(crate) page_views: i64,
 }
+
+#[derive(Debug, Serialize)]
+pub(crate) struct EventDailyItem {
+    pub(crate) day: NaiveDate,
+    pub(crate) event_name: String,
+    pub(crate) event_count: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct EventsReportResponse {
+    pub(crate) site_id: String,
+    pub(crate) from: String,
+    pub(crate) to: String,
+    pub(crate) total: i64,
+    pub(crate) items: Vec<EventDailyItem>,
+    pub(crate) data_as_of: Option<chrono::DateTime<chrono::Utc>>,
+    pub(crate) freshness_status: String,
+    pub(crate) aggregation_version: i32,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub(crate) struct EventDailyRow {
+    pub(crate) day: NaiveDate,
+    pub(crate) event_name: String,
+    pub(crate) event_count: i64,
+}

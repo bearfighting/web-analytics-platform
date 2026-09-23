@@ -3,9 +3,13 @@
   "info": {
     "title": "Web Analytics API",
     "version": "1.0.0",
-    "description": "Read API for Phase 3 page view aggregates and Phase 6 visitor, session, and dimension reports."
+    "description": "Read API for Phase 3 page view aggregates and Phase 6 visitor, session, and dimension reports. Phase 7 custom event count reports."
   },
-  "servers": [{ "url": "http://localhost:4002" }],
+  "servers": [
+    {
+      "url": "http://localhost:4002"
+    }
+  ],
   "paths": {
     "/health": {
       "get": {
@@ -14,13 +18,21 @@
           "200": {
             "description": "Analytics API and database are available.",
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/HealthResponse" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
             }
           },
           "503": {
             "description": "Analytics API dependency is unavailable.",
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
             }
           }
         }
@@ -29,15 +41,25 @@
     "/v1/sites/{site_id}/overview": {
       "get": {
         "operationId": "getOverview",
-        "parameters": [{ "$ref": "#/components/parameters/SiteId" }],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SiteId"
+          }
+        ],
         "responses": {
           "200": {
             "description": "All-time page view total for the site.",
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/OverviewResponse" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverviewResponse"
+                }
+              }
             }
           },
-          "500": { "$ref": "#/components/responses/AnalyticsApiError" }
+          "500": {
+            "$ref": "#/components/responses/AnalyticsApiError"
+          }
         }
       }
     },
@@ -45,21 +67,33 @@
       "get": {
         "operationId": "getRangeOverview",
         "parameters": [
-          { "$ref": "#/components/parameters/SiteId" },
-          { "$ref": "#/components/parameters/FromPath" },
-          { "$ref": "#/components/parameters/ToPath" }
+          {
+            "$ref": "#/components/parameters/SiteId"
+          },
+          {
+            "$ref": "#/components/parameters/FromPath"
+          },
+          {
+            "$ref": "#/components/parameters/ToPath"
+          }
         ],
         "responses": {
           "200": {
             "description": "Page view total for the inclusive UTC date range.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/RangeOverviewResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/RangeOverviewResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/InvalidQuery" },
-          "500": { "$ref": "#/components/responses/AnalyticsApiError" }
+          "400": {
+            "$ref": "#/components/responses/InvalidQuery"
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsApiError"
+          }
         }
       }
     },
@@ -67,19 +101,33 @@
       "get": {
         "operationId": "getTimeline",
         "parameters": [
-          { "$ref": "#/components/parameters/SiteId" },
-          { "$ref": "#/components/parameters/FromPath" },
-          { "$ref": "#/components/parameters/ToPath" }
+          {
+            "$ref": "#/components/parameters/SiteId"
+          },
+          {
+            "$ref": "#/components/parameters/FromPath"
+          },
+          {
+            "$ref": "#/components/parameters/ToPath"
+          }
         ],
         "responses": {
           "200": {
             "description": "Daily page view totals ordered by day ascending.",
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/TimelineResponse" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineResponse"
+                }
+              }
             }
           },
-          "400": { "$ref": "#/components/responses/InvalidQuery" },
-          "500": { "$ref": "#/components/responses/AnalyticsApiError" }
+          "400": {
+            "$ref": "#/components/responses/InvalidQuery"
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsApiError"
+          }
         }
       }
     },
@@ -87,20 +135,36 @@
       "get": {
         "operationId": "getPages",
         "parameters": [
-          { "$ref": "#/components/parameters/SiteId" },
-          { "$ref": "#/components/parameters/FromPath" },
-          { "$ref": "#/components/parameters/ToPath" },
-          { "$ref": "#/components/parameters/Limit" }
+          {
+            "$ref": "#/components/parameters/SiteId"
+          },
+          {
+            "$ref": "#/components/parameters/FromPath"
+          },
+          {
+            "$ref": "#/components/parameters/ToPath"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
         ],
         "responses": {
           "200": {
             "description": "Page view totals by path, ordered by count descending and path ascending.",
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/PagesResponse" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagesResponse"
+                }
+              }
             }
           },
-          "400": { "$ref": "#/components/responses/InvalidQuery" },
-          "500": { "$ref": "#/components/responses/AnalyticsApiError" }
+          "400": {
+            "$ref": "#/components/responses/InvalidQuery"
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsApiError"
+          }
         }
       }
     },
@@ -111,22 +175,36 @@
         "x-lifecycle": "enabled-behind-feature-flag",
         "description": "Visitor and session metrics by UTC day, ordered by day ascending. Requires the site analytics feature flag.",
         "parameters": [
-          { "$ref": "#/components/parameters/SiteId" },
-          { "$ref": "#/components/parameters/FromPath" },
-          { "$ref": "#/components/parameters/ToPath" }
+          {
+            "$ref": "#/components/parameters/SiteId"
+          },
+          {
+            "$ref": "#/components/parameters/FromPath"
+          },
+          {
+            "$ref": "#/components/parameters/ToPath"
+          }
         ],
         "responses": {
           "200": {
             "description": "Visitor and session metrics by UTC day.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/VisitorSessionReportResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/VisitorSessionReportResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/InvalidQuery" },
-          "404": { "$ref": "#/components/responses/AnalyticsNotEnabled" },
-          "500": { "$ref": "#/components/responses/AnalyticsApiError" }
+          "400": {
+            "$ref": "#/components/responses/InvalidQuery"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsNotEnabled"
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsApiError"
+          }
         }
       }
     },
@@ -137,22 +215,36 @@
         "x-lifecycle": "enabled-behind-feature-flag",
         "description": "Session and visitor metrics by UTC day, ordered by day ascending. Requires the site analytics feature flag.",
         "parameters": [
-          { "$ref": "#/components/parameters/SiteId" },
-          { "$ref": "#/components/parameters/FromPath" },
-          { "$ref": "#/components/parameters/ToPath" }
+          {
+            "$ref": "#/components/parameters/SiteId"
+          },
+          {
+            "$ref": "#/components/parameters/FromPath"
+          },
+          {
+            "$ref": "#/components/parameters/ToPath"
+          }
         ],
         "responses": {
           "200": {
             "description": "Session and visitor metrics by UTC day.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/VisitorSessionReportResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/VisitorSessionReportResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/InvalidQuery" },
-          "404": { "$ref": "#/components/responses/AnalyticsNotEnabled" },
-          "500": { "$ref": "#/components/responses/AnalyticsApiError" }
+          "400": {
+            "$ref": "#/components/responses/InvalidQuery"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsNotEnabled"
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsApiError"
+          }
         }
       }
     },
@@ -163,24 +255,84 @@
         "x-lifecycle": "enabled-behind-feature-flag",
         "description": "Dimension metrics for the inclusive UTC date range, ordered by page_views descending and value ascending. Requires the site analytics feature flag.",
         "parameters": [
-          { "$ref": "#/components/parameters/SiteId" },
-          { "$ref": "#/components/parameters/FromPath" },
-          { "$ref": "#/components/parameters/ToPath" },
-          { "$ref": "#/components/parameters/Dimension" },
-          { "$ref": "#/components/parameters/Limit" }
+          {
+            "$ref": "#/components/parameters/SiteId"
+          },
+          {
+            "$ref": "#/components/parameters/FromPath"
+          },
+          {
+            "$ref": "#/components/parameters/ToPath"
+          },
+          {
+            "$ref": "#/components/parameters/Dimension"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
         ],
         "responses": {
           "200": {
             "description": "Dimension metrics for the inclusive UTC date range, ordered by page_views descending and value ascending.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/DimensionReportResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/DimensionReportResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/InvalidQuery" },
-          "404": { "$ref": "#/components/responses/AnalyticsNotEnabled" },
-          "500": { "$ref": "#/components/responses/AnalyticsApiError" }
+          "400": {
+            "$ref": "#/components/responses/InvalidQuery"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsNotEnabled"
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsApiError"
+          }
+        }
+      }
+    },
+    "/v1/sites/{site_id}/reports/{from}/{to}/events": {
+      "get": {
+        "operationId": "getEventsReport",
+        "x-phase": 7,
+        "description": "Custom Event counts by exact event name and UTC event date; properties are never returned.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SiteId"
+          },
+          {
+            "$ref": "#/components/parameters/FromPath"
+          },
+          {
+            "$ref": "#/components/parameters/ToPath"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/EventName"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Site-scoped Custom Event count report.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventsReportResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidQuery"
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsApiError"
+          }
         }
       }
     }
@@ -191,33 +343,61 @@
         "name": "site_id",
         "in": "path",
         "required": true,
-        "schema": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$" }
+        "schema": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+        }
       },
       "FromPath": {
         "name": "from",
         "in": "path",
         "required": true,
         "description": "Inclusive UTC start date. The report range contains at most 366 UTC calendar days, so to minus from must be at most 365 days.",
-        "schema": { "type": "string", "format": "date", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+        "schema": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        }
       },
       "ToPath": {
         "name": "to",
         "in": "path",
         "required": true,
         "description": "Inclusive UTC end date. The report range contains at most 366 UTC calendar days, so to minus from must be at most 365 days.",
-        "schema": { "type": "string", "format": "date", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+        "schema": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        }
       },
       "Limit": {
         "name": "limit",
         "in": "query",
         "required": false,
-        "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        }
       },
       "Dimension": {
         "name": "dimension",
         "in": "path",
         "required": true,
-        "schema": { "$ref": "#/components/schemas/DimensionName" }
+        "schema": {
+          "$ref": "#/components/schemas/DimensionName"
+        }
+      },
+      "EventName": {
+        "name": "event_name",
+        "in": "query",
+        "required": false,
+        "description": "Exact, case-sensitive custom event name filter.",
+        "schema": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$"
+        }
       }
     },
     "responses": {
@@ -225,7 +405,9 @@
         "description": "The requested date range or limit is invalid.",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
             "examples": {
               "invalidDateRange": {
                 "value": {
@@ -259,7 +441,9 @@
         "description": "The Analytics API failed to query its storage.",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
             "example": {
               "error": {
                 "code": "analytics_api_error",
@@ -273,7 +457,9 @@
         "description": "The site has not enabled Phase 6 analytics reports.",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
             "example": {
               "error": {
                 "code": "analytics_not_enabled",
@@ -287,19 +473,34 @@
     "schemas": {
       "HealthResponse": {
         "type": "object",
-        "required": ["status"],
-        "properties": { "status": { "const": "ok" } },
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "const": "ok"
+          }
+        },
         "additionalProperties": false
       },
       "ErrorResponse": {
         "type": "object",
-        "required": ["error"],
-        "properties": { "error": { "$ref": "#/components/schemas/ErrorBody" } },
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorBody"
+          }
+        },
         "additionalProperties": false
       },
       "ErrorBody": {
         "type": "object",
-        "required": ["code", "message"],
+        "required": [
+          "code",
+          "message"
+        ],
         "properties": {
           "code": {
             "type": "string",
@@ -309,70 +510,151 @@
               "invalid_limit",
               "invalid_dimension",
               "analytics_not_enabled",
-              "analytics_api_error"
+              "analytics_api_error",
+              "invalid_event_name"
             ]
           },
-          "message": { "type": "string" }
+          "message": {
+            "type": "string"
+          }
         },
         "additionalProperties": false
       },
       "OverviewResponse": {
         "type": "object",
-        "required": ["site_id", "page_views"],
+        "required": [
+          "site_id",
+          "page_views"
+        ],
         "properties": {
-          "site_id": { "type": "string" },
-          "page_views": { "type": "integer", "minimum": 0 }
+          "site_id": {
+            "type": "string"
+          },
+          "page_views": {
+            "type": "integer",
+            "minimum": 0
+          }
         },
         "additionalProperties": false
       },
       "RangeOverviewResponse": {
         "type": "object",
-        "required": ["site_id", "from", "to", "page_views"],
+        "required": [
+          "site_id",
+          "from",
+          "to",
+          "page_views"
+        ],
         "properties": {
-          "site_id": { "type": "string" },
-          "from": { "type": "string", "format": "date" },
-          "to": { "type": "string", "format": "date" },
-          "page_views": { "type": "integer", "minimum": 0 }
+          "site_id": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "page_views": {
+            "type": "integer",
+            "minimum": 0
+          }
         },
         "additionalProperties": false
       },
       "TimelineItem": {
         "type": "object",
-        "required": ["day", "page_views"],
+        "required": [
+          "day",
+          "page_views"
+        ],
         "properties": {
-          "day": { "type": "string", "format": "date" },
-          "page_views": { "type": "integer", "minimum": 0 }
+          "day": {
+            "type": "string",
+            "format": "date"
+          },
+          "page_views": {
+            "type": "integer",
+            "minimum": 0
+          }
         },
         "additionalProperties": false
       },
       "TimelineResponse": {
         "type": "object",
-        "required": ["site_id", "from", "to", "items"],
+        "required": [
+          "site_id",
+          "from",
+          "to",
+          "items"
+        ],
         "properties": {
-          "site_id": { "type": "string" },
-          "from": { "type": "string", "format": "date" },
-          "to": { "type": "string", "format": "date" },
-          "items": { "type": "array", "items": { "$ref": "#/components/schemas/TimelineItem" } }
+          "site_id": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimelineItem"
+            }
+          }
         },
         "additionalProperties": false
       },
       "PageItem": {
         "type": "object",
-        "required": ["path", "page_views"],
+        "required": [
+          "path",
+          "page_views"
+        ],
         "properties": {
-          "path": { "type": "string", "pattern": "^/" },
-          "page_views": { "type": "integer", "minimum": 0 }
+          "path": {
+            "type": "string",
+            "pattern": "^/"
+          },
+          "page_views": {
+            "type": "integer",
+            "minimum": 0
+          }
         },
         "additionalProperties": false
       },
       "PagesResponse": {
         "type": "object",
-        "required": ["site_id", "from", "to", "items"],
+        "required": [
+          "site_id",
+          "from",
+          "to",
+          "items"
+        ],
         "properties": {
-          "site_id": { "type": "string" },
-          "from": { "type": "string", "format": "date" },
-          "to": { "type": "string", "format": "date" },
-          "items": { "type": "array", "items": { "$ref": "#/components/schemas/PageItem" } }
+          "site_id": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PageItem"
+            }
+          }
         },
         "additionalProperties": false
       },
@@ -394,12 +676,29 @@
       },
       "VisitorSessionItem": {
         "type": "object",
-        "required": ["day", "page_views", "unique_visitors", "sessions"],
+        "required": [
+          "day",
+          "page_views",
+          "unique_visitors",
+          "sessions"
+        ],
         "properties": {
-          "day": { "type": "string", "format": "date" },
-          "page_views": { "type": "integer", "minimum": 0 },
-          "unique_visitors": { "type": "integer", "minimum": 0 },
-          "sessions": { "type": "integer", "minimum": 0 }
+          "day": {
+            "type": "string",
+            "format": "date"
+          },
+          "page_views": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unique_visitors": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sessions": {
+            "type": "integer",
+            "minimum": 0
+          }
         },
         "additionalProperties": false
       },
@@ -418,37 +717,84 @@
           "aggregation_version"
         ],
         "properties": {
-          "site_id": { "type": "string" },
-          "from": { "type": "string", "format": "date" },
-          "to": { "type": "string", "format": "date" },
-          "page_views": { "type": "integer", "minimum": 0 },
-          "unique_visitors": { "type": "integer", "minimum": 0 },
-          "sessions": { "type": "integer", "minimum": 0 },
+          "site_id": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "page_views": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unique_visitors": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sessions": {
+            "type": "integer",
+            "minimum": 0
+          },
           "items": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/VisitorSessionItem" }
+            "items": {
+              "$ref": "#/components/schemas/VisitorSessionItem"
+            }
           },
           "data_as_of": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time",
             "description": "Common processed_received watermark across all aggregates contributing to the response; null when there is no matching input."
           },
           "freshness_status": {
             "type": "string",
-            "enum": ["current", "stale", "rebuilding", "failed"]
+            "enum": [
+              "current",
+              "stale",
+              "rebuilding",
+              "failed"
+            ]
           },
-          "aggregation_version": { "type": "integer", "minimum": 1 }
+          "aggregation_version": {
+            "type": "integer",
+            "minimum": 1
+          }
         },
         "additionalProperties": false
       },
       "DimensionItem": {
         "type": "object",
-        "required": ["value", "page_views", "unique_visitors", "sessions"],
+        "required": [
+          "value",
+          "page_views",
+          "unique_visitors",
+          "sessions"
+        ],
         "properties": {
-          "value": { "type": "string", "minLength": 1 },
-          "page_views": { "type": "integer", "minimum": 0 },
-          "unique_visitors": { "type": "integer", "minimum": 0 },
-          "sessions": { "type": "integer", "minimum": 0 }
+          "value": {
+            "type": "string",
+            "minLength": 1
+          },
+          "page_views": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unique_visitors": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sessions": {
+            "type": "integer",
+            "minimum": 0
+          }
         },
         "additionalProperties": false
       },
@@ -465,21 +811,129 @@
           "aggregation_version"
         ],
         "properties": {
-          "site_id": { "type": "string" },
-          "from": { "type": "string", "format": "date" },
-          "to": { "type": "string", "format": "date" },
-          "dimension": { "$ref": "#/components/schemas/DimensionName" },
-          "items": { "type": "array", "items": { "$ref": "#/components/schemas/DimensionItem" } },
+          "site_id": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "dimension": {
+            "$ref": "#/components/schemas/DimensionName"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DimensionItem"
+            }
+          },
           "data_as_of": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time",
             "description": "Common processed_received watermark across all aggregates contributing to the response; null when there is no matching input."
           },
           "freshness_status": {
             "type": "string",
-            "enum": ["current", "stale", "rebuilding", "failed"]
+            "enum": [
+              "current",
+              "stale",
+              "rebuilding",
+              "failed"
+            ]
           },
-          "aggregation_version": { "type": "integer", "minimum": 1 }
+          "aggregation_version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "EventDailyItem": {
+        "type": "object",
+        "required": [
+          "day",
+          "event_name",
+          "event_count"
+        ],
+        "properties": {
+          "day": {
+            "type": "string",
+            "format": "date"
+          },
+          "event_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "event_count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "EventsReportResponse": {
+        "type": "object",
+        "required": [
+          "site_id",
+          "from",
+          "to",
+          "total",
+          "items",
+          "data_as_of",
+          "freshness_status",
+          "aggregation_version"
+        ],
+        "properties": {
+          "site_id": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Total matching events before the response row limit."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EventDailyItem"
+            }
+          },
+          "data_as_of": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "freshness_status": {
+            "type": "string",
+            "enum": [
+              "current",
+              "stale",
+              "rebuilding",
+              "failed"
+            ]
+          },
+          "aggregation_version": {
+            "type": "integer",
+            "minimum": 1
+          }
         },
         "additionalProperties": false
       }

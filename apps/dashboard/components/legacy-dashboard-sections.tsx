@@ -3,6 +3,7 @@ import React from "react";
 import { loadDashboardOverview } from "../lib/dashboard-overview";
 import { loadDashboardLegacyReports } from "../lib/dashboard-reports";
 
+import { EventReportTable } from "./event-report-table";
 import { OverviewCard } from "./overview-card";
 import { ErrorState } from "./states/error-state";
 import { TimelineTable } from "./timeline-table";
@@ -45,6 +46,7 @@ export async function LegacyDashboardSections({ context, client }: LegacyDashboa
       )}
       <TimelineTable context={context} state={reports.timeline} />
       <TopPagesTable context={context} state={reports.pages} />
+      <EventReportTable context={context} state={reports.events} />
     </>
   );
 }

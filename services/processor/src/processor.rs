@@ -50,6 +50,27 @@ impl Processor {
         Ok(Self { pool })
     }
 
+    pub async fn rebuild_custom_event_facts(&self, site_id: &str) -> Result<u64, ProcessorError> {
+        let mut transaction = self.pool.begin().await?;
+        lock_site(&mut transaction, site_id).await?;
+        sqlx::query("DELETE FROM custom_event_facts WHERE site_id = $1")
+            .bind(site_id)
+            .execute(&mut *transaction)
+            .await?;
+        let result = sqlx::query(
+            "INSERT INTO custom_event_facts (raw_event_id, site_id, event_id, occurred_at, received_at, event_name)
+             SELECT id, site_id, event_id, occurred_at, received_at, payload->>'event_name'
+             FROM raw_events
+             WHERE site_id = $1 AND event_type = 'custom_event' AND processed_at IS NOT NULL",
+        )
+        .bind(site_id)
+        .execute(&mut *transaction)
+        .await?;
+        queries::advance_custom_event_watermark(&mut transaction, site_id).await?;
+        transaction.commit().await?;
+        Ok(result.rows_affected())
+    }
+
     pub async fn process_one(&self) -> Result<bool, ProcessorError> {
         let mut transaction = self.pool.begin().await?;
         let Some(event) = queries::claim_next_event(&mut transaction).await? else {
@@ -560,6 +581,36 @@ async fn process_event(
     transaction: &mut Transaction<'_, Postgres>,
     event: &RawEvent,
 ) -> Result<(), ProcessorError> {
+    match event
+        .payload
+        .get("type")
+        .and_then(serde_json::Value::as_str)
+    {
+        Some("custom_event") => {
+            let event_name = event
+                .payload
+                .get("event_name")
+                .and_then(serde_json::Value::as_str)
+                .ok_or_else(|| ProcessorError::InvalidCustomEvent(event.event_id.clone()))?;
+            lock_site(transaction, &event.site_id).await?;
+            sqlx::query(
+                "INSERT INTO custom_event_facts (raw_event_id, site_id, event_id, occurred_at, received_at, event_name)
+                 VALUES ($1, $2, $3, $4, $5, $6)
+                 ON CONFLICT (site_id, event_id) DO NOTHING",
+            )
+            .bind(event.id).bind(&event.site_id).bind(&event.event_id)
+            .bind(event.occurred_at).bind(event.received_at).bind(event_name)
+            .execute(&mut **transaction).await?;
+            if !queries::mark_processed(transaction, event.id).await? {
+                return Err(ProcessorError::RawEventNotUpdated(event.id));
+            }
+            queries::advance_custom_event_watermark(transaction, &event.site_id).await?;
+            return Ok(());
+        }
+        Some("page_view") => {}
+        _ => return Err(ProcessorError::InvalidCustomEvent(event.event_id.clone())),
+    }
+
     let day = event.occurred_at.with_timezone(&Utc).date_naive();
     queries::upsert_daily(transaction, &event.site_id, day).await?;
     queries::upsert_route(transaction, &event.site_id, day, &event.path).await?;
@@ -619,10 +670,10 @@ async fn load_site_events(pool: &PgPool, site_id: &str) -> Result<Vec<RawEvent>,
             serde_json::Value,
         ),
     >(
-        "SELECT id, event_id, occurred_at, received_at, path,
+        "SELECT id, event_id, occurred_at, received_at, COALESCE(path, ''),
                 visitor_id::text, context_schema_version, payload
          FROM raw_events
-         WHERE site_id = $1 AND processed_at IS NOT NULL
+         WHERE site_id = $1 AND event_type = 'page_view' AND processed_at IS NOT NULL
          ORDER BY occurred_at, event_id",
     )
     .bind(site_id)

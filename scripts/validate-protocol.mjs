@@ -13,15 +13,18 @@ const fixtureRoot = resolve(protocolRoot, "events/fixtures");
 
 const readJson = async (path) => JSON.parse(await readFile(path, "utf8"));
 const pageViewSchema = await readJson(resolve(schemaRoot, "page-view-event.schema.json"));
+const customEventSchema = await readJson(resolve(schemaRoot, "custom-event.schema.json"));
 const eventBatchSchema = await readJson(resolve(schemaRoot, "event-batch.schema.json"));
 const contextSchema = await readJson(resolve(protocolRoot, "contexts/browser-context.schema.json"));
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 addFormats(ajv);
 
 ajv.addSchema(pageViewSchema);
+ajv.addSchema(customEventSchema);
 ajv.addSchema(contextSchema);
 const validators = {
   pageView: ajv.compile(pageViewSchema),
+  customEvent: ajv.compile(customEventSchema),
   batch: ajv.compile(eventBatchSchema),
 };
 
@@ -37,8 +40,13 @@ async function validateFixtures(directory, expectedValid) {
     const validator =
       filename.startsWith("event-batch") || filename === "oversized-batch.json"
         ? validators.batch
-        : validators.pageView;
-    const actualValid = validator(fixture);
+        : fixture.type === "custom_event"
+          ? validators.customEvent
+          : validators.pageView;
+    const schemaValid = validator(fixture);
+    const actualValid =
+      schemaValid &&
+      (fixture.type !== "custom_event" || validateCustomEventProperties(fixture.properties));
 
     if (actualValid !== expectedValid) {
       console.error(`Protocol validation mismatch: ${path}`);
@@ -61,4 +69,51 @@ if (failures > 0) {
   process.exitCode = 1;
 } else {
   console.log("Protocol fixtures validated successfully.");
+}
+
+function validateCustomEventProperties(properties) {
+  const prohibited = new Set([
+    "email",
+    "emailaddress",
+    "useremail",
+    "phone",
+    "phonenumber",
+    "name",
+    "firstname",
+    "lastname",
+    "fullname",
+    "address",
+    "homeaddress",
+    "streetaddress",
+    "ip",
+    "ipaddress",
+    "useragent",
+    "cookie",
+    "password",
+    "passwd",
+    "token",
+    "userid",
+    "useridentifier",
+  ]);
+  if (!properties || typeof properties !== "object" || Array.isArray(properties)) return false;
+  let keys = 0;
+  const visit = (value, depth) => {
+    if (value === null || typeof value === "boolean") return true;
+    if (typeof value === "number") return Number.isFinite(value);
+    if (typeof value === "string") return Buffer.byteLength(value, "utf8") <= 256;
+    if (Array.isArray(value))
+      return depth <= 4 && value.length <= 20 && value.every((item) => visit(item, depth + 1));
+    if (typeof value === "object") {
+      if (depth > 4) return false;
+      for (const [key, item] of Object.entries(value)) {
+        keys += 1;
+        if (keys > 32 || !/^[A-Za-z][A-Za-z0-9_.-]{0,63}$/.test(key)) return false;
+        if (prohibited.has(key.toLowerCase().replace(/[_.-]/g, ""))) return false;
+        if (!visit(item, depth + 1)) return false;
+      }
+      return true;
+    }
+    return false;
+  };
+  return visit(properties, 0) && Buffer.byteLength(JSON.stringify(properties), "utf8") <= 8192;
 }

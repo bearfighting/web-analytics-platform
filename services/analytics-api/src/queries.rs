@@ -3,8 +3,8 @@ use sqlx::PgPool;
 use sqlx::{Postgres, Transaction};
 
 use crate::models::{
-    ActiveGeneration, DateRange, DimensionRow, PageRow, TimelineRow, VisitorSessionRow,
-    WatermarkRow,
+    ActiveGeneration, DateRange, DimensionRow, EventDailyRow, PageRow, TimelineRow,
+    VisitorSessionRow, WatermarkRow,
 };
 
 pub(crate) async fn health(pool: &PgPool) -> Result<(), sqlx::Error> {
@@ -70,6 +70,74 @@ pub(crate) async fn pages(
     .bind(limit)
     .fetch_all(pool)
     .await
+}
+
+pub(crate) async fn custom_event_total(
+    pool: &PgPool,
+    site_id: &str,
+    range: DateRange,
+    event_name: Option<&str>,
+) -> Result<i64, sqlx::Error> {
+    sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*)::bigint FROM custom_event_facts
+         WHERE site_id = $1 AND occurred_at >= ($2::date::timestamp AT TIME ZONE 'UTC')
+           AND occurred_at < (($3::date + INTERVAL '1 day')::timestamp AT TIME ZONE 'UTC')
+           AND ($4::text IS NULL OR event_name = $4)",
+    )
+    .bind(site_id)
+    .bind(range.from)
+    .bind(range.to)
+    .bind(event_name)
+    .fetch_one(pool)
+    .await
+}
+
+pub(crate) async fn custom_event_daily_rows(
+    pool: &PgPool,
+    site_id: &str,
+    range: DateRange,
+    event_name: Option<&str>,
+    limit: i64,
+) -> Result<Vec<EventDailyRow>, sqlx::Error> {
+    sqlx::query_as::<_, EventDailyRow>(
+        "SELECT (occurred_at AT TIME ZONE 'UTC')::date AS day, event_name, COUNT(*)::bigint AS event_count
+         FROM custom_event_facts WHERE site_id = $1
+           AND occurred_at >= ($2::date::timestamp AT TIME ZONE 'UTC')
+           AND occurred_at < (($3::date + INTERVAL '1 day')::timestamp AT TIME ZONE 'UTC')
+           AND ($4::text IS NULL OR event_name = $4)
+         GROUP BY (occurred_at AT TIME ZONE 'UTC')::date, event_name ORDER BY event_name ASC, day ASC LIMIT $5",
+    )
+    .bind(site_id)
+    .bind(range.from)
+    .bind(range.to)
+    .bind(event_name)
+    .bind(limit)
+    .fetch_all(pool)
+    .await
+}
+
+pub(crate) async fn custom_event_watermark(
+    pool: &PgPool,
+    site_id: &str,
+) -> Result<Option<chrono::DateTime<chrono::Utc>>, sqlx::Error> {
+    sqlx::query_scalar::<_, Option<chrono::DateTime<chrono::Utc>>>(
+        "SELECT processed_received_watermark FROM analytics_watermarks
+         WHERE site_id = $1 AND generation_id IS NULL AND source_name = 'custom_events'",
+    )
+    .bind(site_id)
+    .fetch_optional(pool)
+    .await
+    .map(Option::flatten)
+}
+
+pub(crate) async fn custom_event_freshness(
+    pool: &PgPool,
+    site_id: &str,
+) -> Result<String, sqlx::Error> {
+    let pending = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(SELECT 1 FROM raw_events WHERE site_id = $1 AND event_type = 'custom_event' AND processed_at IS NULL)",
+    ).bind(site_id).fetch_one(pool).await?;
+    Ok(if pending { "stale" } else { "current" }.to_owned())
 }
 
 pub(crate) async fn analytics_enabled(

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://web-analytics-platform.dev/schemas/events/custom-event.schema.json",
+  "title": "Custom Event",
+  "type": "object",
+  "properties": {
+    "schema_version": { "const": 1 },
+    "event_id": { "type": "string", "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$" },
+    "type": { "const": "custom_event" },
+    "site_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$" },
+    "occurred_at": { "type": "integer", "minimum": 0 },
+    "event_name": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$" },
+    "properties": { "type": "object" },
+    "visitor_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "path": false,
+    "url": false,
+    "title": false,
+    "referrer": false,
+    "context": false,
+    "context_schema_version": false,
+    "session_id": false
+  },
+  "required": [
+    "schema_version",
+    "event_id",
+    "type",
+    "site_id",
+    "occurred_at",
+    "event_name",
+    "properties"
+  ],
+  "additionalProperties": false
+}

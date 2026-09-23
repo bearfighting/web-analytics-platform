@@ -1,4 +1,5 @@
 import {
+  createCustomEvent,
   createPageViewEvent,
   processPageViewEvent,
   type BeforeSend,
@@ -13,6 +14,8 @@ import {
   isCanonicalVisitorId,
   type VisitorIdStore,
 } from "./visitor-id";
+
+import { validateCustomEventProperties } from "@web-analytics/protocol-ts";
 
 import type { NavigationEvent, NavigationObserver } from "@web-analytics/observer-core";
 import type { AnalyticsEvent } from "@web-analytics/protocol-ts";
@@ -37,6 +40,10 @@ export interface AnalyticsOptions {
 export interface Analytics {
   observe(observer: NavigationObserver): () => void;
   pageview(): void;
+  event(
+    name: string,
+    properties?: Record<string, import("@web-analytics/protocol-ts").CustomEventProperty>,
+  ): void;
   flush(): Promise<void>;
   destroy(): void;
   setConsent(consent: AnalyticsConsent): void;
@@ -156,8 +163,13 @@ export function createAnalytics(options: AnalyticsOptions): Analytics {
         return;
       }
 
-      if (processed.schema_version !== event.schema_version) {
-        throw new TypeError("beforeSend must preserve schema_version");
+      if (
+        processed.schema_version !== event.schema_version ||
+        processed.type !== "page_view" ||
+        processed.event_id !== event.event_id ||
+        processed.site_id !== event.site_id
+      ) {
+        throw new TypeError("beforeSend must preserve schema_version, type, event_id, and site_id");
       }
 
       enqueue(processed);
@@ -196,6 +208,57 @@ export function createAnalytics(options: AnalyticsOptions): Analytics {
       const navigation = getCurrentNavigation(now);
       if (navigation) {
         handleNavigation(navigation, navigation.occurredAt);
+      }
+    },
+
+    event(name, properties = {}) {
+      if (destroyed || consent !== "granted") return;
+      ensureFlushTimer();
+      try {
+        const visitorId = visitorIdStore.read();
+        const event = createCustomEvent({
+          siteId: options.siteId,
+          name,
+          properties,
+          visitorId: visitorId && isCanonicalVisitorId(visitorId) ? visitorId : undefined,
+          createEventId: options.createEventId,
+          now,
+        });
+        const immutableFields = {
+          schema_version: event.schema_version,
+          type: event.type,
+          event_id: event.event_id,
+          site_id: event.site_id,
+        };
+        const processed = options.beforeSend ? options.beforeSend(event) : event;
+        if (processed === null) return;
+        if (
+          processed.schema_version !== immutableFields.schema_version ||
+          processed.type !== immutableFields.type ||
+          processed.event_id !== immutableFields.event_id ||
+          processed.site_id !== immutableFields.site_id
+        ) {
+          throw new TypeError(
+            "beforeSend must preserve schema_version, type, event_id, and site_id",
+          );
+        }
+        if (!/^[A-Za-z][A-Za-z0-9_.-]{0,63}$/.test(processed.event_name)) {
+          throw new TypeError("Custom event name must match the protocol format.");
+        }
+        const propertiesError = validateCustomEventProperties(processed.properties);
+        if (propertiesError) throw new TypeError(propertiesError);
+
+        // Queue a validated snapshot because a hook can retain or mutate its result.
+        const serialized = JSON.stringify(processed);
+        if (serialized === undefined) {
+          throw new TypeError("beforeSend must return a JSON-compatible Custom Event.");
+        }
+        const snapshot = JSON.parse(serialized) as typeof processed;
+        const snapshotPropertiesError = validateCustomEventProperties(snapshot.properties);
+        if (snapshotPropertiesError) throw new TypeError(snapshotPropertiesError);
+        enqueue(snapshot);
+      } catch (error) {
+        reportError(error);
       }
     },
 

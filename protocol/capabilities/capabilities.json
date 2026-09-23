@@ -162,22 +162,29 @@
     },
     {
       "id": "custom_events",
-      "status": "planned",
+      "status": "implemented",
       "depends_on": ["page_views"],
       "input": { "event_types": ["custom_event"], "required_fields": ["event_name", "properties"] },
       "raw_event": { "preserve": true, "fields": ["event_name", "properties"] },
       "processor": { "facts": ["custom_event_facts"], "rebuild": "incremental" },
-      "api": { "query_surface": "future_report", "routes": [] },
+      "api": {
+        "query_surface": "report",
+        "routes": ["GET /v1/sites/{site_id}/reports/{from}/{to}/events"]
+      },
       "dashboard": {
-        "surface": "future_report",
-        "disabled": "no custom event workflow is available",
-        "empty": "not implemented",
-        "error": "not implemented"
+        "surface": "report",
+        "disabled": "available without a feature flag",
+        "empty": "zero total and empty rows",
+        "error": "show the report error state"
       },
       "security": {
         "consent": "required",
         "origin_and_ingest_key": "enforced",
-        "privacy": ["reject sensitive properties", "bound property depth and size"]
+        "privacy": [
+          "reject sensitive property keys",
+          "keep properties out of facts and reports",
+          "bound property depth and size"
+        ]
       },
       "history": { "queryable_after_disabled": true, "backfill": "optional" }
     },

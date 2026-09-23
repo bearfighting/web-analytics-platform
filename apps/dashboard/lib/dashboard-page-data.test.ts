@@ -31,6 +31,16 @@ function createClient(): AnalyticsApiClient {
       to: context.dateRange.to,
       items: [],
     }),
+    events: vi.fn().mockResolvedValue({
+      site_id: context.siteId,
+      from: context.dateRange.from,
+      to: context.dateRange.to,
+      total: 0,
+      items: [],
+      data_as_of: null,
+      freshness_status: "current",
+      aggregation_version: 1,
+    }),
     visitors: vi.fn().mockResolvedValue({
       site_id: context.siteId,
       from: context.dateRange.from,

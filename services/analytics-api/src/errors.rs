@@ -24,6 +24,7 @@ pub(crate) enum RequestError {
     DateRangeTooLarge,
     InvalidLimit,
     InvalidDimension,
+    InvalidEventName,
 }
 
 impl IntoResponse for RequestError {
@@ -36,6 +37,10 @@ impl IntoResponse for RequestError {
             ),
             Self::InvalidLimit => ("invalid_limit", "limit must be between 1 and 100"),
             Self::InvalidDimension => ("invalid_dimension", "dimension is not supported"),
+            Self::InvalidEventName => (
+                "invalid_event_name",
+                "event_name must match the custom event name format",
+            ),
         };
         (
             StatusCode::BAD_REQUEST,

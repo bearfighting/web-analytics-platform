@@ -45,8 +45,9 @@ if (!validateManifest(manifest)) {
     "anonymous_visitors",
     "sessions",
     "dimensions",
+    "custom_events",
   ]);
-  const expectedPlanned = new Set(["custom_events", "web_vitals", "conversions", "funnels", "geo"]);
+  const expectedPlanned = new Set(["web_vitals", "conversions", "funnels", "geo"]);
   const errors = [];
 
   if (capabilities.size !== 10) errors.push("manifest must contain exactly 10 unique capabilities");

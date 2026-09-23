@@ -6,6 +6,7 @@ import type { AnalyticsApiClient } from "./analytics-api/client";
 import type {
   AnalyticsDimension,
   DimensionResponse,
+  EventsResponse,
   PagesResponse,
   TimelineResponse,
   VisitorSessionResponse,
@@ -19,6 +20,7 @@ export type DashboardReportState<T> =
   | { status: "disabled"; error: AnalyticsApiClientError };
 
 export interface DashboardReportsState {
+  events: DashboardReportState<EventsResponse>;
   timeline: DashboardReportState<TimelineResponse>;
   pages: DashboardReportState<PagesResponse>;
   visitors: DashboardReportState<VisitorSessionResponse>;
@@ -26,6 +28,7 @@ export interface DashboardReportsState {
 }
 
 export interface DashboardLegacyReportsState {
+  events: DashboardReportState<EventsResponse>;
   timeline: DashboardReportState<TimelineResponse>;
   pages: DashboardReportState<PagesResponse>;
 }
@@ -49,15 +52,17 @@ export async function loadDashboardLegacyReports(
     return {
       timeline: { status: "error", error },
       pages: { status: "error", error },
+      events: { status: "error", error },
     };
   }
 
-  const [timeline, pages] = await Promise.all([
+  const [timeline, pages, events] = await Promise.all([
     settle(() => client.timeline(context.siteId, context.dateRange.from, context.dateRange.to)),
     settle(() => client.pages(context.siteId, context.dateRange.from, context.dateRange.to)),
+    settle(() => client.events(context.siteId, context.dateRange.from, context.dateRange.to, 100)),
   ]);
 
-  return { timeline, pages };
+  return { timeline, pages, events };
 }
 
 export async function loadDashboardPhase6Reports(
@@ -109,14 +114,16 @@ export async function loadDashboardReports(
     return {
       timeline: { status: "error", error },
       pages: { status: "error", error },
+      events: { status: "error", error },
       visitors: { status: "error", error },
       dimension: { status: "error", error },
     };
   }
 
-  const [timeline, pages, visitors, dimensionReport] = await Promise.all([
+  const [timeline, pages, events, visitors, dimensionReport] = await Promise.all([
     settle(() => client.timeline(context.siteId, context.dateRange.from, context.dateRange.to)),
     settle(() => client.pages(context.siteId, context.dateRange.from, context.dateRange.to)),
+    settle(() => client.events(context.siteId, context.dateRange.from, context.dateRange.to, 100)),
     settlePhase6(() =>
       client.visitors(context.siteId, context.dateRange.from, context.dateRange.to),
     ),
@@ -125,7 +132,7 @@ export async function loadDashboardReports(
     ),
   ]);
 
-  return { timeline, pages, visitors, dimension: dimensionReport };
+  return { timeline, pages, events, visitors, dimension: dimensionReport };
 }
 
 function resolveClient(dependencies: DashboardApiDependencies): AnalyticsApiClient {

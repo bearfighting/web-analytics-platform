@@ -93,3 +93,20 @@ export interface AnalyticsApiErrorResponse {
     message: string;
   };
 }
+
+export interface EventDailyItem {
+  day: string;
+  event_name: string;
+  event_count: number;
+}
+
+export interface EventsResponse {
+  site_id: string;
+  from: string;
+  to: string;
+  total: number;
+  items: EventDailyItem[];
+  data_as_of: string | null;
+  freshness_status: FreshnessStatus;
+  aggregation_version: number;
+}

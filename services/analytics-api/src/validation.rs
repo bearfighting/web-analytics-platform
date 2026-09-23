@@ -71,6 +71,45 @@ pub(crate) fn parse_limit_query(query: Option<&str>) -> Result<i64, RequestError
     parse_limit(limit.as_deref())
 }
 
+pub(crate) fn parse_events_query(
+    query: Option<&str>,
+) -> Result<(i64, Option<String>), RequestError> {
+    let mut limit = None;
+    let mut event_name = None;
+    for (key, value) in form_urlencoded::parse(query.unwrap_or_default().as_bytes()) {
+        match key.as_ref() {
+            "limit" => {
+                if limit.is_some() {
+                    return Err(RequestError::InvalidLimit);
+                }
+                limit = Some(value.into_owned());
+            }
+            "event_name" => {
+                if event_name.is_some() {
+                    return Err(RequestError::InvalidEventName);
+                }
+                event_name = Some(value.into_owned());
+            }
+            _ => {}
+        }
+    }
+    let limit = parse_limit(limit.as_deref())?;
+    if event_name
+        .as_deref()
+        .is_some_and(|name| !valid_event_name(name))
+    {
+        return Err(RequestError::InvalidEventName);
+    }
+    Ok((limit, event_name))
+}
+
+fn valid_event_name(name: &str) -> bool {
+    let mut bytes = name.bytes();
+    bytes.next().is_some_and(|b| b.is_ascii_alphabetic())
+        && bytes.all(|b| b.is_ascii_alphanumeric() || b"_.-".contains(&b))
+        && name.len() <= 64
+}
+
 pub(crate) fn validate_dimension(value: &str) -> Result<(), RequestError> {
     DIMENSIONS
         .contains(&value)
@@ -80,7 +119,7 @@ pub(crate) fn validate_dimension(value: &str) -> Result<(), RequestError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_limit_query, parse_range};
+    use super::{parse_events_query, parse_limit_query, parse_range};
 
     #[test]
     fn validates_inclusive_366_day_range() {
@@ -93,6 +132,19 @@ mod tests {
         assert!(parse_range("2026-02-30", "2026-03-01").is_err());
         assert!(parse_range("2026-03-02", "2026-03-01").is_err());
         assert!(parse_range("2026-1-01", "2026-01-02").is_err());
+    }
+
+    #[test]
+    fn validates_custom_event_filter_and_limit() {
+        assert_eq!(parse_events_query(None).unwrap(), (20, None));
+        assert_eq!(
+            parse_events_query(Some("event_name=checkout_started&limit=1")).unwrap(),
+            (1, Some("checkout_started".to_owned()))
+        );
+        assert!(parse_events_query(Some("event_name=1invalid")).is_err());
+        assert!(parse_events_query(Some("event_name=bad%20name")).is_err());
+        assert!(parse_events_query(Some("event_name=a&event_name=b")).is_err());
+        assert!(parse_events_query(Some("limit=101")).is_err());
     }
 
     #[test]

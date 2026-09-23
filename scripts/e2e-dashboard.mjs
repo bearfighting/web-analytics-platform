@@ -341,6 +341,23 @@ async function assertSinglePageView(page) {
   );
 }
 
+async function assertCustomEvents(page) {
+  const data = await fixture("custom-events");
+  await prepareFixture(data);
+  await page.goto(rangeUrl("site_playground", "2026-09-18", "2026-09-18"));
+  const section = page.locator("section.card").filter({ hasText: "Custom Events" });
+  await section.getByText("2", { exact: true }).waitFor();
+  await expectReportRows(page, "Custom Events", [
+    "checkout_started 2026-09-18 1",
+    "purchase_completed 2026-09-18 1",
+  ]);
+  const content = await section.textContent();
+  assert(
+    !content.includes("amount") && !content.includes("email"),
+    "Custom event properties must not be displayed",
+  );
+}
+
 async function assertMultiPageNavigation(page) {
   const data = await fixture("multi-page-navigation");
   const rangeOverview = expectedApi(data, "range_overview");
@@ -384,8 +401,18 @@ async function assertEmptyRange(page) {
   await page.goto(rangeUrl("site_playground", "2026-09-01", "2026-09-01"));
   await expectMetric(page, "Selected range Page Views", rangeOverview.page_views);
   await page.getByText("No page view data is available for this selection.").nth(0).waitFor();
+  const emptyCopy = "No page view data is available for this selection.";
   assert(
-    (await page.getByText("No page view data is available for this selection.").count()) === 2,
+    (await page
+      .locator("section.card")
+      .filter({ hasText: "Timeline" })
+      .getByText(emptyCopy)
+      .count()) === 1 &&
+      (await page
+        .locator("section.card")
+        .filter({ hasText: "Top Pages" })
+        .getByText(emptyCopy)
+        .count()) === 1,
     "Expected empty states for Timeline and Top Pages",
   );
 }
@@ -505,6 +532,8 @@ try {
 
   await assertSinglePageView(page);
   console.log("PASS single-page-view dashboard");
+  await assertCustomEvents(page);
+  console.log("PASS custom-events dashboard");
   await assertMultiPageNavigation(page);
   console.log("PASS multi-page-navigation dashboard");
   await assertMultiSiteIsolation(page);
