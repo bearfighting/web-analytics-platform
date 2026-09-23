@@ -6,8 +6,12 @@
     "baseUrl": "../..",
     "paths": {
       "@web-analytics/router-adapters/next": ["packages/router-adapters/src/next.tsx"],
-      "@web-analytics/router-adapters/react-router": ["packages/router-adapters/src/react-router.tsx"],
-      "@web-analytics/router-adapters/tanstack-router": ["packages/router-adapters/src/tanstack-router.tsx"],
+      "@web-analytics/router-adapters/react-router": [
+        "packages/router-adapters/src/react-router.tsx"
+      ],
+      "@web-analytics/router-adapters/tanstack-router": [
+        "packages/router-adapters/src/tanstack-router.tsx"
+      ],
       "@web-analytics/analytics-browser": ["packages/analytics-browser/src/index.ts"],
       "@web-analytics/analytics-core": ["packages/analytics-core/src/index.ts"],
       "@web-analytics/observer-core": ["packages/observer-core/src/index.ts"],
