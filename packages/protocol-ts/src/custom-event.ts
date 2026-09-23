@@ -67,16 +67,19 @@ export function validateCustomEventProperties(properties: unknown): string | und
       if (Array.isArray(value)) {
         if (depth > 4) return "properties nesting exceeds 4 levels";
         if (value.length > 20) return "arrays may contain at most 20 items";
+
         return visitContainer(value, () => {
           for (const item of value) {
             const error = visit(item, depth + 1);
             if (error) return error;
           }
+
           return undefined;
         });
       }
       if (typeof value === "object" && value !== null) {
         if (depth > 4) return "properties nesting exceeds 4 levels";
+
         return visitContainer(value, () => {
           for (const [key, child] of Object.entries(value)) {
             keys += 1;
@@ -88,6 +91,7 @@ export function validateCustomEventProperties(properties: unknown): string | und
             const error = visit(child, depth + 1);
             if (error) return error;
           }
+
           return undefined;
         });
       }
@@ -98,6 +102,7 @@ export function validateCustomEventProperties(properties: unknown): string | und
     if (!root || typeof root !== "object" || Array.isArray(root)) {
       return "properties must be an object";
     }
+
     return visit(root, 0);
   };
 

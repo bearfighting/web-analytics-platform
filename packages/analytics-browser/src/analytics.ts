@@ -5,6 +5,14 @@ import {
   type BeforeSend,
   type Transport,
 } from "@web-analytics/analytics-core";
+import {
+  isWebVitalEvent,
+  validateCustomEventProperties,
+  webVitalRating,
+  WEB_VITAL_METRICS,
+} from "@web-analytics/protocol-ts";
+import { ulid } from "ulid";
+import { onCLS, onFCP, onINP, onLCP, onTTFB } from "web-vitals";
 
 import { createBrowserContextProvider, type BrowserContextProvider } from "./browser-context";
 import { getCurrentNavigation } from "./navigation";
@@ -14,15 +22,6 @@ import {
   isCanonicalVisitorId,
   type VisitorIdStore,
 } from "./visitor-id";
-
-import {
-  isWebVitalEvent,
-  validateCustomEventProperties,
-  webVitalRating,
-  WEB_VITAL_METRICS,
-} from "@web-analytics/protocol-ts";
-import { onCLS, onFCP, onINP, onLCP, onTTFB } from "web-vitals";
-import { ulid } from "ulid";
 
 import type { NavigationEvent, NavigationObserver } from "@web-analytics/observer-core";
 import type { AnalyticsEvent } from "@web-analytics/protocol-ts";
@@ -215,12 +214,14 @@ export function createAnalytics(options: AnalyticsOptions): Analytics {
       )
     ) {
       reportError(new TypeError("Unsupported Web Vital metric."));
+
       return;
     }
     const name = metric.name as import("@web-analytics/protocol-ts").WebVitalMetric;
     const rating = webVitalRating(name, metric.value);
     if (!rating) {
       reportError(new TypeError("Web Vital value is outside the protocol range."));
+
       return;
     }
     const navigationType =

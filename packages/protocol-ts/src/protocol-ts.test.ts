@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { isWebVitalEvent, webVitalRating } from "./index";
+
 import type { BrowserContextV1, EventBatch, PageViewEvent } from "./index";
 
 describe("protocol types", () => {

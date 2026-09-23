@@ -27,11 +27,13 @@ const THRESHOLDS: Record<WebVitalMetric, readonly [number, number, number]> = {
 export function webVitalRating(metric: WebVitalMetric, value: number): WebVitalRating | null {
   const [good, needs, max] = THRESHOLDS[metric];
   if (!Number.isFinite(value) || value < 0 || value > max) return null;
+
   return value <= good ? "good" : value <= needs ? "needs_improvement" : "poor";
 }
 export function isWebVitalEvent(value: unknown): value is WebVitalEvent {
   if (!value || typeof value !== "object") return false;
   const e = value as Partial<WebVitalEvent>;
+
   return (
     e.schema_version === 1 &&
     e.type === "web_vital" &&

@@ -50,6 +50,7 @@ export class FetchTransport implements Transport {
           `Keepalive byte budget exceeded; sent ${boundedEvents.length} event(s) and omitted ${omittedCount}.`,
         );
       }
+
       return;
     }
 
@@ -123,9 +124,10 @@ function errorMessage(value: unknown): string {
   return value instanceof Error ? value.message : String(value);
 }
 
-function fitKeepaliveBatch(
-  events: readonly AnalyticsEvent[],
-): { events: readonly AnalyticsEvent[]; omittedCount: number } {
+function fitKeepaliveBatch(events: readonly AnalyticsEvent[]): {
+  events: readonly AnalyticsEvent[];
+  omittedCount: number;
+} {
   const selected: AnalyticsEvent[] = [];
   for (let index = 0; index < events.length; index += 1) {
     const candidate = [...selected, events[index]];
@@ -135,5 +137,6 @@ function fitKeepaliveBatch(
     }
     selected.push(events[index]);
   }
+
   return { events: selected, omittedCount: 0 };
 }

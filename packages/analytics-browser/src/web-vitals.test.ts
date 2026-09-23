@@ -1,33 +1,37 @@
+import { MemoryNavigationObserver } from "@web-analytics/observer-core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createAnalytics } from "./analytics";
+
+import type { AnalyticsEvent } from "@web-analytics/protocol-ts";
+import type { Metric } from "web-vitals";
+
+type TestMetric = Pick<Metric, "name" | "value" | "navigationType">;
+
 const callbacks = vi.hoisted(() => ({
-  LCP: undefined as ((metric: any) => void) | undefined,
-  INP: undefined as ((metric: any) => void) | undefined,
-  CLS: undefined as ((metric: any) => void) | undefined,
-  FCP: undefined as ((metric: any) => void) | undefined,
-  TTFB: undefined as ((metric: any) => void) | undefined,
+  LCP: undefined as ((metric: TestMetric) => void) | undefined,
+  INP: undefined as ((metric: TestMetric) => void) | undefined,
+  CLS: undefined as ((metric: TestMetric) => void) | undefined,
+  FCP: undefined as ((metric: TestMetric) => void) | undefined,
+  TTFB: undefined as ((metric: TestMetric) => void) | undefined,
 }));
 vi.mock("web-vitals", () => ({
-  onLCP: (cb: (metric: any) => void) => {
+  onLCP: (cb: (metric: TestMetric) => void) => {
     callbacks.LCP = cb;
   },
-  onINP: (cb: (metric: any) => void) => {
+  onINP: (cb: (metric: TestMetric) => void) => {
     callbacks.INP = cb;
   },
-  onCLS: (cb: (metric: any) => void) => {
+  onCLS: (cb: (metric: TestMetric) => void) => {
     callbacks.CLS = cb;
   },
-  onFCP: (cb: (metric: any) => void) => {
+  onFCP: (cb: (metric: TestMetric) => void) => {
     callbacks.FCP = cb;
   },
-  onTTFB: (cb: (metric: any) => void) => {
+  onTTFB: (cb: (metric: TestMetric) => void) => {
     callbacks.TTFB = cb;
   },
 }));
-
-import { MemoryNavigationObserver } from "@web-analytics/observer-core";
-import { createAnalytics } from "./analytics";
-import type { AnalyticsEvent } from "@web-analytics/protocol-ts";
 
 describe("Browser Web Vitals collection", () => {
   beforeEach(() => {
@@ -188,6 +192,7 @@ describe("Browser Web Vitals collection", () => {
       onBufferChange: (size) => bufferSizes.push(size),
       beforeSend: (event) => {
         if (event.type !== "web_vital") return event;
+
         return {
           ...event,
           toJSON() {
