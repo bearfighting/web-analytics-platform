@@ -1,63 +1,56 @@
 import { createAnalytics } from "@web-analytics/analytics-browser";
 import type { Transport } from "@web-analytics/analytics-core";
+import type { Analytics } from "@web-analytics/analytics-browser";
+import { createPlaygroundTransport } from "@web-analytics/playground-support";
 import type { AnalyticsEvent } from "@web-analytics/protocol-ts";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { Link, Outlet, Route, Routes, useNavigate } from "react-router-dom";
 import { BrowserRouter } from "react-router-dom";
 
-import { ReactRouterNavigationBridge } from "@web-analytics/observer-react-router";
+import { RouterAnalyticsBridge } from "@web-analytics/router-adapters/react-router";
 import type { NavigationEvent } from "@web-analytics/observer-core";
 
 function Shell() {
   const [events, setEvents] = useState<NavigationEvent[]>([]);
   const [sentEvents, setSentEvents] = useState<AnalyticsEvent[]>([]);
-  const [analyticsReady, setAnalyticsReady] = useState(false);
-  const observer = useMemo(
-    () => ({
-      listeners: new Set<(event: NavigationEvent) => void>(),
-      emit(event: NavigationEvent) {
-        this.listeners.forEach((listener) => listener(event));
-      },
-      subscribe(listener: (event: NavigationEvent) => void) {
-        this.listeners.add(listener);
-        return () => this.listeners.delete(listener);
-      },
-    }),
-    [],
-  );
+  const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const transport = useMemo<Transport>(
-    () => ({
-      async sendBatch(batch) {
-        setSentEvents((current) => [...current, ...batch]);
-      },
-    }),
+    () =>
+      createPlaygroundTransport(
+        {
+          mode: import.meta.env.NEXT_PUBLIC_ANALYTICS_TRANSPORT,
+          endpoint: import.meta.env.NEXT_PUBLIC_ANALYTICS_ENDPOINT,
+          ingestKey: import.meta.env.NEXT_PUBLIC_ANALYTICS_INGEST_KEY,
+        },
+        (batch) => setSentEvents((current) => [...current, ...batch]),
+      ),
     [],
   );
   useEffect(() => {
-    const analytics = createAnalytics({
+    const instance = createAnalytics({
       consent: "granted",
-      siteId: "react-router-playground",
+      siteId: import.meta.env.NEXT_PUBLIC_ANALYTICS_SITE_ID || "react-router-playground",
       transport,
       bufferSize: 1,
     });
-    const unsubscribeAnalytics = analytics.observe(observer);
-    const unsubscribeLog = observer.subscribe((event) =>
-      setEvents((current) => [...current, event]),
-    );
-    setAnalyticsReady(true);
+    setAnalytics(instance);
     return () => {
-      setAnalyticsReady(false);
-      unsubscribeLog();
-      unsubscribeAnalytics();
-      analytics.destroy();
+      instance.destroy();
+      setAnalytics(null);
     };
-  }, [observer, transport]);
+  }, [transport]);
+  const handleNavigation = useCallback(
+    (event: NavigationEvent) => setEvents((current) => [...current, event]),
+    [],
+  );
 
   return (
     <>
-      {analyticsReady ? <ReactRouterNavigationBridge observer={observer} /> : null}
+      {analytics ? (
+        <RouterAnalyticsBridge analytics={analytics} onNavigation={handleNavigation} />
+      ) : null}
       <nav>
         <Link to="/">Home</Link> <Link to="/users/42">User</Link>{" "}
         <Link to="/search?q=router">Search</Link> <a href="#section">Hash</a>

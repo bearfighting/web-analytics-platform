@@ -1,12 +1,12 @@
 "use client";
 
 import { createAnalytics } from "@web-analytics/analytics-browser";
-import { MemoryNavigationObserver } from "@web-analytics/observer-core";
-import { NextNavigationBridge } from "@web-analytics/observer-next";
-import { FetchTransport } from "@web-analytics/transport";
+import { createPlaygroundTransport } from "@web-analytics/playground-support";
+import { RouterAnalyticsBridge } from "@web-analytics/router-adapters/next";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import type { Analytics } from "@web-analytics/analytics-browser";
 import type { Transport } from "@web-analytics/analytics-core";
 import type { NavigationEvent } from "@web-analytics/observer-core";
 import type { AnalyticsEvent } from "@web-analytics/protocol-ts";
@@ -17,14 +17,6 @@ type NavigationLogEntry = NavigationEvent & {
 };
 
 const MAX_LOG_ENTRIES = 20;
-
-class PlaygroundMockTransport implements Transport {
-  constructor(private readonly onSend: (events: readonly AnalyticsEvent[]) => void) {}
-
-  async sendBatch(events: readonly AnalyticsEvent[]) {
-    this.onSend(events);
-  }
-}
 
 interface WorkflowState {
   bufferedEvents: number;
@@ -52,8 +44,7 @@ export function NavigationDebugPanel() {
   const [currentUrl, setCurrentUrl] = useState("");
   const [logs, setLogs] = useState<NavigationLogEntry[]>([]);
   const [workflow, setWorkflow] = useState(initialWorkflowState);
-  const [analyticsReady, setAnalyticsReady] = useState(false);
-  const observer = useMemo(() => new MemoryNavigationObserver(), []);
+  const [analytics, setAnalytics] = useState<Analytics | null>(null);
 
   const handleNavigation = useCallback((event: NavigationEvent) => {
     setCurrentUrl(event.url);
@@ -98,7 +89,14 @@ export function NavigationDebugPanel() {
 
     let transport: Transport;
     try {
-      transport = createPlaygroundTransport(onSend);
+      transport = createPlaygroundTransport(
+        {
+          mode: process.env.NEXT_PUBLIC_ANALYTICS_TRANSPORT,
+          endpoint: process.env.NEXT_PUBLIC_ANALYTICS_ENDPOINT,
+          ingestKey: process.env.NEXT_PUBLIC_ANALYTICS_INGEST_KEY,
+        },
+        onSend,
+      );
     } catch (error) {
       setWorkflow((current) => ({
         ...current,
@@ -120,19 +118,18 @@ export function NavigationDebugPanel() {
           lastError: error instanceof Error ? error.message : String(error),
         })),
     });
-    const unsubscribe = analytics.observe(observer);
-    setAnalyticsReady(true);
+    setAnalytics(analytics);
 
     return () => {
-      unsubscribe();
       analytics.destroy();
+      setAnalytics(null);
     };
-  }, [observer]);
+  }, []);
 
   return (
     <>
-      {analyticsReady ? (
-        <NextNavigationBridge observer={observer} onNavigation={handleNavigation} />
+      {analytics ? (
+        <RouterAnalyticsBridge analytics={analytics} onNavigation={handleNavigation} />
       ) : null}
       <section aria-label="Navigation debug panel">
         <h2>Navigation Debug Panel</h2>
@@ -153,7 +150,7 @@ export function NavigationDebugPanel() {
         {logs.length === 0 ? (
           <p>No navigation recorded yet.</p>
         ) : (
-          <ol>
+          <ol data-testid="events">
             {logs.map((entry, index) => (
               <li key={`${entry.timestamp}-${index}`}>
                 <time dateTime={entry.timestamp}>{entry.timestamp}</time>{" "}
@@ -165,6 +162,7 @@ export function NavigationDebugPanel() {
             ))}
           </ol>
         )}
+        <output data-testid="events-json">{JSON.stringify(logs)}</output>
       </section>
       <section aria-label="SDK workflow debug panel">
         <h2>SDK Workflow Debug Panel</h2>
@@ -175,6 +173,7 @@ export function NavigationDebugPanel() {
           <dd>{workflow.sentBatches}</dd>
           <dt>Sent events</dt>
           <dd>{workflow.sentEvents}</dd>
+          <output data-testid="analytics-events">{workflow.sentEvents}</output>
           <dt>Last batch size</dt>
           <dd>{workflow.lastBatchSize ?? "(none)"}</dd>
           <dt>Last sent at</dt>
@@ -185,35 +184,4 @@ export function NavigationDebugPanel() {
       </section>
     </>
   );
-}
-
-function createPlaygroundTransport(onSend: (events: readonly AnalyticsEvent[]) => void): Transport {
-  const mode = process.env.NEXT_PUBLIC_ANALYTICS_TRANSPORT || "mock";
-  if (mode === "mock") {
-    return new PlaygroundMockTransport(onSend);
-  }
-
-  if (mode !== "fetch") {
-    throw new Error(`Unsupported analytics transport '${mode}'`);
-  }
-
-  const endpoint = process.env.NEXT_PUBLIC_ANALYTICS_ENDPOINT;
-  const ingestKey = process.env.NEXT_PUBLIC_ANALYTICS_INGEST_KEY;
-  if (!endpoint || !ingestKey) {
-    throw new Error(
-      "FetchTransport requires NEXT_PUBLIC_ANALYTICS_ENDPOINT and NEXT_PUBLIC_ANALYTICS_INGEST_KEY",
-    );
-  }
-  if (!process.env.NEXT_PUBLIC_ANALYTICS_SITE_ID) {
-    throw new Error("FetchTransport requires NEXT_PUBLIC_ANALYTICS_SITE_ID");
-  }
-
-  const fetchTransport = new FetchTransport({ endpoint, ingestKey });
-
-  return {
-    async sendBatch(events) {
-      await fetchTransport.sendBatch(events);
-      onSend(events);
-    },
-  };
 }

@@ -12,7 +12,7 @@
 - [Capability Contract](../protocol/capabilities/capabilities.json)：10 个 Analytics capability 的机器可读边界和依赖定义。
 - [Protocol Consolidation Refactoring](protocol-consolidation-refactor.md)：上线前合并开发阶段 V1/V2 协议的目标、步骤和验收标准。
 - [Feature Modularization Design](feature-modularization-design.md)：协议收敛之后的观测能力模块化、动态配置和实现优先顺序；具体 MVP 阶段以 Phase 7/8 文档为准。
-- [Router Playground](router-playground.md)：Next.js App Router 实验场和导航场景。
+- [Router Playground](router-playground.md)：Next.js、React Router 和 TanStack Router playground 及统一 facade 接入。
 - [Phase 1 Design](phase-1-design.md)：Client SDK、Observer 和 Transport 的实施计划。
 - [Phase 2 Design](phase-2-design.md)：Backend Collector、HTTP 契约和基础安全控制的历史实施计划。
 - [Phase 3 Design](phase-3-design.md)：PostgreSQL Storage、Page View Processor 和 Analytics API 的实施计划。

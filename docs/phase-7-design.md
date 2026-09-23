@@ -1,6 +1,6 @@
 # Phase 7 Design — MVP 功能完善
 
-> Status: PR0 Protocol Consolidation, PR1 Internal Capability Boundaries, PR2 Router Adapters and PR2.1 Contract Namespace Consolidation complete; PR2.5 design frozen
+> Status: PR0 Protocol Consolidation, PR1 Internal Capability Boundaries, PR2 Router Adapters, PR2.1 Contract Namespace Consolidation and PR2.5 Unified Router Entry complete
 > Scope: Protocol consolidation、内部 capability 边界和 MVP 产品能力
 
 ## 1. 阶段目标
@@ -131,7 +131,7 @@ Event Protocol 的 V1/V2 内容已经合并。PR2.1 已统一当前 contract nam
 - `pnpm protocol:validate`、`pnpm analytics:contract:validate`、`pnpm http:validate`、`pnpm check`、`pnpm test`、integration 和相关 E2E 通过；
 - PR2.5、PR3 和 PR4 不需要再为 protocol path 或版本命名做额外兼容处理。
 
-## 7. PR2.5 — Unified Router Entry and Development Profiles
+## 7. PR2.5 — Unified Router Entry and Development Profiles（已完成）
 
 ### 目标和边界
 
@@ -150,6 +150,10 @@ PR2.5 不实现自动 Router 检测、多个 Router 同时挂载、Router 配置
 新增一个 facade package，例如 `@web-analytics/router-adapters`。Facade 只负责统一入口和 re-export，不重新实现观察逻辑：
 
 ```text
+@web-analytics/router-adapters/next
+  → @web-analytics/observer-next
+  → @web-analytics/observer-core
+
 @web-analytics/router-adapters/react-router
   → @web-analytics/observer-react-router
   → @web-analytics/observer-core
@@ -159,7 +163,7 @@ PR2.5 不实现自动 Router 检测、多个 Router 同时挂载、Router 配置
   → @web-analytics/observer-core
 ```
 
-两个 subpath 都导出同名组件 `RouterAnalyticsBridge`，使应用代码只需替换 Router 集成的 import：
+三个 subpath 都导出同名组件 `RouterAnalyticsBridge`，使应用代码只需替换 Router 集成的 import：
 
 ```tsx
 import { createAnalytics } from "@web-analytics/analytics-browser";
@@ -177,6 +181,12 @@ function App() {
 }
 ```
 
+Next.js App Router 只替换为：
+
+```tsx
+import { RouterAnalyticsBridge } from "@web-analytics/router-adapters/next";
+```
+
 TanStack Router 只替换为：
 
 ```tsx
@@ -187,7 +197,7 @@ Facade 必须满足：
 
 - 统一 `RouterAnalyticsBridge` 命名和 props 语义；
 - 内部把 `analytics` 绑定到现有 `NavigationEventSink`，不要求用户手动创建 observer 或调用 `analytics.observe()`；
-- 不在 package root 静态引入两个 Router，保持按 subpath tree-shaking；
+- 不在 package root 静态引入三个 Router，保持按 subpath tree-shaking；
 - 对应 Router 依赖继续作为 subpath package 的 peer dependency；
 - Provider 约束保持明确：Bridge 必须位于对应 Router Provider 内；
 - 仍支持多个消费者，但不允许同一个页面隐式挂载多个不同 Router Adapter。
@@ -244,7 +254,7 @@ docker compose \
 
 ### 验证和完成标准
 
-必须覆盖 facade export contract、两个 Router 的统一 Bridge integration、开发参数校验、三个 Compose profile config、指定 playground 启动和错误参数 E2E，以及 initial、push、replace、pop、search、hash-only 行为不变。现有 `pnpm e2e:router-adapters`、Analytics E2E 和 Dashboard E2E 必须无回归。
+必须覆盖 facade export contract、三个 Router 的统一 Bridge integration、开发参数校验、三个 Compose profile config、指定 playground 启动和错误参数 E2E，以及 initial、push、replace、pop、search、hash-only 行为不变。现有 `pnpm e2e:router-adapters`、Analytics E2E 和 Dashboard E2E 必须无回归。
 
 PR2.5 完成后，新用户只需要选择对应 Router 的一个 facade import 并挂载统一命名的 Bridge；开发者只需要修改一个 `--router` 参数即可切换 playground，不需要手动修改 Compose service、SDK observer wiring 或 transport 代码。
 

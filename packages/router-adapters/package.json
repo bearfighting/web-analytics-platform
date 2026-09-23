@@ -1,0 +1,73 @@
+{
+  "name": "@web-analytics/router-adapters",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./next": {
+      "types": "./dist/next.d.ts",
+      "import": "./dist/next.js"
+    },
+    "./react-router": {
+      "types": "./dist/react-router.d.ts",
+      "import": "./dist/react-router.js"
+    },
+    "./tanstack-router": {
+      "types": "./dist/tanstack-router.d.ts",
+      "import": "./dist/tanstack-router.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b tsconfig.json",
+    "typecheck": "tsc -p tsconfig.typecheck.json",
+    "test": "vitest run",
+    "format": "prettier --write src package.json tsconfig.json tsconfig.typecheck.json vitest.config.ts README.md",
+    "format:check": "prettier --check src package.json tsconfig.json tsconfig.typecheck.json vitest.config.ts README.md"
+  },
+  "dependencies": {
+    "@web-analytics/analytics-browser": "workspace:*",
+    "@web-analytics/observer-core": "workspace:*",
+    "@web-analytics/observer-next": "workspace:*",
+    "@web-analytics/observer-react-router": "workspace:*",
+    "@web-analytics/observer-tanstack-router": "workspace:*"
+  },
+  "peerDependencies": {
+    "@tanstack/react-router": ">=1 <2",
+    "next": ">=15 <16",
+    "react": ">=19 <20",
+    "react-dom": ">=19 <20",
+    "react-router-dom": ">=7 <8"
+  },
+  "peerDependenciesMeta": {
+    "@tanstack/react-router": {
+      "optional": true
+    },
+    "next": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    },
+    "react-router-dom": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@tanstack/react-router": "^1.120.0",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "jsdom": "^26.0.0",
+    "next": "15.5.24",
+    "prettier": "^3.9.7",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-router-dom": "^7.0.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.9"
+  }
+}

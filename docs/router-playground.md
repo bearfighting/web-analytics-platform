@@ -1,6 +1,6 @@
-# Next.js Router Playground
+# Router Playgrounds
 
-Router Playground 是 Phase 0 的行为实验场，并在 Phase 1 PR2 中接入 `observer-next`，用于观察 Next.js App Router 导航。它不生成正式 Analytics Event，也不实现 Session 或统计逻辑。
+Router Playgrounds 是各 Router Adapter 的真实浏览器测试目标。每个 playground 使用统一的 `RouterAnalyticsBridge` facade、MockTransport 和 Navigation Debug Panel；不实现 Session 或统计逻辑。
 
 ## 启动
 
@@ -8,15 +8,32 @@ Host 模式：
 
 ```bash
 pnpm dev
+pnpm dev --router react
+pnpm dev --router tanstack
 ```
 
 Docker 模式：
 
 ```bash
 pnpm docker:dev
+pnpm docker:dev --router react
+pnpm docker:dev --router tanstack
 ```
 
-两种方式都通过 `http://localhost:3000` 访问。
+Next、React Router、TanStack Router 的默认端口分别为 `3000`、`3101`、`3102`。
+
+统一 facade 的 import 取决于 Router：
+
+```tsx
+import { RouterAnalyticsBridge } from "@web-analytics/router-adapters/react-router";
+
+<BrowserRouter>
+  <RouterAnalyticsBridge analytics={analytics} />
+  <Routes />
+</BrowserRouter>;
+```
+
+Bridge 必须位于对应 Router Provider 内，一个页面只挂载一个 Router Bridge；不会自动探测 Router。底层 `observer-next`、`observer-react-router` 和 `observer-tanstack-router` 仍可独立使用。
 
 ## 页面场景
 
@@ -51,7 +68,7 @@ Debug Panel 显示：
 
 日志包含 timestamp、previous URL、current URL、navigation type 和 path。标准 NavigationEvent 可观察 initial、pathname、search params、push、replace、back / forward；hash 仍由 Playground 单独显示。
 
-Hash 变化只作为原始 Router 行为记录，不进入 `observer-next` 的标准 NavigationEvent，也不决定是否计为未来的 Page View。
+Hash 变化只作为原始 Router 行为记录，不进入标准 NavigationEvent，也不决定是否计为未来的 Page View。
 
 ## 扩展场景
 

@@ -1,6 +1,6 @@
 # Docker Development
 
-The repository provides development containers for the Next.js Router Playground, Collector, Processor, Analytics API and Dashboard.
+The repository provides development containers for the Next.js, React Router and TanStack Router playgrounds, Collector, Processor, Analytics API and Dashboard.
 
 From the repository root:
 
@@ -13,6 +13,20 @@ The Playground is available at:
 ```text
 http://localhost:3000
 ```
+
+Select another playground with:
+
+```bash
+pnpm docker:dev --router react       # http://localhost:3101
+pnpm docker:dev --router tanstack    # http://localhost:3102
+pnpm docker:dev --router react --with-backend
+```
+
+The wrapper accepts only `next`, `react` and `tanstack`. `--with-backend`
+enables the `backend`, `storage` and `processing` profiles in addition to the
+selected playground profile. Ports can be overridden with
+`PLAYGROUND_NEXT_PORT`, `PLAYGROUND_REACT_PORT` and
+`PLAYGROUND_TANSTACK_PORT`.
 
 The Playground uses `MockTransport` by default. To send browser events to the Collector, set these values in `.env`:
 
@@ -94,4 +108,4 @@ cargo run -p collector -- key generate --site site_example --environment product
 
 Add the output to the matching `ingest_keys` entry and configure the Website Origin in `allowed_origins` before sending local events. CORS preflight returns `204`; rate-limited requests return `429` with `Retry-After: 60`.
 
-The Compose setup mounts the source directory and keeps dependency/build directories in named volumes. The Collector image caches Cargo registry dependencies during image build and keeps `/workspace/target` in a named volume for incremental compilation. The container builds `observer-next`, `analytics-browser`, and `transport` before starting the Playground. Changes to Playground source hot reload; after changing package source, restart the container so the package can be rebuilt. PostgreSQL, BeaconTransport, retries, and durable storage are intentionally not part of this integration PR.
+The Compose setup mounts the source directory and keeps dependency/build directories in named volumes. The Collector image caches Cargo registry dependencies during image build and keeps `/workspace/target` in a named volume for incremental compilation. The Router playground image builds the workspace packages before starting the Playground, including the selected adapter facade, `analytics-browser`, transport, and shared playground support. Changes to Playground source hot reload; after changing package source, restart the container so the package can be rebuilt. PostgreSQL, BeaconTransport, retries, and durable storage are intentionally not part of this integration PR.

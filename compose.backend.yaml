@@ -1,5 +1,13 @@
 services:
-  router-playground:
+  playground-next:
+    depends_on:
+      collector:
+        condition: service_healthy
+  playground-react:
+    depends_on:
+      collector:
+        condition: service_healthy
+  playground-tanstack:
     depends_on:
       collector:
         condition: service_healthy

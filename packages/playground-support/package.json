@@ -1,0 +1,26 @@
+{
+  "name": "@web-analytics/playground-support",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b tsconfig.json",
+    "typecheck": "tsc -p tsconfig.typecheck.json",
+    "test": "node -e \"console.log('Playground transport coverage is provided by e2e:router-adapters')\"",
+    "format": "prettier --write src package.json tsconfig.json tsconfig.typecheck.json",
+    "format:check": "prettier --check src package.json tsconfig.json tsconfig.typecheck.json"
+  },
+  "dependencies": {
+    "@web-analytics/analytics-core": "workspace:*",
+    "@web-analytics/protocol-ts": "workspace:*",
+    "@web-analytics/transport": "workspace:*"
+  }
+}

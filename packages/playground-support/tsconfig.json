@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "paths": {
+      "@web-analytics/analytics-core": ["../analytics-core/src/index.ts"],
+      "@web-analytics/protocol-ts": ["../protocol-ts/src/index.ts"],
+      "@web-analytics/transport": ["../transport/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"],
+  "references": [
+    { "path": "../analytics-core" },
+    { "path": "../protocol-ts" },
+    { "path": "../transport" }
+  ]
+}

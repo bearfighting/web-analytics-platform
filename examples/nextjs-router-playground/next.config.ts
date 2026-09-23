@@ -5,7 +5,8 @@ const nextConfig: NextConfig = {
     "@web-analytics/analytics-browser",
     "@web-analytics/analytics-core",
     "@web-analytics/observer-core",
-    "@web-analytics/observer-next",
+    "@web-analytics/playground-support",
+    "@web-analytics/router-adapters",
     "@web-analytics/protocol-ts",
   ],
 };

@@ -6,18 +6,20 @@ const root = new URL("..", import.meta.url).pathname;
 const servers = [];
 
 try {
-  const react = start("@web-analytics/react-router-playground", 15101);
-  const tanstack = start("@web-analytics/tanstack-router-playground", 15102);
-  await Promise.all([waitForServer(15101), waitForServer(15102)]);
+  const next = start("@web-analytics/nextjs-router-playground", 15100, "next");
+  const react = start("@web-analytics/react-router-playground", 15101, "vite");
+  const tanstack = start("@web-analytics/tanstack-router-playground", 15102, "vite");
+  await Promise.all([waitForServer(15100), waitForServer(15101), waitForServer(15102)]);
 
   const browser = await chromium.launch({ headless: true });
   try {
+    await checkNext(browser, "http://127.0.0.1:15100");
     await checkRouter(browser, "http://127.0.0.1:15101", "React Router User");
     await checkRouter(browser, "http://127.0.0.1:15102", "TanStack Router User");
   } finally {
     await browser.close();
   }
-  console.log("Router adapter E2E passed for React Router and TanStack Router.");
+  console.log("Router adapter E2E passed for Next, React Router and TanStack Router.");
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
@@ -25,17 +27,44 @@ try {
   for (const server of servers) server.kill("SIGTERM");
 }
 
-function start(filter, port) {
-  const server = spawn(
+async function checkNext(browser, baseUrl) {
+  const page = await browser.newPage();
+  await page.goto(baseUrl);
+  const events = page.getByTestId("events-json");
+  await expect(events).toContainText('"navigationType":"initial"');
+
+  await page.getByRole("link", { name: "About via Link" }).click();
+  await expect(page).toHaveURL(/\/about$/);
+  await expect(events).toContainText('"navigationType":"push"');
+
+  await page.getByRole("button", { name: "router.replace()" }).click();
+  await expect(page).toHaveURL(/\/about\?source=replace$/);
+  await expect(events).toContainText('"navigationType":"replace"');
+
+  const beforeHash = JSON.parse((await events.textContent()) ?? "[]").length;
+  await page.getByRole("link", { name: "Update hash" }).click();
+  await page.waitForTimeout(100);
+  const afterHash = JSON.parse((await events.textContent()) ?? "[]").length;
+  if (afterHash !== beforeHash) {
+    throw new Error(`Hash-only navigation emitted an event for ${baseUrl}`);
+  }
+
+  await expect(page.getByTestId("analytics-events")).not.toHaveText("0");
+  await page.close();
+}
+
+function start(filter, port, kind) {
+  const hostFlag = kind === "next" ? "--hostname" : "--host";
+  const child = spawn(
     "pnpm",
-    ["--filter", filter, "dev", "--host", "127.0.0.1", "--port", String(port)],
+    ["--filter", filter, "dev", hostFlag, "127.0.0.1", "--port", String(port)],
     {
       cwd: root,
       stdio: "ignore",
     },
   );
-  servers.push(server);
-  return server;
+  servers.push(child);
+  return child;
 }
 
 async function waitForServer(port) {

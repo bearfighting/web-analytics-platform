@@ -62,6 +62,9 @@ jobs:
           --profile dashboard
           config --quiet
 
+      - name: Run Router Compose smoke test
+        run: pnpm e2e:router-compose
+
   integration:
     runs-on: ubuntu-latest
     env:

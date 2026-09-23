@@ -30,7 +30,7 @@ http://localhost:3000
 
 当前 Playground 提供常见 Next.js App Router 导航场景和 Navigation Debug Panel。
 
-Phase 7 PR2.5 计划提供统一的 Router playground 选择入口。目标用法如下；当前实现前请继续使用默认的 Next playground：
+Phase 7 PR2.5 提供统一的 Router playground 选择入口。默认仍启动 Next playground：
 
 ```bash
 pnpm dev --router next
@@ -45,7 +45,7 @@ pnpm docker:dev --router react
 pnpm docker:dev --router tanstack --with-backend
 ```
 
-这些参数化命令属于 Phase 7 PR2.5 设计，尚未改变当前默认启动行为。
+`next`、`react` 和 `tanstack` 是固定 allowlist；未知 Router 参数会返回错误，不会启动 playground。
 
 可测试页面：
 
@@ -244,7 +244,7 @@ pnpm build
 pnpm docker:dev
 ```
 
-该命令会构建并启动 Router Playground，访问地址仍为：
+该命令默认构建并启动 Next Router Playground，访问地址为：
 
 ```text
 http://localhost:3000
@@ -284,7 +284,15 @@ docker compose \
 pnpm docker:backend
 ```
 
-默认的 `pnpm docker:dev` 不加载 backend override，仍然只启动使用 MockTransport 的 Playground。
+切换 Docker playground：
+
+```bash
+pnpm docker:dev --router react
+pnpm docker:dev --router tanstack
+pnpm docker:dev --router react --with-backend
+```
+
+默认端口分别为 Next `3000`、React Router `3101` 和 TanStack Router `3102`，可通过 `PLAYGROUND_NEXT_PORT`、`PLAYGROUND_REACT_PORT` 和 `PLAYGROUND_TANSTACK_PORT` 覆盖。`--with-backend` 会启用 `backend`、`storage` 和 `processing` profiles；默认的 `pnpm docker:dev` 只启动选中的 MockTransport playground。
 
 Collector 默认监听 `http://localhost:4001`，健康检查地址为：
 

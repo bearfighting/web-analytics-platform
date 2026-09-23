@@ -12,13 +12,15 @@
     "moduleResolution": "Bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "types": ["vite/client"],
     "noEmit": true,
     "jsx": "react-jsx",
     "paths": {
       "@web-analytics/observer-core": ["../../packages/observer-core/src/index.ts"],
-      "@web-analytics/observer-tanstack-router": [
-        "../../packages/observer-tanstack-router/src/index.ts"
-      ]
+      "@web-analytics/router-adapters/tanstack-router": [
+        "../../packages/router-adapters/src/tanstack-router.tsx"
+      ],
+      "@web-analytics/playground-support": ["../../packages/playground-support/src/index.ts"]
     }
   },
   "include": ["src"]

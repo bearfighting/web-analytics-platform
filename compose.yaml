@@ -1,20 +1,64 @@
 services:
-  router-playground:
+  playground-next:
+    profiles: ["playground-next"]
     build:
       context: .
-      dockerfile: docker/nextjs-router-playground.Dockerfile
+      dockerfile: docker/router-playground.Dockerfile
     environment:
       NEXT_PUBLIC_ANALYTICS_TRANSPORT: ${NEXT_PUBLIC_ANALYTICS_TRANSPORT:-mock}
       NEXT_PUBLIC_ANALYTICS_ENDPOINT: ${NEXT_PUBLIC_ANALYTICS_ENDPOINT:-}
       NEXT_PUBLIC_ANALYTICS_INGEST_KEY: ${NEXT_PUBLIC_ANALYTICS_INGEST_KEY:-}
       NEXT_PUBLIC_ANALYTICS_SITE_ID: ${NEXT_PUBLIC_ANALYTICS_SITE_ID:-site_playground}
     ports:
-      - "3000:3000"
+      - "${PLAYGROUND_NEXT_PORT:-3000}:3000"
+    command: >-
+      sh -c "pnpm install --frozen-lockfile && pnpm build:packages && pnpm --filter
+      @web-analytics/nextjs-router-playground dev --hostname 0.0.0.0"
     volumes:
       - .:/workspace
       - root_node_modules:/workspace/node_modules
-      - playground_node_modules:/workspace/examples/nextjs-router-playground/node_modules
+      - playground_next_node_modules:/workspace/examples/nextjs-router-playground/node_modules
       - playground_next:/workspace/examples/nextjs-router-playground/.next
+
+  playground-react:
+    profiles: ["playground-react"]
+    build:
+      context: .
+      dockerfile: docker/router-playground.Dockerfile
+    environment:
+      NEXT_PUBLIC_ANALYTICS_TRANSPORT: ${NEXT_PUBLIC_ANALYTICS_TRANSPORT:-mock}
+      NEXT_PUBLIC_ANALYTICS_ENDPOINT: ${NEXT_PUBLIC_ANALYTICS_ENDPOINT:-}
+      NEXT_PUBLIC_ANALYTICS_INGEST_KEY: ${NEXT_PUBLIC_ANALYTICS_INGEST_KEY:-}
+      NEXT_PUBLIC_ANALYTICS_SITE_ID: ${NEXT_PUBLIC_ANALYTICS_SITE_ID:-site_playground}
+    ports:
+      - "${PLAYGROUND_REACT_PORT:-3101}:3101"
+    command: >-
+      sh -c "pnpm install --frozen-lockfile && pnpm build:packages && pnpm --filter
+      @web-analytics/react-router-playground dev --host 0.0.0.0 --port 3101"
+    volumes:
+      - .:/workspace
+      - root_node_modules:/workspace/node_modules
+      - playground_react_node_modules:/workspace/examples/react-router-playground/node_modules
+
+  playground-tanstack:
+    profiles: ["playground-tanstack"]
+    build:
+      context: .
+      dockerfile: docker/router-playground.Dockerfile
+    environment:
+      NEXT_PUBLIC_ANALYTICS_TRANSPORT: ${NEXT_PUBLIC_ANALYTICS_TRANSPORT:-mock}
+      NEXT_PUBLIC_ANALYTICS_ENDPOINT: ${NEXT_PUBLIC_ANALYTICS_ENDPOINT:-}
+      NEXT_PUBLIC_ANALYTICS_INGEST_KEY: ${NEXT_PUBLIC_ANALYTICS_INGEST_KEY:-}
+      NEXT_PUBLIC_ANALYTICS_SITE_ID: ${NEXT_PUBLIC_ANALYTICS_SITE_ID:-site_playground}
+    ports:
+      - "${PLAYGROUND_TANSTACK_PORT:-3102}:3102"
+    command: >-
+      sh -c "pnpm install --frozen-lockfile && pnpm build:packages && pnpm --filter
+      @web-analytics/tanstack-router-playground dev --host 0.0.0.0 --port 3102"
+    volumes:
+      - .:/workspace
+      - root_node_modules:/workspace/node_modules
+      - playground_tanstack_node_modules:/workspace/examples/tanstack-router-playground/node_modules
 
   collector:
     profiles: ["backend"]
@@ -132,7 +176,9 @@ services:
 
 volumes:
   root_node_modules:
-  playground_node_modules:
+  playground_next_node_modules:
+  playground_react_node_modules:
+  playground_tanstack_node_modules:
   playground_next:
   collector_target:
   postgres_data:

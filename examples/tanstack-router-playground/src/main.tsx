@@ -1,7 +1,9 @@
 import { createAnalytics } from "@web-analytics/analytics-browser";
 import type { Transport } from "@web-analytics/analytics-core";
+import type { Analytics } from "@web-analytics/analytics-browser";
+import { createPlaygroundTransport } from "@web-analytics/playground-support";
 import type { AnalyticsEvent } from "@web-analytics/protocol-ts";
-import { StrictMode, useEffect, useMemo, useState } from "react";
+import { StrictMode, useCallback, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Link,
@@ -14,56 +16,47 @@ import {
 } from "@tanstack/react-router";
 
 import type { NavigationEvent } from "@web-analytics/observer-core";
-import { TanStackRouterNavigationBridge } from "@web-analytics/observer-tanstack-router";
+import { RouterAnalyticsBridge } from "@web-analytics/router-adapters/tanstack-router";
 
 function Shell() {
   const [events, setEvents] = useState<NavigationEvent[]>([]);
   const [sentEvents, setSentEvents] = useState<AnalyticsEvent[]>([]);
-  const [analyticsReady, setAnalyticsReady] = useState(false);
-  const observer = useMemo(
-    () => ({
-      listeners: new Set<(event: NavigationEvent) => void>(),
-      emit(event: NavigationEvent) {
-        this.listeners.forEach((listener) => listener(event));
-      },
-      subscribe(listener: (event: NavigationEvent) => void) {
-        this.listeners.add(listener);
-        return () => this.listeners.delete(listener);
-      },
-    }),
-    [],
-  );
+  const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const transport = useMemo<Transport>(
-    () => ({
-      async sendBatch(batch) {
-        setSentEvents((current) => [...current, ...batch]);
-      },
-    }),
+    () =>
+      createPlaygroundTransport(
+        {
+          mode: import.meta.env.NEXT_PUBLIC_ANALYTICS_TRANSPORT,
+          endpoint: import.meta.env.NEXT_PUBLIC_ANALYTICS_ENDPOINT,
+          ingestKey: import.meta.env.NEXT_PUBLIC_ANALYTICS_INGEST_KEY,
+        },
+        (batch) => setSentEvents((current) => [...current, ...batch]),
+      ),
     [],
   );
   useEffect(() => {
-    const analytics = createAnalytics({
+    const instance = createAnalytics({
       consent: "granted",
-      siteId: "tanstack-router-playground",
+      siteId: import.meta.env.NEXT_PUBLIC_ANALYTICS_SITE_ID || "tanstack-router-playground",
       transport,
       bufferSize: 1,
     });
-    const unsubscribeAnalytics = analytics.observe(observer);
-    const unsubscribeLog = observer.subscribe((event) =>
-      setEvents((current) => [...current, event]),
-    );
-    setAnalyticsReady(true);
+    setAnalytics(instance);
     return () => {
-      setAnalyticsReady(false);
-      unsubscribeLog();
-      unsubscribeAnalytics();
-      analytics.destroy();
+      instance.destroy();
+      setAnalytics(null);
     };
-  }, [observer, transport]);
+  }, [transport]);
+  const handleNavigation = useCallback(
+    (event: NavigationEvent) => setEvents((current) => [...current, event]),
+    [],
+  );
 
   return (
     <>
-      {analyticsReady ? <TanStackRouterNavigationBridge observer={observer} /> : null}
+      {analytics ? (
+        <RouterAnalyticsBridge analytics={analytics} onNavigation={handleNavigation} />
+      ) : null}
       <nav>
         <Link to="/">Home</Link>{" "}
         <Link to="/users/$id" params={{ id: "42" }}>

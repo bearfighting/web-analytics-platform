@@ -10,16 +10,16 @@
 
 项目状态：
 
-- 已完成：Phase 0–6 核心 Analytics workflow、Phase 7 PR0 Protocol Consolidation、PR1 Internal Capability Boundaries 和 CI 回归基线；
-- 进行中：Phase 7 PR2/PR3/PR4 MVP capability implementation；
+- 已完成：Phase 0–6 核心 Analytics workflow、Phase 7 PR0 Protocol Consolidation、PR1 Internal Capability Boundaries、PR 2.1 Contract Namespace Consolidation 和 PR 2.5 Unified Router Entry；
+- 进行中：Phase 7 其余 MVP capability implementation；
 - 计划中：Phase 8 用户配置和最后的 Release Readiness。
 
 当前已具备：
 
 - Monorepo 基础结构
 - Event Protocol V1 Schema、examples、fixtures 和自动校验
-- Next.js App Router Router Playground
-- `observer-core`、`observer-next` 和 `analytics-core` 的基础实现
+- Next.js、React Router 和 TanStack Router Playground，以及统一的 `@web-analytics/router-adapters` facade
+- `observer-core`、三个 Router observer adapter 和 `analytics-core` 的基础实现
 - `analytics-browser` 的事件 runtime、Browser Context 和可注入 Transport contract
 - `analytics-browser` 的有界内存 Buffer、定时 flush 和本地 Mock workflow
 - `@web-analytics/transport` 的 FetchTransport 和 Collector 错误映射

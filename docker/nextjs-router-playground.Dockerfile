@@ -4,10 +4,14 @@ WORKDIR /workspace
 
 RUN npm install --global pnpm@11.5.2
 
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY packages/protocol-ts/package.json packages/protocol-ts/package.json
 COPY packages/observer-core/package.json packages/observer-core/package.json
 COPY packages/observer-next/package.json packages/observer-next/package.json
+COPY packages/observer-react-router/package.json packages/observer-react-router/package.json
+COPY packages/observer-tanstack-router/package.json packages/observer-tanstack-router/package.json
+COPY packages/router-adapters/package.json packages/router-adapters/package.json
+COPY packages/playground-support/package.json packages/playground-support/package.json
 COPY packages/analytics-core/package.json packages/analytics-core/package.json
 COPY packages/analytics-browser/package.json packages/analytics-browser/package.json
 COPY packages/transport/package.json packages/transport/package.json
@@ -24,4 +28,4 @@ ENV CI=true
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "pnpm install --frozen-lockfile && pnpm --filter @web-analytics/observer-next --filter @web-analytics/analytics-browser --filter @web-analytics/transport build && exec pnpm --filter @web-analytics/nextjs-router-playground dev --hostname 0.0.0.0"]
+CMD ["sh", "-c", "pnpm install --frozen-lockfile && pnpm build:packages && exec pnpm --filter @web-analytics/nextjs-router-playground dev --hostname 0.0.0.0"]
