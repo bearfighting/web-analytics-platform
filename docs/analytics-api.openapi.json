@@ -410,22 +410,13 @@
                             "type": "string"
                           },
                           "metric": {
-                            "enum": [
-                              "LCP",
-                              "INP",
-                              "CLS",
-                              "FCP",
-                              "TTFB"
-                            ]
+                            "enum": ["LCP", "INP", "CLS", "FCP", "TTFB"]
                           },
                           "count": {
                             "type": "integer"
                           },
                           "p75": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "good_count": {
                             "type": "integer"
@@ -437,28 +428,17 @@
                             "type": "integer"
                           },
                           "status": {
-                            "enum": [
-                              "available",
-                              "insufficient_data"
-                            ]
+                            "enum": ["available", "insufficient_data"]
                           }
                         }
                       }
                     },
                     "data_as_of": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
+                      "type": ["string", "null"],
                       "format": "date-time"
                     },
                     "freshness_status": {
-                      "enum": [
-                        "current",
-                        "stale",
-                        "rebuilding",
-                        "failed"
-                      ]
+                      "enum": ["current", "stale", "rebuilding", "failed"]
                     },
                     "aggregation_version": {
                       "type": "integer"
@@ -621,9 +601,7 @@
     "schemas": {
       "HealthResponse": {
         "type": "object",
-        "required": [
-          "status"
-        ],
+        "required": ["status"],
         "properties": {
           "status": {
             "const": "ok"
@@ -633,9 +611,7 @@
       },
       "ErrorResponse": {
         "type": "object",
-        "required": [
-          "error"
-        ],
+        "required": ["error"],
         "properties": {
           "error": {
             "$ref": "#/components/schemas/ErrorBody"
@@ -645,10 +621,7 @@
       },
       "ErrorBody": {
         "type": "object",
-        "required": [
-          "code",
-          "message"
-        ],
+        "required": ["code", "message"],
         "properties": {
           "code": {
             "type": "string",
@@ -670,10 +643,7 @@
       },
       "OverviewResponse": {
         "type": "object",
-        "required": [
-          "site_id",
-          "page_views"
-        ],
+        "required": ["site_id", "page_views"],
         "properties": {
           "site_id": {
             "type": "string"
@@ -687,12 +657,7 @@
       },
       "RangeOverviewResponse": {
         "type": "object",
-        "required": [
-          "site_id",
-          "from",
-          "to",
-          "page_views"
-        ],
+        "required": ["site_id", "from", "to", "page_views"],
         "properties": {
           "site_id": {
             "type": "string"
@@ -714,10 +679,7 @@
       },
       "TimelineItem": {
         "type": "object",
-        "required": [
-          "day",
-          "page_views"
-        ],
+        "required": ["day", "page_views"],
         "properties": {
           "day": {
             "type": "string",
@@ -732,12 +694,7 @@
       },
       "TimelineResponse": {
         "type": "object",
-        "required": [
-          "site_id",
-          "from",
-          "to",
-          "items"
-        ],
+        "required": ["site_id", "from", "to", "items"],
         "properties": {
           "site_id": {
             "type": "string"
@@ -761,10 +718,7 @@
       },
       "PageItem": {
         "type": "object",
-        "required": [
-          "path",
-          "page_views"
-        ],
+        "required": ["path", "page_views"],
         "properties": {
           "path": {
             "type": "string",
@@ -779,12 +733,7 @@
       },
       "PagesResponse": {
         "type": "object",
-        "required": [
-          "site_id",
-          "from",
-          "to",
-          "items"
-        ],
+        "required": ["site_id", "from", "to", "items"],
         "properties": {
           "site_id": {
             "type": "string"
@@ -824,12 +773,7 @@
       },
       "VisitorSessionItem": {
         "type": "object",
-        "required": [
-          "day",
-          "page_views",
-          "unique_visitors",
-          "sessions"
-        ],
+        "required": ["day", "page_views", "unique_visitors", "sessions"],
         "properties": {
           "day": {
             "type": "string",
@@ -895,21 +839,13 @@
             }
           },
           "data_as_of": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "format": "date-time",
             "description": "Common processed_received watermark across all aggregates contributing to the response; null when there is no matching input."
           },
           "freshness_status": {
             "type": "string",
-            "enum": [
-              "current",
-              "stale",
-              "rebuilding",
-              "failed"
-            ]
+            "enum": ["current", "stale", "rebuilding", "failed"]
           },
           "aggregation_version": {
             "type": "integer",
@@ -920,12 +856,7 @@
       },
       "DimensionItem": {
         "type": "object",
-        "required": [
-          "value",
-          "page_views",
-          "unique_visitors",
-          "sessions"
-        ],
+        "required": ["value", "page_views", "unique_visitors", "sessions"],
         "properties": {
           "value": {
             "type": "string",
@@ -980,21 +911,13 @@
             }
           },
           "data_as_of": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "format": "date-time",
             "description": "Common processed_received watermark across all aggregates contributing to the response; null when there is no matching input."
           },
           "freshness_status": {
             "type": "string",
-            "enum": [
-              "current",
-              "stale",
-              "rebuilding",
-              "failed"
-            ]
+            "enum": ["current", "stale", "rebuilding", "failed"]
           },
           "aggregation_version": {
             "type": "integer",
@@ -1005,11 +928,7 @@
       },
       "EventDailyItem": {
         "type": "object",
-        "required": [
-          "day",
-          "event_name",
-          "event_count"
-        ],
+        "required": ["day", "event_name", "event_count"],
         "properties": {
           "day": {
             "type": "string",
@@ -1063,20 +982,12 @@
             }
           },
           "data_as_of": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "format": "date-time"
           },
           "freshness_status": {
             "type": "string",
-            "enum": [
-              "current",
-              "stale",
-              "rebuilding",
-              "failed"
-            ]
+            "enum": ["current", "stale", "rebuilding", "failed"]
           },
           "aggregation_version": {
             "type": "integer",
