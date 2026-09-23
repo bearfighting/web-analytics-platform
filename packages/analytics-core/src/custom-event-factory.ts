@@ -25,10 +25,7 @@ export function createCustomEvent(options: CustomEventFactoryOptions): CustomEve
     if (serializedProperties === undefined) {
       throw new TypeError("Custom event properties must contain JSON values.");
     }
-    propertiesSnapshot = JSON.parse(serializedProperties) as Record<
-      string,
-      CustomEventProperty
-    >;
+    propertiesSnapshot = JSON.parse(serializedProperties) as Record<string, CustomEventProperty>;
   } catch {
     throw new TypeError("Custom event properties must contain JSON values.");
   }

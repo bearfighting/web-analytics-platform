@@ -53,7 +53,12 @@ async function validateFixtures(directory, expectedValid) {
       schemaValid &&
       (fixture.type !== "custom_event" || validateCustomEventProperties(fixture.properties)) &&
       (fixture.type !== "web_vital" || validateWebVital(fixture)) &&
-      (!Array.isArray(fixture.events) || fixture.events.every((event) => event.site_id === fixture.events[0]?.site_id && (event.type !== "web_vital" || validateWebVital(event))));
+      (!Array.isArray(fixture.events) ||
+        fixture.events.every(
+          (event) =>
+            event.site_id === fixture.events[0]?.site_id &&
+            (event.type !== "web_vital" || validateWebVital(event)),
+        ));
 
     if (actualValid !== expectedValid) {
       console.error(`Protocol validation mismatch: ${path}`);
@@ -125,4 +130,27 @@ function validateCustomEventProperties(properties) {
   return visit(properties, 0) && Buffer.byteLength(JSON.stringify(properties), "utf8") <= 8192;
 }
 
-function validateWebVital(event){const thresholds={LCP:[2500,4000,600000],INP:[200,500,600000],CLS:[0.1,0.25,100],FCP:[1800,3000,600000],TTFB:[800,1800,600000]}[event.metric];if(!thresholds||!Number.isFinite(event.value)||event.value<0||event.value>thresholds[2])return false;return event.rating===(event.value<=thresholds[0]?"good":event.value<=thresholds[1]?"needs_improvement":"poor")}
+function validateWebVital(event) {
+  const thresholds = {
+    LCP: [2500, 4000, 600000],
+    INP: [200, 500, 600000],
+    CLS: [0.1, 0.25, 100],
+    FCP: [1800, 3000, 600000],
+    TTFB: [800, 1800, 600000],
+  }[event.metric];
+  if (
+    !thresholds ||
+    !Number.isFinite(event.value) ||
+    event.value < 0 ||
+    event.value > thresholds[2]
+  )
+    return false;
+  return (
+    event.rating ===
+    (event.value <= thresholds[0]
+      ? "good"
+      : event.value <= thresholds[1]
+        ? "needs_improvement"
+        : "poor")
+  );
+}

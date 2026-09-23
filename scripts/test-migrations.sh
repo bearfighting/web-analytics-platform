@@ -74,7 +74,9 @@ DECLARE
     20260922000500,
     20260922000600,
     20260922000700,
-    20260922000800
+    20260922000800,
+    20260923000900,
+    20260923001000
   ];
   actual_migrations bigint[];
 BEGIN
@@ -105,7 +107,9 @@ DECLARE
     'visitor_daily',
     'session_daily',
     'dimension_event_facts',
-    'dimension_daily'
+    'dimension_daily',
+    'custom_event_facts',
+    'web_vital_facts'
   ];
   missing_table text;
 BEGIN

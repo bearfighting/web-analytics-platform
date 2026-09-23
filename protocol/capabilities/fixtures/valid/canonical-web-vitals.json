@@ -1,13 +1,9 @@
 {
   "id": "web_vitals",
   "status": "implemented",
-  "depends_on": [
-    "page_views"
-  ],
+  "depends_on": ["page_views"],
   "input": {
-    "event_types": [
-      "web_vital"
-    ],
+    "event_types": ["web_vital"],
     "required_fields": [
       "page_view_event_id",
       "path",
@@ -33,16 +29,12 @@
     ]
   },
   "processor": {
-    "facts": [
-      "web_vital_facts"
-    ],
+    "facts": ["web_vital_facts"],
     "rebuild": "incremental"
   },
   "api": {
     "query_surface": "report",
-    "routes": [
-      "GET /v1/sites/{site_id}/reports/{from}/{to}/web-vitals"
-    ]
+    "routes": ["GET /v1/sites/{site_id}/reports/{from}/{to}/web-vitals"]
   },
   "dashboard": {
     "surface": "report",

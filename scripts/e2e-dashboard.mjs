@@ -380,7 +380,9 @@ async function assertBrowserWebVitalsCollection(browser) {
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
     const pageViews = new Map(
-      payloads.filter((event) => event.type === "page_view").map((event) => [event.event_id, event]),
+      payloads
+        .filter((event) => event.type === "page_view")
+        .map((event) => [event.event_id, event]),
     );
     const vitals = payloads.filter((event) => event.type === "web_vital");
     assert(vitals.length > 0, "The browser did not deliver any Web Vital events to the Collector");
@@ -398,27 +400,77 @@ async function assertBrowserWebVitalsCollection(browser) {
         `Unexpected browser metric ${event.metric}`,
       );
       const max = event.metric === "CLS" ? 100 : 600_000;
-      assert(Number.isFinite(event.value) && event.value >= 0 && event.value <= max, "Browser Web Vital value is outside protocol bounds");
-      assert(Number.isInteger(event.report_sequence) && event.report_sequence > 0, "Browser Web Vital report sequence is invalid");
+      assert(
+        Number.isFinite(event.value) && event.value >= 0 && event.value <= max,
+        "Browser Web Vital value is outside protocol bounds",
+      );
+      assert(
+        Number.isInteger(event.report_sequence) && event.report_sequence > 0,
+        "Browser Web Vital report sequence is invalid",
+      );
     }
 
-    runCompose([
-      "run", "--rm", "--no-deps", "--build", "--entrypoint", "cargo", "processor",
-      "run", "-p", "processor", "--", "--once",
-    ], { capture: true });
-    const factCount = Number(runCompose([
-      "exec", "-T", "postgres", "psql", "-U", "analytics", "-d", "analytics", "-At",
-      "-v", "ON_ERROR_STOP=1", "-c",
-      "SELECT COUNT(*) FROM web_vital_facts WHERE site_id='site_playground'",
-    ], { capture: true }).trim());
+    runCompose(
+      [
+        "run",
+        "--rm",
+        "--no-deps",
+        "--build",
+        "--entrypoint",
+        "cargo",
+        "processor",
+        "run",
+        "-p",
+        "processor",
+        "--",
+        "--once",
+      ],
+      { capture: true },
+    );
+    const factCount = Number(
+      runCompose(
+        [
+          "exec",
+          "-T",
+          "postgres",
+          "psql",
+          "-U",
+          "analytics",
+          "-d",
+          "analytics",
+          "-At",
+          "-v",
+          "ON_ERROR_STOP=1",
+          "-c",
+          "SELECT COUNT(*) FROM web_vital_facts WHERE site_id='site_playground'",
+        ],
+        { capture: true },
+      ).trim(),
+    );
     assert(factCount > 0, "Processor did not persist browser Web Vital facts");
 
-    const reportDate = new Date(pageViews.get(vitals[0].page_view_event_id).occurred_at).toISOString().slice(0, 10);
-    const reportResponse = await fetch(`${analyticsUrl}/v1/sites/site_playground/reports/${reportDate}/${reportDate}/web-vitals`);
+    const reportDate = new Date(pageViews.get(vitals[0].page_view_event_id).occurred_at)
+      .toISOString()
+      .slice(0, 10);
+    const reportResponse = await fetch(
+      `${analyticsUrl}/v1/sites/site_playground/reports/${reportDate}/${reportDate}/web-vitals`,
+    );
     const report = await reportResponse.json();
-    assert(reportResponse.status === 200, `Analytics API rejected browser Web Vitals: ${JSON.stringify(report)}`);
-    assert(report.total === factCount && report.items.reduce((sum, item) => sum + item.count, 0) === factCount, "Analytics API total does not include all processed browser samples");
-    assert(vitals.every((event) => report.items.some((item) => item.path === event.path && item.metric === event.metric)), "Analytics API is missing browser generated Web Vital metrics");
+    assert(
+      reportResponse.status === 200,
+      `Analytics API rejected browser Web Vitals: ${JSON.stringify(report)}`,
+    );
+    assert(
+      report.total === factCount &&
+        report.items.reduce((sum, item) => sum + item.count, 0) === factCount,
+      "Analytics API total does not include all processed browser samples",
+    );
+    assert(
+      vitals.every((event) =>
+        report.items.some((item) => item.path === event.path && item.metric === event.metric),
+      ),
+      "Analytics API is missing browser generated Web Vital metrics",
+    );
   } finally {
     await context.close();
   }
@@ -427,8 +479,18 @@ async function assertBrowserWebVitalsCollection(browser) {
 function readBrowserEvents() {
   const output = runCompose(
     [
-      "exec", "-T", "postgres", "psql", "-U", "analytics", "-d", "analytics", "-At",
-      "-v", "ON_ERROR_STOP=1", "-c",
+      "exec",
+      "-T",
+      "postgres",
+      "psql",
+      "-U",
+      "analytics",
+      "-d",
+      "analytics",
+      "-At",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-c",
       "SELECT COALESCE(json_agg(payload ORDER BY id), '[]'::json)::text FROM raw_events WHERE site_id='site_playground'",
     ],
     { capture: true },
@@ -638,7 +700,14 @@ try {
   assertDashboardIsolation();
   const composeOutput = runCompose(
     [
-      "up", "-d", "--build", "--wait", "postgres", "collector", "analytics-api", "dashboard",
+      "up",
+      "-d",
+      "--build",
+      "--wait",
+      "postgres",
+      "collector",
+      "analytics-api",
+      "dashboard",
       "playground-next",
     ],
     {
@@ -715,7 +784,16 @@ try {
     await writeFile(
       path.join(artifactDirectory, "service-logs.txt"),
       runCompose(
-        ["logs", "--no-color", "dashboard", "playground-next", "collector", "analytics-api", "postgres", "db-migrate"],
+        [
+          "logs",
+          "--no-color",
+          "dashboard",
+          "playground-next",
+          "collector",
+          "analytics-api",
+          "postgres",
+          "db-migrate",
+        ],
         {
           capture: true,
           allowFailure: true,
