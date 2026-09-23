@@ -12,6 +12,7 @@ pub struct EventBatch {
 pub enum AnalyticsEvent {
     PageView(PageViewEvent),
     Custom(CustomEvent),
+    WebVital(WebVitalEvent),
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -45,6 +46,29 @@ pub struct CustomEvent {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct WebVitalEvent {
+    pub schema_version: u8,
+    pub event_id: String,
+    #[serde(rename = "type")]
+    pub event_type: WebVitalEventType,
+    pub site_id: String,
+    pub occurred_at: i64,
+    pub page_view_event_id: String,
+    pub path: String,
+    pub page_view_occurred_at: i64,
+    pub metric: String,
+    pub value: f64,
+    pub rating: String,
+    pub navigation_type: String,
+    pub report_sequence: i64,
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WebVitalEventType {
+    WebVital,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EventType {
     PageView,
@@ -61,66 +85,73 @@ impl AnalyticsEvent {
         match self {
             Self::PageView(e) => &e.site_id,
             Self::Custom(e) => &e.site_id,
+            Self::WebVital(e) => &e.site_id,
         }
     }
     pub fn event_id(&self) -> &str {
         match self {
             Self::PageView(e) => &e.event_id,
             Self::Custom(e) => &e.event_id,
+            Self::WebVital(e) => &e.event_id,
         }
     }
     pub fn occurred_at(&self) -> i64 {
         match self {
             Self::PageView(e) => e.occurred_at,
             Self::Custom(e) => e.occurred_at,
+            Self::WebVital(e) => e.occurred_at,
         }
     }
     pub fn schema_version(&self) -> u8 {
         match self {
             Self::PageView(e) => e.schema_version,
             Self::Custom(e) => e.schema_version,
+            Self::WebVital(e) => e.schema_version,
         }
     }
     pub fn visitor_id(&self) -> Option<&str> {
         match self {
             Self::PageView(e) => e.visitor_id.as_deref(),
             Self::Custom(e) => e.visitor_id.as_deref(),
+            Self::WebVital(_) => None,
         }
     }
     pub fn event_type_name(&self) -> &'static str {
         match self {
             Self::PageView(_) => "page_view",
             Self::Custom(_) => "custom_event",
+            Self::WebVital(_) => "web_vital",
         }
     }
     pub fn path(&self) -> Option<&str> {
         match self {
             Self::PageView(e) => Some(&e.path),
             Self::Custom(_) => None,
+            Self::WebVital(e) => Some(&e.path),
         }
     }
     pub fn url(&self) -> Option<&str> {
         match self {
             Self::PageView(e) => e.url.as_deref(),
-            Self::Custom(_) => None,
+            Self::Custom(_) | Self::WebVital(_) => None,
         }
     }
     pub fn title(&self) -> Option<&str> {
         match self {
             Self::PageView(e) => e.title.as_deref(),
-            Self::Custom(_) => None,
+            Self::Custom(_) | Self::WebVital(_) => None,
         }
     }
     pub fn referrer(&self) -> Option<&str> {
         match self {
             Self::PageView(e) => e.referrer.as_deref(),
-            Self::Custom(_) => None,
+            Self::Custom(_) | Self::WebVital(_) => None,
         }
     }
     pub fn context_schema_version(&self) -> Option<i32> {
         match self {
             Self::PageView(e) => e.context_schema_version,
-            Self::Custom(_) => None,
+            Self::Custom(_) | Self::WebVital(_) => None,
         }
     }
     pub fn is_page_view(&self) -> bool {

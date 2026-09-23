@@ -258,3 +258,36 @@ describe("FetchTransport", () => {
     },
   );
 });
+
+describe("FetchTransport keepalive", () => {
+  it("keeps the total in-flight keepalive request below the shared browser budget", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(responseFor(acceptedFixture));
+    const transport = new FetchTransport({
+      endpoint,
+      ingestKey: "keepalive-key",
+      fetch: fetchMock,
+    });
+    const largeEvents = Array.from(
+      { length: 12 },
+      (_, i) =>
+        ({
+          schema_version: 1,
+          event_id: `01J0000000000000000000000${i}`,
+          type: "custom_event",
+          site_id: "site_example",
+          occurred_at: 1760000000000,
+          event_name: "large",
+          properties: { payload: "x".repeat(6000) },
+        }) as unknown as AnalyticsEvent,
+    );
+    await expect(transport.sendBatch(largeEvents, { keepalive: true })).rejects.toThrow(
+      "Keepalive byte budget exceeded",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init?.keepalive).toBe(true);
+    expect((init?.headers as Record<string, string>)["X-Ingest-Key"]).toBe("keepalive-key");
+    expect(new TextEncoder().encode(String(init?.body)).byteLength).toBeLessThanOrEqual(60_000);
+    expect(JSON.parse(String(init?.body)).events.length).toBeLessThan(largeEvents.length);
+  });
+});

@@ -10,6 +10,7 @@ import type {
   PagesResponse,
   TimelineResponse,
   VisitorSessionResponse,
+  WebVitalsResponse,
 } from "./analytics-api/types";
 import type { DashboardApiDependencies } from "./dashboard-dependencies";
 import type { DashboardOverviewContext } from "./dashboard-overview";
@@ -21,6 +22,7 @@ export type DashboardReportState<T> =
 
 export interface DashboardReportsState {
   events: DashboardReportState<EventsResponse>;
+  webVitals: DashboardReportState<WebVitalsResponse>;
   timeline: DashboardReportState<TimelineResponse>;
   pages: DashboardReportState<PagesResponse>;
   visitors: DashboardReportState<VisitorSessionResponse>;
@@ -29,6 +31,7 @@ export interface DashboardReportsState {
 
 export interface DashboardLegacyReportsState {
   events: DashboardReportState<EventsResponse>;
+  webVitals: DashboardReportState<WebVitalsResponse>;
   timeline: DashboardReportState<TimelineResponse>;
   pages: DashboardReportState<PagesResponse>;
 }
@@ -53,16 +56,18 @@ export async function loadDashboardLegacyReports(
       timeline: { status: "error", error },
       pages: { status: "error", error },
       events: { status: "error", error },
+      webVitals: { status: "error", error },
     };
   }
 
-  const [timeline, pages, events] = await Promise.all([
+  const [timeline, pages, events, webVitals] = await Promise.all([
     settle(() => client.timeline(context.siteId, context.dateRange.from, context.dateRange.to)),
     settle(() => client.pages(context.siteId, context.dateRange.from, context.dateRange.to)),
     settle(() => client.events(context.siteId, context.dateRange.from, context.dateRange.to, 100)),
+    settle(() => loadWebVitals(client, context)),
   ]);
 
-  return { timeline, pages, events };
+  return { timeline, pages, events, webVitals };
 }
 
 export async function loadDashboardPhase6Reports(
@@ -115,15 +120,17 @@ export async function loadDashboardReports(
       timeline: { status: "error", error },
       pages: { status: "error", error },
       events: { status: "error", error },
+      webVitals: { status: "error", error },
       visitors: { status: "error", error },
       dimension: { status: "error", error },
     };
   }
 
-  const [timeline, pages, events, visitors, dimensionReport] = await Promise.all([
+  const [timeline, pages, events, webVitals, visitors, dimensionReport] = await Promise.all([
     settle(() => client.timeline(context.siteId, context.dateRange.from, context.dateRange.to)),
     settle(() => client.pages(context.siteId, context.dateRange.from, context.dateRange.to)),
     settle(() => client.events(context.siteId, context.dateRange.from, context.dateRange.to, 100)),
+    settle(() => loadWebVitals(client, context)),
     settlePhase6(() =>
       client.visitors(context.siteId, context.dateRange.from, context.dateRange.to),
     ),
@@ -132,7 +139,25 @@ export async function loadDashboardReports(
     ),
   ]);
 
-  return { timeline, pages, events, visitors, dimension: dimensionReport };
+  return { timeline, pages, events, webVitals, visitors, dimension: dimensionReport };
+}
+
+function loadWebVitals(
+  client: AnalyticsApiClient,
+  context: DashboardOverviewContext,
+): Promise<WebVitalsResponse> {
+  return client.webVitals
+    ? client.webVitals(context.siteId, context.dateRange.from, context.dateRange.to)
+    : Promise.resolve({
+        site_id: context.siteId,
+        from: context.dateRange.from,
+        to: context.dateRange.to,
+        total: 0,
+        items: [],
+        data_as_of: null,
+        freshness_status: "current",
+        aggregation_version: 1,
+      });
 }
 
 function resolveClient(dependencies: DashboardApiDependencies): AnalyticsApiClient {

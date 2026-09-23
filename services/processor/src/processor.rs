@@ -71,6 +71,19 @@ impl Processor {
         Ok(result.rows_affected())
     }
 
+    pub async fn rebuild_web_vital_facts(&self, site_id: &str) -> Result<u64, ProcessorError> {
+        let mut tx = self.pool.begin().await?;
+        lock_site(&mut tx, site_id).await?;
+        sqlx::query("DELETE FROM web_vital_facts WHERE site_id=$1")
+            .bind(site_id)
+            .execute(&mut *tx)
+            .await?;
+        let result = sqlx::query("INSERT INTO web_vital_facts(raw_event_id,site_id,page_view_event_id,page_view_occurred_at,path,metric,value,rating,navigation_type,report_sequence) SELECT DISTINCT ON (w.site_id,w.payload->>'page_view_event_id',w.payload->>'metric') w.id,w.site_id,w.payload->>'page_view_event_id',to_timestamp((w.payload->>'page_view_occurred_at')::double precision/1000),w.payload->>'path',w.payload->>'metric',(w.payload->>'value')::double precision,w.payload->>'rating',w.payload->>'navigation_type',(w.payload->>'report_sequence')::bigint FROM raw_events w JOIN raw_events p ON p.site_id=w.site_id AND p.event_id=w.payload->>'page_view_event_id' AND p.event_type='page_view' AND p.path=w.payload->>'path' AND p.occurred_at=to_timestamp((w.payload->>'page_view_occurred_at')::double precision/1000) WHERE w.site_id=$1 AND w.event_type='web_vital' AND w.processed_at IS NOT NULL ORDER BY w.site_id,w.payload->>'page_view_event_id',w.payload->>'metric',(w.payload->>'report_sequence')::bigint DESC,w.id ASC ON CONFLICT(site_id,page_view_event_id,metric) DO UPDATE SET raw_event_id=EXCLUDED.raw_event_id,page_view_occurred_at=EXCLUDED.page_view_occurred_at,path=EXCLUDED.path,value=EXCLUDED.value,rating=EXCLUDED.rating,navigation_type=EXCLUDED.navigation_type,report_sequence=EXCLUDED.report_sequence WHERE EXCLUDED.report_sequence>web_vital_facts.report_sequence OR (EXCLUDED.report_sequence=web_vital_facts.report_sequence AND EXCLUDED.raw_event_id<web_vital_facts.raw_event_id)").bind(site_id).execute(&mut *tx).await?;
+        queries::advance_web_vital_watermark(&mut tx, site_id).await?;
+        tx.commit().await?;
+        Ok(result.rows_affected())
+    }
+
     pub async fn process_one(&self) -> Result<bool, ProcessorError> {
         let mut transaction = self.pool.begin().await?;
         let Some(event) = queries::claim_next_event(&mut transaction).await? else {
@@ -605,6 +618,51 @@ async fn process_event(
                 return Err(ProcessorError::RawEventNotUpdated(event.id));
             }
             queries::advance_custom_event_watermark(transaction, &event.site_id).await?;
+            return Ok(());
+        }
+        Some("web_vital") => {
+            let payload = &event.payload;
+            let pv_id = payload
+                .get("page_view_event_id")
+                .and_then(serde_json::Value::as_str)
+                .ok_or_else(|| ProcessorError::InvalidCustomEvent(event.event_id.clone()))?;
+            let page_view_at = payload
+                .get("page_view_occurred_at")
+                .and_then(serde_json::Value::as_i64)
+                .ok_or_else(|| ProcessorError::InvalidCustomEvent(event.event_id.clone()))?;
+            let path = payload
+                .get("path")
+                .and_then(serde_json::Value::as_str)
+                .ok_or_else(|| ProcessorError::InvalidCustomEvent(event.event_id.clone()))?;
+            let metric = payload
+                .get("metric")
+                .and_then(serde_json::Value::as_str)
+                .ok_or_else(|| ProcessorError::InvalidCustomEvent(event.event_id.clone()))?;
+            let value = payload
+                .get("value")
+                .and_then(serde_json::Value::as_f64)
+                .ok_or_else(|| ProcessorError::InvalidCustomEvent(event.event_id.clone()))?;
+            let rating = payload
+                .get("rating")
+                .and_then(serde_json::Value::as_str)
+                .ok_or_else(|| ProcessorError::InvalidCustomEvent(event.event_id.clone()))?;
+            let nav = payload
+                .get("navigation_type")
+                .and_then(serde_json::Value::as_str)
+                .ok_or_else(|| ProcessorError::InvalidCustomEvent(event.event_id.clone()))?;
+            let sequence = payload
+                .get("report_sequence")
+                .and_then(serde_json::Value::as_i64)
+                .ok_or_else(|| ProcessorError::InvalidCustomEvent(event.event_id.clone()))?;
+            // A vital is accepted only for a stored Page View in the same site with matching snapshot fields.
+            let linked = sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM raw_events WHERE site_id=$1 AND event_id=$2 AND event_type='page_view' AND occurred_at=to_timestamp($3::double precision/1000) AND path=$4)").bind(&event.site_id).bind(pv_id).bind(page_view_at).bind(path).fetch_one(&mut **transaction).await?;
+            if !linked {
+                return Err(ProcessorError::InvalidCustomEvent(event.event_id.clone()));
+            }
+            sqlx::query("INSERT INTO web_vital_facts(raw_event_id,site_id,page_view_event_id,page_view_occurred_at,path,metric,value,rating,navigation_type,report_sequence) VALUES($1,$2,$3,to_timestamp($4::double precision/1000),$5,$6,$7,$8,$9,$10) ON CONFLICT(site_id,page_view_event_id,metric) DO UPDATE SET raw_event_id=EXCLUDED.raw_event_id,page_view_occurred_at=EXCLUDED.page_view_occurred_at,path=EXCLUDED.path,value=EXCLUDED.value,rating=EXCLUDED.rating,navigation_type=EXCLUDED.navigation_type,report_sequence=EXCLUDED.report_sequence WHERE EXCLUDED.report_sequence > web_vital_facts.report_sequence OR (EXCLUDED.report_sequence = web_vital_facts.report_sequence AND EXCLUDED.raw_event_id < web_vital_facts.raw_event_id)")
+                .bind(event.id).bind(&event.site_id).bind(pv_id).bind(page_view_at).bind(path).bind(metric).bind(value).bind(rating).bind(nav).bind(sequence).execute(&mut **transaction).await?;
+            queries::mark_processed(transaction, event.id).await?;
+            queries::advance_web_vital_watermark(transaction, &event.site_id).await?;
             return Ok(());
         }
         Some("page_view") => {}

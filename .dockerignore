@@ -1,9 +1,10 @@
 node_modules
 .next
 out
-dist
+**/dist
 coverage
 target
 .git
 .env
 *.log
+**/*.tsbuildinfo

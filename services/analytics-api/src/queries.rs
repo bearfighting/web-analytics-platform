@@ -4,7 +4,7 @@ use sqlx::{Postgres, Transaction};
 
 use crate::models::{
     ActiveGeneration, DateRange, DimensionRow, EventDailyRow, PageRow, TimelineRow,
-    VisitorSessionRow, WatermarkRow,
+    VisitorSessionRow, WatermarkRow, WebVitalReportRow,
 };
 
 pub(crate) async fn health(pool: &PgPool) -> Result<(), sqlx::Error> {
@@ -402,4 +402,42 @@ async fn rebuild_freshness_status(
         return Ok(Some("failed".to_owned()));
     }
     Ok(None)
+}
+
+pub(crate) async fn web_vital_rows(
+    pool: &PgPool,
+    site_id: &str,
+    range: DateRange,
+    path: Option<&str>,
+    limit: i64,
+) -> Result<Vec<WebVitalReportRow>, sqlx::Error> {
+    sqlx::query_as::<_,WebVitalReportRow>("SELECT path,metric,COUNT(*)::bigint AS count,CASE WHEN COUNT(*)>=4 THEN percentile_disc(0.75) WITHIN GROUP (ORDER BY value) END AS p75,COUNT(*) FILTER(WHERE rating='good')::bigint AS good_count,COUNT(*) FILTER(WHERE rating='needs_improvement')::bigint AS needs_improvement_count,COUNT(*) FILTER(WHERE rating='poor')::bigint AS poor_count FROM web_vital_facts WHERE site_id=$1 AND page_view_occurred_at >= ($2::date::timestamp AT TIME ZONE 'UTC') AND page_view_occurred_at < (($3::date+INTERVAL '1 day')::timestamp AT TIME ZONE 'UTC') AND ($4::text IS NULL OR path=$4) GROUP BY path,metric ORDER BY path,metric LIMIT $5").bind(site_id).bind(range.from).bind(range.to).bind(path).bind(limit).fetch_all(pool).await
+}
+pub(crate) async fn web_vital_total(
+    pool: &PgPool,
+    site_id: &str,
+    range: DateRange,
+    path: Option<&str>,
+) -> Result<i64, sqlx::Error> {
+    sqlx::query_scalar("SELECT COUNT(*)::bigint FROM web_vital_facts WHERE site_id=$1 AND page_view_occurred_at >= ($2::date::timestamp AT TIME ZONE 'UTC') AND page_view_occurred_at < (($3::date+INTERVAL '1 day')::timestamp AT TIME ZONE 'UTC') AND ($4::text IS NULL OR path=$4)")
+        .bind(site_id)
+        .bind(range.from)
+        .bind(range.to)
+        .bind(path)
+        .fetch_one(pool)
+        .await
+}
+
+pub(crate) async fn web_vital_watermark(
+    pool: &PgPool,
+    site_id: &str,
+) -> Result<Option<chrono::DateTime<chrono::Utc>>, sqlx::Error> {
+    sqlx::query_scalar::<_,Option<chrono::DateTime<chrono::Utc>>>("SELECT processed_received_watermark FROM analytics_watermarks WHERE site_id=$1 AND generation_id IS NULL AND source_name='web_vitals'").bind(site_id).fetch_optional(pool).await.map(Option::flatten)
+}
+pub(crate) async fn web_vital_freshness(
+    pool: &PgPool,
+    site_id: &str,
+) -> Result<String, sqlx::Error> {
+    let pending=sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM raw_events WHERE site_id=$1 AND event_type='web_vital' AND processed_at IS NULL)").bind(site_id).fetch_one(pool).await?;
+    Ok(if pending { "stale" } else { "current" }.to_owned())
 }

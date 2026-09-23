@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://web-analytics-platform.dev/schemas/events/web-vital-event.schema.json",
+  "title": "Web Vital Event",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "event_id": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "type": {
+      "const": "web_vital"
+    },
+    "site_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+    },
+    "occurred_at": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "page_view_event_id": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "path": {
+      "type": "string",
+      "pattern": "^/",
+      "maxLength": 2048
+    },
+    "page_view_occurred_at": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "metric": {
+      "enum": ["LCP", "INP", "CLS", "FCP", "TTFB"]
+    },
+    "value": {
+      "type": "number",
+      "minimum": 0
+    },
+    "rating": {
+      "enum": ["good", "needs_improvement", "poor"]
+    },
+    "navigation_type": {
+      "enum": ["navigate", "reload", "back_forward", "prerender"]
+    },
+    "report_sequence": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "required": [
+    "schema_version",
+    "event_id",
+    "type",
+    "site_id",
+    "occurred_at",
+    "page_view_event_id",
+    "path",
+    "page_view_occurred_at",
+    "metric",
+    "value",
+    "rating",
+    "navigation_type",
+    "report_sequence"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "metric": {
+            "const": "CLS"
+          }
+        },
+        "required": ["metric"]
+      },
+      "then": {
+        "properties": {
+          "value": {
+            "type": "number",
+            "maximum": 100
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "value": {
+            "type": "number",
+            "maximum": 600000
+          }
+        }
+      }
+    }
+  ]
+}

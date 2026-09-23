@@ -18,6 +18,9 @@
           },
           {
             "$ref": "custom-event.schema.json"
+          },
+          {
+            "$ref": "web-vital-event.schema.json"
           }
         ]
       }

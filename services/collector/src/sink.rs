@@ -20,6 +20,8 @@ pub struct StoredEvent {
 pub enum SinkError {
     #[error("event timestamp is outside the supported range")]
     InvalidTimestamp,
+    #[error("Web Vital event does not match a stored Page View")]
+    InvalidWebVitalAssociation,
     #[error("event sink database operation failed: {0}")]
     Database(#[from] sqlx::Error),
     #[error("event sink failed")]
@@ -50,10 +52,27 @@ impl InMemorySink {
 #[async_trait]
 impl EventSink for InMemorySink {
     async fn accept(&self, events: Vec<StoredEvent>) -> Result<(), SinkError> {
-        self.events
-            .write()
-            .await
-            .extend(events.into_iter().map(|event| event.event));
+        let mut stored = self.events.write().await;
+        let mut candidates = stored.clone();
+        candidates.extend(events.iter().map(|event| event.event.clone()));
+        for event in events.iter().filter_map(|e| match &e.event {
+            AnalyticsEvent::WebVital(v) => Some(v),
+            _ => None,
+        }) {
+            let linked = candidates.iter().any(|candidate| match candidate {
+                AnalyticsEvent::PageView(p) => {
+                    p.site_id == event.site_id
+                        && p.event_id == event.page_view_event_id
+                        && p.path == event.path
+                        && p.occurred_at == event.page_view_occurred_at
+                }
+                _ => false,
+            });
+            if !linked {
+                return Err(SinkError::InvalidWebVitalAssociation);
+            }
+        }
+        stored.extend(events.into_iter().map(|event| event.event));
         Ok(())
     }
 }
@@ -78,9 +97,19 @@ impl EventSink for PostgresSink {
     async fn accept(&self, events: Vec<StoredEvent>) -> Result<(), SinkError> {
         let mut transaction = self.pool.begin().await?;
 
+        let mut web_vital_links = Vec::new();
         for stored in events {
             let occurred_at = DateTime::<Utc>::from_timestamp_millis(stored.event.occurred_at())
                 .ok_or(SinkError::InvalidTimestamp)?;
+            if let AnalyticsEvent::WebVital(vital) = &stored.event {
+                web_vital_links.push((
+                    vital.site_id.clone(),
+                    vital.page_view_event_id.clone(),
+                    vital.path.clone(),
+                    DateTime::<Utc>::from_timestamp_millis(vital.page_view_occurred_at)
+                        .ok_or(SinkError::InvalidTimestamp)?,
+                ));
+            }
             let event_type = stored.event.event_type_name();
 
             sqlx::query(
@@ -106,6 +135,13 @@ impl EventSink for PostgresSink {
             .bind(stored.payload)
             .execute(&mut *transaction)
             .await?;
+        }
+        for (site_id, page_view_id, path, page_view_at) in web_vital_links {
+            let linked=sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM raw_events WHERE site_id=$1 AND event_id=$2 AND event_type='page_view' AND path=$3 AND occurred_at=$4)")
+                .bind(site_id).bind(page_view_id).bind(path).bind(page_view_at).fetch_one(&mut *transaction).await?;
+            if !linked {
+                return Err(SinkError::InvalidWebVitalAssociation);
+            }
         }
 
         transaction.commit().await?;

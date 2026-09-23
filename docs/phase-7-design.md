@@ -385,3 +385,8 @@ PR7 汇总 Phase 7 的功能验收，不新增产品能力。必须验证：
 - Geo PR2 是否纳入本次 MVP release 已记录决定；
 - Phase 8 的配置模型可以基于这些稳定 capability contract 开始设计；
 - 未把发布基础设施或内部协议细节暴露给最终用户。
+
+
+## PR4 Web Vitals implementation
+
+PR4 records document-load LCP, INP, CLS, FCP and TTFB from `web-vitals@6.2.2` under consent. Web Vital reports carry a Page View event ID, route and timestamp snapshot; daily attribution uses the Page View UTC date. Soft-navigation metrics and attribution are excluded. Each Page View/metric retains its highest `report_sequence` in `web_vital_facts`; the raw payload remains available for rebuild. Rating boundaries follow the frozen protocol thresholds (LCP 2500/4000 ms, INP 200/500 ms, CLS 0.1/0.25, FCP 1800/3000 ms, TTFB 800/1800 ms). The report API groups by route and metric and suppresses p75 below four samples.

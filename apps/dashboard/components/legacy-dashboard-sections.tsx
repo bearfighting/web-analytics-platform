@@ -8,6 +8,7 @@ import { OverviewCard } from "./overview-card";
 import { ErrorState } from "./states/error-state";
 import { TimelineTable } from "./timeline-table";
 import { TopPagesTable } from "./top-pages-table";
+import { WebVitalsTable } from "./web-vitals-table";
 
 import type { AnalyticsApiClient } from "../lib/analytics-api/client";
 import type { DashboardOverviewContext } from "../lib/dashboard-overview";
@@ -47,6 +48,7 @@ export async function LegacyDashboardSections({ context, client }: LegacyDashboa
       <TimelineTable context={context} state={reports.timeline} />
       <TopPagesTable context={context} state={reports.pages} />
       <EventReportTable context={context} state={reports.events} />
+      <WebVitalsTable context={context} state={reports.webVitals} />
     </>
   );
 }

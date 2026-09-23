@@ -8,6 +8,7 @@ import { EventReportTable } from "./event-report-table";
 import { LegacyDashboardSections } from "./legacy-dashboard-sections";
 import { Phase6DashboardSections } from "./phase6-dashboard-sections";
 import { Phase6LoadingState } from "./phase6-loading-state";
+import { WebVitalsTable } from "./web-vitals-table";
 import { ErrorState } from "./states/error-state";
 import { LoadingState } from "./states/loading-state";
 
@@ -43,6 +44,7 @@ export function DashboardSections({ siteId, from, to, dimension }: DashboardSect
           <ErrorState context={context} message={error.message} />
         </section>
         <EventReportTable context={context} state={{ status: "error", error }} />
+        <WebVitalsTable context={context} state={{ status: "error", error }} />
         <section className="card" aria-label="Phase 6 analytics">
           <ErrorState context={context} message={error.message} />
         </section>
@@ -61,6 +63,10 @@ export function DashboardSections({ siteId, from, to, dimension }: DashboardSect
             <section className="card" aria-label="Custom Events">
               <h2>Custom Events</h2>
               <p role="status">Loading custom events...</p>
+            </section>
+            <section className="card" aria-label="Web Vitals">
+              <h2>Web Vitals</h2>
+              <p role="status">Loading Web Vitals...</p>
             </section>
           </>
         }

@@ -110,3 +110,24 @@ export interface EventsResponse {
   freshness_status: FreshnessStatus;
   aggregation_version: number;
 }
+
+export interface WebVitalReportItem {
+  path: string;
+  metric: "LCP" | "INP" | "CLS" | "FCP" | "TTFB";
+  count: number;
+  p75: number | null;
+  good_count: number;
+  needs_improvement_count: number;
+  poor_count: number;
+  status: "available" | "insufficient_data";
+}
+export interface WebVitalsResponse {
+  site_id: string;
+  from: string;
+  to: string;
+  total: number;
+  items: WebVitalReportItem[];
+  data_as_of: string | null;
+  freshness_status: FreshnessStatus;
+  aggregation_version: number;
+}

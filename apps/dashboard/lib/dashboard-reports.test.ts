@@ -93,6 +93,7 @@ describe("loadDashboardReports", () => {
       timeline: { status: "success", data: fixture.timeline },
       pages: { status: "success", data: fixture.pages },
       events: { status: "success", data: expect.any(Object) },
+      webVitals: { status: "success", data: expect.any(Object) },
       visitors: { status: "success", data: expect.any(Object) },
       dimension: { status: "success", data: expect.any(Object) },
     });
@@ -132,6 +133,7 @@ describe("loadDashboardReports", () => {
       timeline: { status: "success", data: emptyFixture.timeline },
       pages: { status: "success", data: emptyFixture.pages },
       events: { status: "success", data: expect.any(Object) },
+      webVitals: { status: "success", data: expect.any(Object) },
       visitors: { status: "success", data: expect.any(Object) },
       dimension: { status: "success", data: expect.any(Object) },
     });

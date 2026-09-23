@@ -189,26 +189,71 @@
       "history": { "queryable_after_disabled": true, "backfill": "optional" }
     },
     {
-      "id": "web_vitals",
-      "status": "planned",
-      "depends_on": ["page_views"],
-      "input": { "event_types": ["web_vital"], "required_fields": ["metric", "value", "rating"] },
-      "raw_event": { "preserve": true, "fields": ["metric", "value", "rating"] },
-      "processor": { "facts": ["web_vital_facts", "web_vital_daily"], "rebuild": "incremental" },
-      "api": { "query_surface": "future_report", "routes": [] },
-      "dashboard": {
-        "surface": "future_report",
-        "disabled": "no Web Vitals workflow is available",
-        "empty": "not implemented",
-        "error": "not implemented"
+        "id": "web_vitals",
+        "status": "implemented",
+        "depends_on": [
+          "page_views"
+        ],
+        "input": {
+          "event_types": [
+            "web_vital"
+          ],
+          "required_fields": [
+            "page_view_event_id",
+            "path",
+            "page_view_occurred_at",
+            "metric",
+            "value",
+            "rating",
+            "navigation_type",
+            "report_sequence"
+          ]
+        },
+        "raw_event": {
+          "preserve": true,
+          "fields": [
+            "page_view_event_id",
+            "path",
+            "page_view_occurred_at",
+            "metric",
+            "value",
+            "rating",
+            "navigation_type",
+            "report_sequence"
+          ]
+        },
+        "processor": {
+          "facts": [
+            "web_vital_facts"
+          ],
+          "rebuild": "incremental"
+        },
+        "api": {
+          "query_surface": "report",
+          "routes": [
+            "GET /v1/sites/{site_id}/reports/{from}/{to}/web-vitals"
+          ]
+        },
+        "dashboard": {
+          "surface": "report",
+          "disabled": "available without a feature flag",
+          "empty": "show no samples; suppress p75 below four Page View samples",
+          "error": "show the report error state"
+        },
+        "security": {
+          "consent": "required",
+          "origin_and_ingest_key": "enforced",
+          "privacy": [
+            "no attribution data",
+            "do not collect raw user-agent or IP",
+            "site isolation required"
+          ]
+        },
+        "history": {
+          "queryable_after_disabled": true,
+          "backfill": "required"
+        }
       },
-      "security": {
-        "consent": "required",
-        "origin_and_ingest_key": "enforced",
-        "privacy": ["bound metric values and labels", "do not collect raw user-agent or IP"]
-      },
-      "history": { "queryable_after_disabled": true, "backfill": "optional" }
-    },
     {
       "id": "conversions",
       "status": "planned",

@@ -117,9 +117,41 @@ pub(crate) fn validate_dimension(value: &str) -> Result<(), RequestError> {
         .ok_or(RequestError::InvalidDimension)
 }
 
+pub(crate) fn parse_web_vitals_query(
+    query: Option<&str>,
+) -> Result<(i64, Option<String>), RequestError> {
+    let mut limit = None;
+    let mut path = None;
+    for (k, v) in form_urlencoded::parse(query.unwrap_or_default().as_bytes()) {
+        match k.as_ref() {
+            "limit" => {
+                if limit.is_some() {
+                    return Err(RequestError::InvalidLimit);
+                }
+                limit = Some(v.into_owned())
+            }
+            "path" => {
+                if path.is_some() {
+                    return Err(RequestError::InvalidEventName);
+                }
+                path = Some(v.into_owned())
+            }
+            _ => {}
+        }
+    }
+    let limit = parse_limit(limit.as_deref())?;
+    if path
+        .as_deref()
+        .is_some_and(|x| !x.starts_with('/') || x.len() > 2048)
+    {
+        return Err(RequestError::InvalidEventName);
+    }
+    Ok((limit, path))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{parse_events_query, parse_limit_query, parse_range};
+    use super::{parse_events_query, parse_limit_query, parse_range, parse_web_vitals_query};
 
     #[test]
     fn validates_inclusive_366_day_range() {
@@ -145,6 +177,18 @@ mod tests {
         assert!(parse_events_query(Some("event_name=bad%20name")).is_err());
         assert!(parse_events_query(Some("event_name=a&event_name=b")).is_err());
         assert!(parse_events_query(Some("limit=101")).is_err());
+    }
+
+    #[test]
+    fn validates_web_vitals_filters_and_limit() {
+        assert_eq!(parse_web_vitals_query(None).unwrap(), (20, None));
+        assert_eq!(
+            parse_web_vitals_query(Some("path=%2Fpricing&limit=100")).unwrap(),
+            (100, Some("/pricing".into()))
+        );
+        assert!(parse_web_vitals_query(Some("path=pricing")).is_err());
+        assert!(parse_web_vitals_query(Some("limit=101")).is_err());
+        assert!(parse_web_vitals_query(Some("path=%2Fa&path=%2Fb")).is_err());
     }
 
     #[test]

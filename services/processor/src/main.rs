@@ -10,19 +10,21 @@ use tracing::{error, info};
 struct Cli {
     #[arg(long, default_value_t = false)]
     once: bool,
-    #[arg(long, conflicts_with_all = ["rebuild", "backfill", "reparse", "once"], requires = "site_id")]
+    #[arg(long, conflicts_with_all = ["rebuild", "backfill", "reparse", "once", "rebuild_web_vitals"], requires = "site_id")]
     rebuild_custom_events: bool,
+    #[arg(long, conflicts_with_all = ["rebuild", "backfill", "reparse", "once", "rebuild_custom_events"], requires = "site_id")]
+    rebuild_web_vitals: bool,
     #[arg(long, env = "PROCESSOR_POLL_INTERVAL_MS", default_value_t = 1_000)]
     poll_interval_ms: u64,
     #[arg(
         long,
-        conflicts_with_all = ["backfill", "reparse", "once"],
+        conflicts_with_all = ["backfill", "reparse", "once", "rebuild_custom_events", "rebuild_web_vitals"],
         help = "Rebuild a complete site generation; --from/--to record the rebuild scope"
     )]
     rebuild: bool,
-    #[arg(long, conflicts_with_all = ["rebuild", "reparse", "once"])]
+    #[arg(long, conflicts_with_all = ["rebuild", "reparse", "once", "rebuild_custom_events", "rebuild_web_vitals"])]
     backfill: bool,
-    #[arg(long, conflicts_with_all = ["rebuild", "backfill", "once"])]
+    #[arg(long, conflicts_with_all = ["rebuild", "backfill", "once", "rebuild_custom_events", "rebuild_web_vitals"])]
     reparse: bool,
     #[arg(long)]
     site_id: Option<String>,
@@ -51,6 +53,13 @@ async fn main() -> anyhow::Result<()> {
         let site_id = cli.site_id.as_deref().expect("clap requires --site-id");
         let count = processor.rebuild_custom_event_facts(site_id).await?;
         info!(site_id, facts = count, "custom event facts rebuilt");
+        return Ok(());
+    }
+
+    if cli.rebuild_web_vitals {
+        let site_id = cli.site_id.as_deref().expect("clap requires --site-id");
+        let count = processor.rebuild_web_vital_facts(site_id).await?;
+        info!(site_id, facts = count, "Web Vital facts rebuilt");
         return Ok(());
     }
 
@@ -135,6 +144,7 @@ mod tests {
         assert!(cli.once);
         assert_eq!(cli.poll_interval_ms, 1_000);
         assert!(!cli.rebuild);
+        assert!(!cli.rebuild_web_vitals);
     }
 
     #[test]

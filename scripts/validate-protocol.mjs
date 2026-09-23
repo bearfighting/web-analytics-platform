@@ -14,6 +14,7 @@ const fixtureRoot = resolve(protocolRoot, "events/fixtures");
 const readJson = async (path) => JSON.parse(await readFile(path, "utf8"));
 const pageViewSchema = await readJson(resolve(schemaRoot, "page-view-event.schema.json"));
 const customEventSchema = await readJson(resolve(schemaRoot, "custom-event.schema.json"));
+const webVitalSchema = await readJson(resolve(schemaRoot, "web-vital-event.schema.json"));
 const eventBatchSchema = await readJson(resolve(schemaRoot, "event-batch.schema.json"));
 const contextSchema = await readJson(resolve(protocolRoot, "contexts/browser-context.schema.json"));
 const ajv = new Ajv2020({ allErrors: true, strict: true });
@@ -21,10 +22,12 @@ addFormats(ajv);
 
 ajv.addSchema(pageViewSchema);
 ajv.addSchema(customEventSchema);
+ajv.addSchema(webVitalSchema);
 ajv.addSchema(contextSchema);
 const validators = {
   pageView: ajv.compile(pageViewSchema),
   customEvent: ajv.compile(customEventSchema),
+  webVital: ajv.compile(webVitalSchema),
   batch: ajv.compile(eventBatchSchema),
 };
 
@@ -42,11 +45,15 @@ async function validateFixtures(directory, expectedValid) {
         ? validators.batch
         : fixture.type === "custom_event"
           ? validators.customEvent
-          : validators.pageView;
+          : fixture.type === "web_vital"
+            ? validators.webVital
+            : validators.pageView;
     const schemaValid = validator(fixture);
     const actualValid =
       schemaValid &&
-      (fixture.type !== "custom_event" || validateCustomEventProperties(fixture.properties));
+      (fixture.type !== "custom_event" || validateCustomEventProperties(fixture.properties)) &&
+      (fixture.type !== "web_vital" || validateWebVital(fixture)) &&
+      (!Array.isArray(fixture.events) || fixture.events.every((event) => event.site_id === fixture.events[0]?.site_id && (event.type !== "web_vital" || validateWebVital(event))));
 
     if (actualValid !== expectedValid) {
       console.error(`Protocol validation mismatch: ${path}`);
@@ -117,3 +124,5 @@ function validateCustomEventProperties(properties) {
   };
   return visit(properties, 0) && Buffer.byteLength(JSON.stringify(properties), "utf8") <= 8192;
 }
+
+function validateWebVital(event){const thresholds={LCP:[2500,4000,600000],INP:[200,500,600000],CLS:[0.1,0.25,100],FCP:[1800,3000,600000],TTFB:[800,1800,600000]}[event.metric];if(!thresholds||!Number.isFinite(event.value)||event.value<0||event.value>thresholds[2])return false;return event.rating===(event.value<=thresholds[0]?"good":event.value<=thresholds[1]?"needs_improvement":"poor")}

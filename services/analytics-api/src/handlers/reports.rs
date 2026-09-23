@@ -8,7 +8,7 @@ use crate::{
     errors::{ApiError, HandlerError},
     models::{
         EventDailyItem, EventsReportResponse, PageItem, PagesResponse, RangeOverviewResponse,
-        TimelineItem, TimelineResponse,
+        TimelineItem, TimelineResponse, WebVitalReportItem, WebVitalReportResponse,
     },
     queries,
     state::AppState,
@@ -116,6 +116,56 @@ pub(crate) async fn events(
         .await
         .map_err(ApiError::database)?;
     Ok(Json(EventsReportResponse {
+        site_id,
+        from,
+        to,
+        total,
+        items,
+        data_as_of,
+        freshness_status,
+        aggregation_version: 1,
+    })
+    .into_response())
+}
+
+pub(crate) async fn web_vitals(
+    State(state): State<AppState>,
+    Path((site_id, from, to)): Path<(String, String, String)>,
+    RawQuery(raw_query): RawQuery,
+) -> Result<Response, HandlerError> {
+    let range = validation::parse_range(&from, &to)?;
+    let (limit, path) = validation::parse_web_vitals_query(raw_query.as_deref())?;
+    let rows = queries::web_vital_rows(&state.pool, &site_id, range, path.as_deref(), limit)
+        .await
+        .map_err(ApiError::database)?;
+    let total = queries::web_vital_total(&state.pool, &site_id, range, path.as_deref())
+        .await
+        .map_err(ApiError::database)?;
+    let items = rows
+        .into_iter()
+        .map(|row| WebVitalReportItem {
+            path: row.path,
+            metric: row.metric,
+            count: row.count,
+            p75: row.p75,
+            good_count: row.good_count,
+            needs_improvement_count: row.needs_improvement_count,
+            poor_count: row.poor_count,
+            status: if row.count < 4 {
+                "insufficient_data"
+            } else {
+                "available"
+            }
+            .to_owned(),
+        })
+        .collect();
+    let data_as_of = queries::web_vital_watermark(&state.pool, &site_id)
+        .await
+        .map_err(ApiError::database)?;
+    let freshness_status = queries::web_vital_freshness(&state.pool, &site_id)
+        .await
+        .map_err(ApiError::database)?;
+    Ok(Json(WebVitalReportResponse {
         site_id,
         from,
         to,

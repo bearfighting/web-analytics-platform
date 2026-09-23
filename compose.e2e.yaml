@@ -1,4 +1,8 @@
 services:
+  playground-next:
+    command: ["pnpm", "--filter", "@web-analytics/nextjs-router-playground", "dev", "--hostname", "0.0.0.0"]
+    volumes: !override []
+
   postgres:
     ports: !override
       - "${E2E_POSTGRES_PORT:-15432}:5432"

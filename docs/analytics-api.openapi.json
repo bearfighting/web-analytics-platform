@@ -335,6 +335,154 @@
           }
         }
       }
+    },
+    "/v1/sites/{site_id}/reports/{from}/{to}/web-vitals": {
+      "get": {
+        "summary": "Get Web Vitals report",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SiteId"
+          },
+          {
+            "$ref": "#/components/parameters/FromPath"
+          },
+          {
+            "$ref": "#/components/parameters/ToPath"
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^/"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Web Vitals grouped by route and metric",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "site_id",
+                    "from",
+                    "to",
+                    "total",
+                    "items",
+                    "data_as_of",
+                    "freshness_status",
+                    "aggregation_version"
+                  ],
+                  "properties": {
+                    "site_id": {
+                      "type": "string"
+                    },
+                    "from": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "to": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "metric",
+                          "count",
+                          "p75",
+                          "good_count",
+                          "needs_improvement_count",
+                          "poor_count",
+                          "status"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "metric": {
+                            "enum": [
+                              "LCP",
+                              "INP",
+                              "CLS",
+                              "FCP",
+                              "TTFB"
+                            ]
+                          },
+                          "count": {
+                            "type": "integer"
+                          },
+                          "p75": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "good_count": {
+                            "type": "integer"
+                          },
+                          "needs_improvement_count": {
+                            "type": "integer"
+                          },
+                          "poor_count": {
+                            "type": "integer"
+                          },
+                          "status": {
+                            "enum": [
+                              "available",
+                              "insufficient_data"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "data_as_of": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "freshness_status": {
+                      "enum": [
+                        "current",
+                        "stale",
+                        "rebuilding",
+                        "failed"
+                      ]
+                    },
+                    "aggregation_version": {
+                      "type": "integer"
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Total samples matching the date and path filters before applying limit."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidQuery"
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsApiError"
+          }
+        },
+        "operationId": "getWebVitalsReport",
+        "description": "Document-load Web Vitals grouped by Page View path and metric; report date uses the Page View UTC date. p75 uses percentile_disc(0.75) and is null below four samples."
+      }
     }
   },
   "components": {

@@ -16,7 +16,7 @@ use serde_json::Value;
 use crate::{
     rate_limit::RateLimiter,
     security::{AccessError, KeyPolicy},
-    sink::{EventSink, StoredEvent},
+    sink::{EventSink, SinkError, StoredEvent},
     validation::Validator,
 };
 
@@ -203,11 +203,13 @@ async fn validate_batch(
         .collect();
     if let Err(error) = state.sink.accept(events).await {
         tracing::error!(error = %error, "event sink failed");
-        return with_cors(
-            ApiError::collector_error().into_response(),
-            has_origin,
-            cors_origin,
-        );
+        let response = match error {
+            SinkError::InvalidWebVitalAssociation => {
+                ApiError::invalid_event_batch().into_response()
+            }
+            _ => ApiError::collector_error().into_response(),
+        };
+        return with_cors(response, has_origin, cors_origin);
     }
 
     with_cors(

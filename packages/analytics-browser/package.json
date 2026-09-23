@@ -21,7 +21,9 @@
   "dependencies": {
     "@web-analytics/analytics-core": "workspace:*",
     "@web-analytics/observer-core": "workspace:*",
-    "@web-analytics/protocol-ts": "workspace:*"
+    "@web-analytics/protocol-ts": "workspace:*",
+    "web-vitals": "6.2.2",
+    "ulid": "^2.3.0"
   },
   "devDependencies": {
     "ajv": "^8.17.1",

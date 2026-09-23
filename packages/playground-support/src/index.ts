@@ -37,8 +37,8 @@ export function createPlaygroundTransport(
   });
 
   return {
-    async sendBatch(events) {
-      await fetchTransport.sendBatch(events);
+    async sendBatch(events, options) {
+      await fetchTransport.sendBatch(events, options);
       onSend(events);
     },
   };

@@ -14,6 +14,7 @@ import type {
   DimensionResponse,
   FreshnessStatus,
   VisitorSessionResponse,
+  WebVitalsResponse,
 } from "./types";
 
 export const DEFAULT_PAGES_LIMIT = 20;
@@ -47,6 +48,18 @@ export function eventsPath(
   if (eventName !== undefined) params.set("event_name", eventName);
 
   return `/v1/sites/${encodeURIComponent(siteId)}/reports/${from}/${to}/events?${params.toString()}`;
+}
+
+export function webVitalsPath(
+  siteId: string,
+  from: string,
+  to: string,
+  limit = 20,
+  path?: string,
+): string {
+  const q = new URLSearchParams({ limit: String(limit) });
+  if (path !== undefined) q.set("path", path);
+  return `/v1/sites/${encodeURIComponent(siteId)}/reports/${from}/${to}/web-vitals?${q.toString()}`;
 }
 
 export function visitorsPath(siteId: string, from: string, to: string): string {
@@ -120,6 +133,35 @@ export function isEventsResponse(value: unknown): value is EventsResponse {
     isNonNegativeInteger(value.total) &&
     Array.isArray(value.items) &&
     value.items.every(isEventDailyItem) &&
+    isNullableDateTime(value.data_as_of) &&
+    isFreshnessStatus(value.freshness_status) &&
+    isPositiveInteger(value.aggregation_version)
+  );
+}
+
+export function isWebVitalsResponse(value: unknown): value is WebVitalsResponse {
+  return (
+    isRecord(value) &&
+    isString(value.site_id) &&
+    isString(value.from) &&
+    isValidDate(value.from) &&
+    isString(value.to) &&
+    isValidDate(value.to) &&
+    isNonNegativeInteger(value.total) &&
+    Array.isArray(value.items) &&
+    value.items.every(
+      (item) =>
+        isRecord(item) &&
+        isString(item.path) &&
+        isString(item.metric) &&
+        ["LCP", "INP", "CLS", "FCP", "TTFB"].includes(item.metric) &&
+        isNonNegativeInteger(item.count) &&
+        (item.p75 === null || typeof item.p75 === "number") &&
+        isNonNegativeInteger(item.good_count) &&
+        isNonNegativeInteger(item.needs_improvement_count) &&
+        isNonNegativeInteger(item.poor_count) &&
+        (item.status === "available" || item.status === "insufficient_data"),
+    ) &&
     isNullableDateTime(value.data_as_of) &&
     isFreshnessStatus(value.freshness_status) &&
     isPositiveInteger(value.aggregation_version)

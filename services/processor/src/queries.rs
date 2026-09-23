@@ -204,6 +204,19 @@ pub(crate) async fn advance_custom_event_watermark(
     Ok(())
 }
 
+pub(crate) async fn advance_web_vital_watermark(
+    connection: &mut PgConnection,
+    site_id: &str,
+) -> Result<(), sqlx::Error> {
+    let Some(max_received)=sqlx::query_scalar::<_,Option<DateTime<Utc>>>("SELECT MAX(received_at) FROM raw_events WHERE site_id=$1 AND event_type='web_vital' AND processed_at IS NOT NULL").bind(site_id).fetch_one(&mut *connection).await? else{return Ok(())};
+    let first_pending=sqlx::query_scalar::<_,Option<DateTime<Utc>>>("SELECT MIN(received_at) FROM raw_events WHERE site_id=$1 AND event_type='web_vital' AND processed_at IS NULL AND received_at<=$2").bind(site_id).bind(max_received).fetch_one(&mut *connection).await?;
+    let watermark = first_pending
+        .map(|time| time - chrono::Duration::microseconds(1))
+        .unwrap_or(max_received);
+    sqlx::query("INSERT INTO analytics_watermarks(site_id,generation_id,source_name,processed_received_watermark) VALUES($1,NULL,'web_vitals',$2) ON CONFLICT(site_id,generation_id,source_name) DO UPDATE SET processed_received_watermark=EXCLUDED.processed_received_watermark,updated_at=NOW()").bind(site_id).bind(watermark).execute(&mut *connection).await?;
+    Ok(())
+}
+
 pub(crate) async fn phase6_enabled(
     connection: &mut PgConnection,
     site_id: &str,

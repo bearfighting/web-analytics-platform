@@ -16,6 +16,7 @@ const requiredIds = new Set([
   "empty-date-range",
   "all-time-overview",
   "custom-events",
+  "web-vitals",
 ]);
 const errors = [];
 
@@ -62,6 +63,7 @@ function validateOpenApi(document) {
     "/v1/sites/{site_id}/reports/{from}/{to}/timeline",
     "/v1/sites/{site_id}/reports/{from}/{to}/pages",
     "/v1/sites/{site_id}/reports/{from}/{to}/events",
+    "/v1/sites/{site_id}/reports/{from}/{to}/web-vitals",
     "/v1/sites/{site_id}/reports/{from}/{to}/visitors",
     "/v1/sites/{site_id}/reports/{from}/{to}/sessions",
     "/v1/sites/{site_id}/reports/{from}/{to}/dimensions/{dimension}",
@@ -76,6 +78,7 @@ function validateOpenApi(document) {
     "/v1/sites/{site_id}/reports/{from}/{to}/timeline": ["200", "400", "500"],
     "/v1/sites/{site_id}/reports/{from}/{to}/pages": ["200", "400", "500"],
     "/v1/sites/{site_id}/reports/{from}/{to}/events": ["200", "400", "500"],
+    "/v1/sites/{site_id}/reports/{from}/{to}/web-vitals": ["200", "400", "500"],
     "/v1/sites/{site_id}/reports/{from}/{to}/visitors": ["200", "400", "404", "500"],
     "/v1/sites/{site_id}/reports/{from}/{to}/sessions": ["200", "400", "404", "500"],
     "/v1/sites/{site_id}/reports/{from}/{to}/dimensions/{dimension}": ["200", "400", "404", "500"],
@@ -126,6 +129,7 @@ function validateOpenApi(document) {
     "/v1/sites/{site_id}/reports/{from}/{to}/timeline",
     "/v1/sites/{site_id}/reports/{from}/{to}/pages",
     "/v1/sites/{site_id}/reports/{from}/{to}/events",
+    "/v1/sites/{site_id}/reports/{from}/{to}/web-vitals",
     "/v1/sites/{site_id}/reports/{from}/{to}/visitors",
     "/v1/sites/{site_id}/reports/{from}/{to}/sessions",
     "/v1/sites/{site_id}/reports/{from}/{to}/dimensions/{dimension}",
@@ -485,6 +489,7 @@ function validateApiResponses(api, fixtureName) {
     "timeline",
     "pages",
     ...(api.events ? ["events"] : []),
+    ...(api.web_vitals ? ["web_vitals"] : []),
   ]) {
     const response = api[name];
     if (
@@ -515,6 +520,21 @@ function validateApiResponses(api, fixtureName) {
     if (name === "events" && (!Number.isInteger(response.body.total) || response.body.total < 0))
       errors.push(`${fixtureName}: events total must be a non-negative integer`);
     if (
+      name === "web_vitals" &&
+      (!Number.isInteger(response.body.total) ||
+        response.body.total < 0 ||
+        !Array.isArray(response.body.items) ||
+        !response.body.items.every(
+          (item) =>
+            typeof item.path === "string" &&
+            ["LCP", "INP", "CLS", "FCP", "TTFB"].includes(item.metric) &&
+            Number.isInteger(item.count) &&
+            (item.p75 === null || typeof item.p75 === "number") &&
+            ["available", "insufficient_data"].includes(item.status),
+        ))
+    )
+      errors.push(`${fixtureName}: web_vitals items are invalid`);
+    if (
       name === "timeline" &&
       !isSorted(response.body.items, (left, right) => left.day.localeCompare(right.day))
     )
@@ -523,6 +543,14 @@ function validateApiResponses(api, fixtureName) {
       errors.push(
         `${fixtureName}: pages items must be sorted by page_views descending and path ascending`,
       );
+    if (
+      name === "web_vitals" &&
+      !isSorted(
+        response.body.items,
+        (a, b) => a.path.localeCompare(b.path) || a.metric.localeCompare(b.metric),
+      )
+    )
+      errors.push(`${fixtureName}: Web Vitals must sort by path and metric ascending`);
   }
 }
 
@@ -557,6 +585,23 @@ function isEventIdentity(event) {
       typeof event.event_name === "string" &&
       event.properties &&
       typeof event.properties === "object"
+    );
+  if (event?.type === "web_vital")
+    return (
+      event.schema_version === 1 &&
+      isSiteId(event.site_id) &&
+      typeof event.event_id === "string" &&
+      event.event_id.length === 26 &&
+      Number.isInteger(event.occurred_at) &&
+      typeof event.page_view_event_id === "string" &&
+      event.page_view_event_id.length === 26 &&
+      typeof event.path === "string" &&
+      event.path.startsWith("/") &&
+      Number.isInteger(event.page_view_occurred_at) &&
+      ["LCP", "INP", "CLS", "FCP", "TTFB"].includes(event.metric) &&
+      typeof event.value === "number" &&
+      ["good", "needs_improvement", "poor"].includes(event.rating) &&
+      Number.isInteger(event.report_sequence)
     );
   return (
     event?.schema_version === 1 &&

@@ -3,6 +3,8 @@ import { FetchTransportError } from "./errors";
 import type { Transport } from "@web-analytics/analytics-core";
 import type { AnalyticsEvent } from "@web-analytics/protocol-ts";
 
+const MAX_KEEPALIVE_BODY_BYTES = 60_000;
+
 export interface FetchTransportOptions {
   endpoint: string;
   ingestKey: string;
@@ -32,20 +34,36 @@ export class FetchTransport implements Transport {
     this.injectedFetch = options.fetch;
   }
 
-  async sendBatch(events: readonly AnalyticsEvent[]): Promise<void> {
+  async sendBatch(
+    events: readonly AnalyticsEvent[],
+    options?: { keepalive?: boolean },
+  ): Promise<void> {
     if (events.length === 0) {
       return;
     }
 
+    if (options?.keepalive) {
+      const { events: boundedEvents, omittedCount } = fitKeepaliveBatch(events);
+      if (boundedEvents.length > 0) await this.sendOne(boundedEvents, true);
+      if (omittedCount > 0) {
+        throw new Error(
+          `Keepalive byte budget exceeded; sent ${boundedEvents.length} event(s) and omitted ${omittedCount}.`,
+        );
+      }
+      return;
+    }
+
+    await this.sendOne(events, false);
+  }
+
+  private async sendOne(events: readonly AnalyticsEvent[], keepalive: boolean): Promise<void> {
     let response: Response;
     try {
       const request = {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Ingest-Key": this.ingestKey,
-        },
+        headers: { "Content-Type": "application/json", "X-Ingest-Key": this.ingestKey },
         body: JSON.stringify({ schema_version: 1, events }),
+        ...(keepalive ? { keepalive: true } : {}),
       };
       response = await (this.injectedFetch
         ? this.injectedFetch(this.endpoint, request)
@@ -56,7 +74,6 @@ export class FetchTransport implements Transport {
         cause,
       });
     }
-
     if (response.status === 202) return;
 
     const body = await readErrorBody(response);
@@ -104,4 +121,19 @@ function isCollectorErrorBody(value: unknown): value is CollectorErrorBody {
 
 function errorMessage(value: unknown): string {
   return value instanceof Error ? value.message : String(value);
+}
+
+function fitKeepaliveBatch(
+  events: readonly AnalyticsEvent[],
+): { events: readonly AnalyticsEvent[]; omittedCount: number } {
+  const selected: AnalyticsEvent[] = [];
+  for (let index = 0; index < events.length; index += 1) {
+    const candidate = [...selected, events[index]];
+    const body = JSON.stringify({ schema_version: 1, events: candidate });
+    if (new TextEncoder().encode(body).byteLength > MAX_KEEPALIVE_BODY_BYTES) {
+      return { events: selected, omittedCount: events.length - index };
+    }
+    selected.push(events[index]);
+  }
+  return { events: selected, omittedCount: 0 };
 }

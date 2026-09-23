@@ -14,6 +14,7 @@ const dashboardUrl = `http://127.0.0.1:${process.env.DASHBOARD_PORT ?? "13000"}`
 const errorDashboardPort = process.env.DASHBOARD_ERROR_E2E_PORT ?? "13001";
 const errorContainer = `${project}-dashboard-error`;
 const collectorUrl = `http://127.0.0.1:${process.env.E2E_COLLECTOR_PORT ?? "14001"}`;
+const analyticsUrl = `http://127.0.0.1:${process.env.E2E_ANALYTICS_API_PORT ?? "14002"}`;
 const fixturesDirectory = path.join(
   root,
   "protocol",
@@ -42,6 +43,8 @@ const composeBaseArgs = [
   "processing",
   "--profile",
   "dashboard",
+  "--profile",
+  "playground-next",
 ];
 
 const fixture = async (name) =>
@@ -55,6 +58,7 @@ function runCompose(args, options = {}) {
       cwd: root,
       encoding: "utf8",
       maxBuffer: 50 * 1024 * 1024,
+      env: options.env ? { ...process.env, ...options.env } : process.env,
       stdio: options.capture ? ["ignore", "pipe", "pipe"] : "inherit",
     });
   } catch (error) {
@@ -169,7 +173,7 @@ async function resetDatabase() {
     "-v",
     "ON_ERROR_STOP=1",
     "-c",
-    "TRUNCATE dimension_event_facts, dimension_daily, session_events, sessions, visitor_event_facts, visitor_daily, session_daily, normalized_event_context, analytics_rebuild_queue, analytics_watermarks, analytics_generations, analytics_feature_flags, raw_events, page_view_daily, page_view_routes, page_view_totals RESTART IDENTITY CASCADE",
+    "TRUNCATE dimension_event_facts, dimension_daily, session_events, sessions, visitor_event_facts, visitor_daily, session_daily, normalized_event_context, web_vital_facts, analytics_rebuild_queue, analytics_watermarks, analytics_generations, analytics_feature_flags, raw_events, page_view_daily, page_view_routes, page_view_totals RESTART IDENTITY CASCADE",
   ]);
 }
 
@@ -341,6 +345,115 @@ async function assertSinglePageView(page) {
   );
 }
 
+async function assertBrowserWebVitalsCollection(browser) {
+  await resetDatabase();
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = (input, init) => {
+      if (init?.keepalive) localStorage.setItem("__e2e_web_vitals_keepalive", "true");
+      return nativeFetch(input, init);
+    };
+  });
+
+  try {
+    await page.goto("http://localhost:3000", { waitUntil: "domcontentloaded" });
+    const navigationLog = page.getByTestId("events-json");
+    await navigationLog.waitFor();
+    await page.waitForFunction(() => {
+      const value = document.querySelector("[data-testid=events-json]")?.textContent ?? "[]";
+      return value.includes("initial");
+    });
+    await page.waitForTimeout(1200);
+    await page.goto("http://localhost:3000/about", { waitUntil: "domcontentloaded" });
+    assert(
+      (await page.evaluate(() => localStorage.getItem("__e2e_web_vitals_keepalive"))) === "true",
+      "The real Browser SDK did not issue a keepalive request when the document was hidden",
+    );
+
+    const deadline = Date.now() + 15_000;
+    let payloads = [];
+    while (Date.now() < deadline) {
+      payloads = readBrowserEvents();
+      if (payloads.some((event) => event.type === "web_vital")) break;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    const pageViews = new Map(
+      payloads.filter((event) => event.type === "page_view").map((event) => [event.event_id, event]),
+    );
+    const vitals = payloads.filter((event) => event.type === "web_vital");
+    assert(vitals.length > 0, "The browser did not deliver any Web Vital events to the Collector");
+    for (const event of vitals) {
+      const pageView = pageViews.get(event.page_view_event_id);
+      assert(pageView, `Web Vital ${event.event_id} is missing its Page View`);
+      assert(
+        event.path === pageView.path &&
+          event.page_view_occurred_at === pageView.occurred_at &&
+          event.occurred_at >= pageView.occurred_at,
+        `Web Vital ${event.event_id} does not match its Page View fields`,
+      );
+      assert(
+        ["LCP", "INP", "CLS", "FCP", "TTFB"].includes(event.metric),
+        `Unexpected browser metric ${event.metric}`,
+      );
+      const max = event.metric === "CLS" ? 100 : 600_000;
+      assert(Number.isFinite(event.value) && event.value >= 0 && event.value <= max, "Browser Web Vital value is outside protocol bounds");
+      assert(Number.isInteger(event.report_sequence) && event.report_sequence > 0, "Browser Web Vital report sequence is invalid");
+    }
+
+    runCompose([
+      "run", "--rm", "--no-deps", "--build", "--entrypoint", "cargo", "processor",
+      "run", "-p", "processor", "--", "--once",
+    ], { capture: true });
+    const factCount = Number(runCompose([
+      "exec", "-T", "postgres", "psql", "-U", "analytics", "-d", "analytics", "-At",
+      "-v", "ON_ERROR_STOP=1", "-c",
+      "SELECT COUNT(*) FROM web_vital_facts WHERE site_id='site_playground'",
+    ], { capture: true }).trim());
+    assert(factCount > 0, "Processor did not persist browser Web Vital facts");
+
+    const reportDate = new Date(pageViews.get(vitals[0].page_view_event_id).occurred_at).toISOString().slice(0, 10);
+    const reportResponse = await fetch(`${analyticsUrl}/v1/sites/site_playground/reports/${reportDate}/${reportDate}/web-vitals`);
+    const report = await reportResponse.json();
+    assert(reportResponse.status === 200, `Analytics API rejected browser Web Vitals: ${JSON.stringify(report)}`);
+    assert(report.total === factCount && report.items.reduce((sum, item) => sum + item.count, 0) === factCount, "Analytics API total does not include all processed browser samples");
+    assert(vitals.every((event) => report.items.some((item) => item.path === event.path && item.metric === event.metric)), "Analytics API is missing browser generated Web Vital metrics");
+  } finally {
+    await context.close();
+  }
+}
+
+function readBrowserEvents() {
+  const output = runCompose(
+    [
+      "exec", "-T", "postgres", "psql", "-U", "analytics", "-d", "analytics", "-At",
+      "-v", "ON_ERROR_STOP=1", "-c",
+      "SELECT COALESCE(json_agg(payload ORDER BY id), '[]'::json)::text FROM raw_events WHERE site_id='site_playground'",
+    ],
+    { capture: true },
+  );
+  return JSON.parse(output.trim());
+}
+
+async function assertWebVitals(page) {
+  const data = await fixture("web-vitals");
+  await prepareFixture(data);
+  await page.goto(rangeUrl("site_playground", "2026-09-18", "2026-09-18"));
+  const section = page.locator("section.card").filter({ hasText: "Web Vitals" });
+  await expectReportRows(page, "Web Vitals", [
+    "/vitals CLS 4 0.09 3 1 0",
+    "/vitals FCP 4 1800 ms 3 1 0",
+    "/vitals INP 4 200 ms 3 0 1",
+    "/vitals LCP 4 2500 ms 3 0 1",
+    "/vitals TTFB 4 800 ms 3 0 1",
+  ]);
+  assert(
+    !(await section.textContent()).includes("properties"),
+    "Web Vitals must not display properties",
+  );
+}
+
 async function assertCustomEvents(page) {
   const data = await fixture("custom-events");
   await prepareFixture(data);
@@ -401,6 +514,11 @@ async function assertEmptyRange(page) {
   await page.goto(rangeUrl("site_playground", "2026-09-01", "2026-09-01"));
   await expectMetric(page, "Selected range Page Views", rangeOverview.page_views);
   await page.getByText("No page view data is available for this selection.").nth(0).waitFor();
+  await page
+    .locator("section.card")
+    .filter({ hasText: "Web Vitals" })
+    .getByText("No page view data is available for this selection.")
+    .waitFor();
   const emptyCopy = "No page view data is available for this selection.";
   assert(
     (await page
@@ -519,13 +637,27 @@ try {
   await rm(artifactDirectory, { recursive: true, force: true });
   assertDashboardIsolation();
   const composeOutput = runCompose(
-    ["up", "-d", "--build", "--wait", "postgres", "collector", "analytics-api", "dashboard"],
-    { capture: true },
+    [
+      "up", "-d", "--build", "--wait", "postgres", "collector", "analytics-api", "dashboard",
+      "playground-next",
+    ],
+    {
+      capture: true,
+      env: {
+        NEXT_PUBLIC_ANALYTICS_TRANSPORT: "fetch",
+        NEXT_PUBLIC_ANALYTICS_ENDPOINT: `${collectorUrl}/v1/events`,
+        NEXT_PUBLIC_ANALYTICS_INGEST_KEY: keys.site_playground,
+        NEXT_PUBLIC_ANALYTICS_SITE_ID: "site_playground",
+      },
+    },
   );
   process.stdout.write(composeOutput);
   await waitFor("Dashboard", `${dashboardUrl}/dashboard`);
+  await waitFor("Next.js browser playground", "http://localhost:3000");
   await assertDashboardRuntimeConfiguration();
   browser = await chromium.launch({ headless: true });
+  await assertBrowserWebVitalsCollection(browser);
+  console.log("PASS real-browser Web Vitals collection and keepalive ingestion");
   browserContext = await browser.newContext();
   await browserContext.tracing.start({ screenshots: true, snapshots: true });
   page = await browserContext.newPage();
@@ -534,6 +666,8 @@ try {
   console.log("PASS single-page-view dashboard");
   await assertCustomEvents(page);
   console.log("PASS custom-events dashboard");
+  await assertWebVitals(page);
+  console.log("PASS web-vitals dashboard");
   await assertMultiPageNavigation(page);
   console.log("PASS multi-page-navigation dashboard");
   await assertMultiSiteIsolation(page);
@@ -581,7 +715,7 @@ try {
     await writeFile(
       path.join(artifactDirectory, "service-logs.txt"),
       runCompose(
-        ["logs", "--no-color", "dashboard", "collector", "analytics-api", "postgres", "db-migrate"],
+        ["logs", "--no-color", "dashboard", "playground-next", "collector", "analytics-api", "postgres", "db-migrate"],
         {
           capture: true,
           allowFailure: true,

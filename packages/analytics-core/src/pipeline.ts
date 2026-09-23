@@ -6,7 +6,7 @@ import type { AnalyticsEvent, PageViewEvent } from "@web-analytics/protocol-ts";
 export type BeforeSend = (event: AnalyticsEvent) => AnalyticsEvent | null;
 
 export interface Transport {
-  sendBatch(events: readonly AnalyticsEvent[]): Promise<void>;
+  sendBatch(events: readonly AnalyticsEvent[], options?: { keepalive?: boolean }): Promise<void>;
 }
 
 export interface ProcessNavigationOptions extends PageViewEventFactoryOptions {

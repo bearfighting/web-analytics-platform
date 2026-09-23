@@ -9,6 +9,8 @@ COPY apps ./apps
 COPY examples ./examples
 COPY packages ./packages
 
+RUN find packages -name dist -prune -exec rm -rf {} + && find packages -name '*.tsbuildinfo' -delete && chown -R node:node /workspace
+USER node
 RUN pnpm install --frozen-lockfile
 RUN pnpm build:packages
 

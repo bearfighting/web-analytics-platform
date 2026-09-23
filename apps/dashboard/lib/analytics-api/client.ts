@@ -17,6 +17,8 @@ import {
   sessionsPath,
   timelinePath,
   visitorsPath,
+  webVitalsPath,
+  isWebVitalsResponse,
   type ResponseValidator,
 } from "./queries";
 
@@ -29,6 +31,7 @@ import type {
   AnalyticsDimension,
   DimensionResponse,
   VisitorSessionResponse,
+  WebVitalsResponse,
 } from "./types";
 
 export interface AnalyticsApiClientOptions {
@@ -48,6 +51,13 @@ export interface AnalyticsApiClient {
     limit?: number,
     eventName?: string,
   ): Promise<EventsResponse>;
+  webVitals?(
+    siteId: string,
+    from: string,
+    to: string,
+    limit?: number,
+    path?: string,
+  ): Promise<WebVitalsResponse>;
   visitors(siteId: string, from: string, to: string): Promise<VisitorSessionResponse>;
   sessions(siteId: string, from: string, to: string): Promise<VisitorSessionResponse>;
   dimension(
@@ -79,6 +89,11 @@ export function createAnalyticsApiClient(options: AnalyticsApiClientOptions): An
         `${baseUrl}${eventsPath(siteId, from, to, limit, eventName)}`,
         (value): value is EventsResponse =>
           isEventsResponse(value) && matchesRange(value, siteId, from, to),
+      ),
+    webVitals: (siteId, from, to, limit = 20, path) =>
+      requestJson(
+        `${baseUrl}${webVitalsPath(siteId, from, to, limit, path)}`,
+        (v): v is WebVitalsResponse => isWebVitalsResponse(v) && matchesRange(v, siteId, from, to),
       ),
     visitors: (siteId, from, to) =>
       requestJson(

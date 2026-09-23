@@ -26,6 +26,7 @@ const fixtureNames = [
   "empty-date-range.json",
   "all-time-overview.json",
   "custom-events.json",
+  "web-vitals.json",
 ].filter((name) => !process.env.E2E_FIXTURES || process.env.E2E_FIXTURES.split(",").includes(name));
 
 const composeBaseArgs = [
@@ -99,6 +100,10 @@ async function runFixtures() {
       runCustomEventRebuild();
       await assertFixture(fixture, startedAt, finishedAt);
     }
+    if (fixture.id === "web-vitals") {
+      runWebVitalRebuild();
+      await assertFixture(fixture, startedAt, finishedAt);
+    }
 
     console.log(`PASS ${fixture.id}`);
   }
@@ -170,6 +175,28 @@ function runCustomEventRebuild() {
   );
 }
 
+function runWebVitalRebuild() {
+  runCompose(
+    [
+      "run",
+      "--rm",
+      "--no-deps",
+      "--build",
+      "--entrypoint",
+      "cargo",
+      "processor",
+      "run",
+      "-p",
+      "processor",
+      "--",
+      "--rebuild-web-vitals",
+      "--site-id",
+      "site_playground",
+    ],
+    { capture: true },
+  );
+}
+
 async function resetDatabase() {
   runCompose([
     "exec",
@@ -227,6 +254,13 @@ async function assertFixture(fixture, startedAt, finishedAt, repeated = false) {
   );
   assertJsonEqual(totals, expected.page_view_totals, `${fixture.id}: total aggregate mismatch`);
 
+  if (expected.web_vital_facts) {
+    const facts = queryJson(
+      "SELECT site_id,page_view_event_id,(extract(epoch FROM page_view_occurred_at)*1000)::bigint AS page_view_occurred_at,path,metric,value,rating,report_sequence FROM web_vital_facts ORDER BY page_view_event_id,metric",
+    );
+    assertJsonEqual(facts, expected.web_vital_facts, `${fixture.id}: Web Vital facts mismatch`);
+  }
+
   const receivedCount = queryJson(
     `SELECT COUNT(*)::int AS count FROM raw_events WHERE received_at >= '${startedAt.toISOString()}' AND received_at <= '${finishedAt.toISOString()}'`,
   )[0].count;
@@ -253,6 +287,34 @@ async function assertApiResponses(api) {
     `/v1/sites/${api.pages.body.site_id}/reports/${api.pages.body.from}/${api.pages.body.to}/pages`,
     api.pages,
   );
+  if (api.web_vitals) {
+    const expected = structuredClone(api.web_vitals);
+    expected.body.data_as_of = undefined;
+    const response = await fetch(
+      `${analyticsUrl}/v1/sites/${api.web_vitals.body.site_id}/reports/${api.web_vitals.body.from}/${api.web_vitals.body.to}/web-vitals`,
+    );
+    const body = await response.json();
+    assert(
+      response.status === expected.status,
+      `Web Vitals report expected HTTP ${expected.status}, got ${response.status}`,
+    );
+    assert(
+      body.data_as_of !== null,
+      "Web Vitals report must expose its independent processed watermark",
+    );
+    delete body.data_as_of;
+    assertJsonEqual(body, expected.body, "Web Vitals report response mismatch");
+    const filteredResponse = await fetch(
+      `${analyticsUrl}/v1/sites/${api.web_vitals.body.site_id}/reports/${api.web_vitals.body.from}/${api.web_vitals.body.to}/web-vitals?path=%2Fvitals&limit=1`,
+    );
+    const filtered = await filteredResponse.json();
+    assert(
+      filteredResponse.status === 200 &&
+        filtered.items.length === 1 &&
+        filtered.items[0].path === "/vitals",
+      "exact route filter and limit must apply to Web Vitals",
+    );
+  }
   if (api.events) {
     const expected = structuredClone(api.events);
     expected.body.data_as_of = undefined;

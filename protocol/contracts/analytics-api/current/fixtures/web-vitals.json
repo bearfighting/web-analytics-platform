@@ -1,0 +1,1312 @@
+{
+  "id": "web-vitals",
+  "description": "Document-load Web Vitals link to Page Views and expose per-route p75 and rating counts without changing navigation analytics.",
+  "input": {
+    "received_at": "2026-09-18T12:00:00Z",
+    "events": [
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000100",
+        "type": "page_view",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800000,
+        "path": "/vitals"
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000101",
+        "type": "page_view",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800001,
+        "path": "/vitals"
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000102",
+        "type": "page_view",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800002,
+        "path": "/vitals"
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000103",
+        "type": "page_view",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800003,
+        "path": "/vitals"
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000200",
+        "type": "web_vital",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800100,
+        "page_view_event_id": "01J00000000000000000000100",
+        "path": "/vitals",
+        "page_view_occurred_at": 1789732800000,
+        "metric": "CLS",
+        "value": 0.01,
+        "rating": "good",
+        "navigation_type": "navigate",
+        "report_sequence": 1
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000201",
+        "type": "web_vital",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800101,
+        "page_view_event_id": "01J00000000000000000000101",
+        "path": "/vitals",
+        "page_view_occurred_at": 1789732800001,
+        "metric": "CLS",
+        "value": 0.03,
+        "rating": "good",
+        "navigation_type": "navigate",
+        "report_sequence": 1
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000202",
+        "type": "web_vital",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800102,
+        "page_view_event_id": "01J00000000000000000000102",
+        "path": "/vitals",
+        "page_view_occurred_at": 1789732800002,
+        "metric": "CLS",
+        "value": 0.09,
+        "rating": "good",
+        "navigation_type": "navigate",
+        "report_sequence": 1
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000203",
+        "type": "web_vital",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800103,
+        "page_view_event_id": "01J00000000000000000000103",
+        "path": "/vitals",
+        "page_view_occurred_at": 1789732800003,
+        "metric": "CLS",
+        "value": 0.2,
+        "rating": "needs_improvement",
+        "navigation_type": "navigate",
+        "report_sequence": 1
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000204",
+        "type": "web_vital",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800100,
+        "page_view_event_id": "01J00000000000000000000100",
+        "path": "/vitals",
+        "page_view_occurred_at": 1789732800000,
+        "metric": "FCP",
+        "value": 1000,
+        "rating": "good",
+        "navigation_type": "navigate",
+        "report_sequence": 1
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000205",
+        "type": "web_vital",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800101,
+        "page_view_event_id": "01J00000000000000000000101",
+        "path": "/vitals",
+        "page_view_occurred_at": 1789732800001,
+        "metric": "FCP",
+        "value": 1500,
+        "rating": "good",
+        "navigation_type": "navigate",
+        "report_sequence": 1
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000206",
+        "type": "web_vital",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800102,
+        "page_view_event_id": "01J00000000000000000000102",
+        "path": "/vitals",
+        "page_view_occurred_at": 1789732800002,
+        "metric": "FCP",
+        "value": 1800,
+        "rating": "good",
+        "navigation_type": "navigate",
+        "report_sequence": 1
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000207",
+        "type": "web_vital",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800103,
+        "page_view_event_id": "01J00000000000000000000103",
+        "path": "/vitals",
+        "page_view_occurred_at": 1789732800003,
+        "metric": "FCP",
+        "value": 3000,
+        "rating": "needs_improvement",
+        "navigation_type": "navigate",
+        "report_sequence": 1
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000208",
+        "type": "web_vital",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800100,
+        "page_view_event_id": "01J00000000000000000000100",
+        "path": "/vitals",
+        "page_view_occurred_at": 1789732800000,
+        "metric": "INP",
+        "value": 100,
+        "rating": "good",
+        "navigation_type": "navigate",
+        "report_sequence": 1
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000209",
+        "type": "web_vital",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800101,
+        "page_view_event_id": "01J00000000000000000000101",
+        "path": "/vitals",
+        "page_view_occurred_at": 1789732800001,
+        "metric": "INP",
+        "value": 150,
+        "rating": "good",
+        "navigation_type": "navigate",
+        "report_sequence": 1
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000210",
+        "type": "web_vital",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800102,
+        "page_view_event_id": "01J00000000000000000000102",
+        "path": "/vitals",
+        "page_view_occurred_at": 1789732800002,
+        "metric": "INP",
+        "value": 200,
+        "rating": "good",
+        "navigation_type": "navigate",
+        "report_sequence": 1
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000211",
+        "type": "web_vital",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800103,
+        "page_view_event_id": "01J00000000000000000000103",
+        "path": "/vitals",
+        "page_view_occurred_at": 1789732800003,
+        "metric": "INP",
+        "value": 600,
+        "rating": "poor",
+        "navigation_type": "navigate",
+        "report_sequence": 1
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000212",
+        "type": "web_vital",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800100,
+        "page_view_event_id": "01J00000000000000000000100",
+        "path": "/vitals",
+        "page_view_occurred_at": 1789732800000,
+        "metric": "LCP",
+        "value": 1000,
+        "rating": "good",
+        "navigation_type": "navigate",
+        "report_sequence": 1
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000213",
+        "type": "web_vital",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800101,
+        "page_view_event_id": "01J00000000000000000000101",
+        "path": "/vitals",
+        "page_view_occurred_at": 1789732800001,
+        "metric": "LCP",
+        "value": 2000,
+        "rating": "good",
+        "navigation_type": "navigate",
+        "report_sequence": 1
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000214",
+        "type": "web_vital",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800102,
+        "page_view_event_id": "01J00000000000000000000102",
+        "path": "/vitals",
+        "page_view_occurred_at": 1789732800002,
+        "metric": "LCP",
+        "value": 2500,
+        "rating": "good",
+        "navigation_type": "navigate",
+        "report_sequence": 1
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000215",
+        "type": "web_vital",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800103,
+        "page_view_event_id": "01J00000000000000000000103",
+        "path": "/vitals",
+        "page_view_occurred_at": 1789732800003,
+        "metric": "LCP",
+        "value": 5000,
+        "rating": "poor",
+        "navigation_type": "navigate",
+        "report_sequence": 1
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000216",
+        "type": "web_vital",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800100,
+        "page_view_event_id": "01J00000000000000000000100",
+        "path": "/vitals",
+        "page_view_occurred_at": 1789732800000,
+        "metric": "TTFB",
+        "value": 500,
+        "rating": "good",
+        "navigation_type": "navigate",
+        "report_sequence": 1
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000217",
+        "type": "web_vital",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800101,
+        "page_view_event_id": "01J00000000000000000000101",
+        "path": "/vitals",
+        "page_view_occurred_at": 1789732800001,
+        "metric": "TTFB",
+        "value": 700,
+        "rating": "good",
+        "navigation_type": "navigate",
+        "report_sequence": 1
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000218",
+        "type": "web_vital",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800102,
+        "page_view_event_id": "01J00000000000000000000102",
+        "path": "/vitals",
+        "page_view_occurred_at": 1789732800002,
+        "metric": "TTFB",
+        "value": 800,
+        "rating": "good",
+        "navigation_type": "navigate",
+        "report_sequence": 1
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000219",
+        "type": "web_vital",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800103,
+        "page_view_event_id": "01J00000000000000000000103",
+        "path": "/vitals",
+        "page_view_occurred_at": 1789732800003,
+        "metric": "TTFB",
+        "value": 2000,
+        "rating": "poor",
+        "navigation_type": "navigate",
+        "report_sequence": 1
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000221",
+        "type": "web_vital",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800200,
+        "page_view_event_id": "01J00000000000000000000100",
+        "path": "/vitals",
+        "page_view_occurred_at": 1789732800000,
+        "metric": "LCP",
+        "value": 1500,
+        "rating": "good",
+        "navigation_type": "navigate",
+        "report_sequence": 2
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000222",
+        "type": "web_vital",
+        "site_id": "site_playground",
+        "occurred_at": 1789732800201,
+        "page_view_event_id": "01J00000000000000000000100",
+        "path": "/vitals",
+        "page_view_occurred_at": 1789732800000,
+        "metric": "LCP",
+        "value": 1750,
+        "rating": "good",
+        "navigation_type": "navigate",
+        "report_sequence": 2
+      }
+    ]
+  },
+  "processor": {
+    "mode": "once",
+    "input": "unprocessed_raw_events"
+  },
+  "expected": {
+    "raw_events": {
+      "inserted": 26,
+      "duplicates_ignored": 0,
+      "events": [
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000100",
+          "type": "page_view",
+          "occurred_at": 1789732800000,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000100",
+            "type": "page_view",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800000,
+            "path": "/vitals"
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000101",
+          "type": "page_view",
+          "occurred_at": 1789732800001,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000101",
+            "type": "page_view",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800001,
+            "path": "/vitals"
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000102",
+          "type": "page_view",
+          "occurred_at": 1789732800002,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000102",
+            "type": "page_view",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800002,
+            "path": "/vitals"
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000103",
+          "type": "page_view",
+          "occurred_at": 1789732800003,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000103",
+            "type": "page_view",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800003,
+            "path": "/vitals"
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000200",
+          "type": "web_vital",
+          "occurred_at": 1789732800100,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000200",
+            "type": "web_vital",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800100,
+            "page_view_event_id": "01J00000000000000000000100",
+            "path": "/vitals",
+            "page_view_occurred_at": 1789732800000,
+            "metric": "CLS",
+            "value": 0.01,
+            "rating": "good",
+            "navigation_type": "navigate",
+            "report_sequence": 1
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000201",
+          "type": "web_vital",
+          "occurred_at": 1789732800101,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000201",
+            "type": "web_vital",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800101,
+            "page_view_event_id": "01J00000000000000000000101",
+            "path": "/vitals",
+            "page_view_occurred_at": 1789732800001,
+            "metric": "CLS",
+            "value": 0.03,
+            "rating": "good",
+            "navigation_type": "navigate",
+            "report_sequence": 1
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000202",
+          "type": "web_vital",
+          "occurred_at": 1789732800102,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000202",
+            "type": "web_vital",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800102,
+            "page_view_event_id": "01J00000000000000000000102",
+            "path": "/vitals",
+            "page_view_occurred_at": 1789732800002,
+            "metric": "CLS",
+            "value": 0.09,
+            "rating": "good",
+            "navigation_type": "navigate",
+            "report_sequence": 1
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000203",
+          "type": "web_vital",
+          "occurred_at": 1789732800103,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000203",
+            "type": "web_vital",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800103,
+            "page_view_event_id": "01J00000000000000000000103",
+            "path": "/vitals",
+            "page_view_occurred_at": 1789732800003,
+            "metric": "CLS",
+            "value": 0.2,
+            "rating": "needs_improvement",
+            "navigation_type": "navigate",
+            "report_sequence": 1
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000204",
+          "type": "web_vital",
+          "occurred_at": 1789732800100,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000204",
+            "type": "web_vital",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800100,
+            "page_view_event_id": "01J00000000000000000000100",
+            "path": "/vitals",
+            "page_view_occurred_at": 1789732800000,
+            "metric": "FCP",
+            "value": 1000,
+            "rating": "good",
+            "navigation_type": "navigate",
+            "report_sequence": 1
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000205",
+          "type": "web_vital",
+          "occurred_at": 1789732800101,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000205",
+            "type": "web_vital",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800101,
+            "page_view_event_id": "01J00000000000000000000101",
+            "path": "/vitals",
+            "page_view_occurred_at": 1789732800001,
+            "metric": "FCP",
+            "value": 1500,
+            "rating": "good",
+            "navigation_type": "navigate",
+            "report_sequence": 1
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000206",
+          "type": "web_vital",
+          "occurred_at": 1789732800102,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000206",
+            "type": "web_vital",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800102,
+            "page_view_event_id": "01J00000000000000000000102",
+            "path": "/vitals",
+            "page_view_occurred_at": 1789732800002,
+            "metric": "FCP",
+            "value": 1800,
+            "rating": "good",
+            "navigation_type": "navigate",
+            "report_sequence": 1
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000207",
+          "type": "web_vital",
+          "occurred_at": 1789732800103,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000207",
+            "type": "web_vital",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800103,
+            "page_view_event_id": "01J00000000000000000000103",
+            "path": "/vitals",
+            "page_view_occurred_at": 1789732800003,
+            "metric": "FCP",
+            "value": 3000,
+            "rating": "needs_improvement",
+            "navigation_type": "navigate",
+            "report_sequence": 1
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000208",
+          "type": "web_vital",
+          "occurred_at": 1789732800100,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000208",
+            "type": "web_vital",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800100,
+            "page_view_event_id": "01J00000000000000000000100",
+            "path": "/vitals",
+            "page_view_occurred_at": 1789732800000,
+            "metric": "INP",
+            "value": 100,
+            "rating": "good",
+            "navigation_type": "navigate",
+            "report_sequence": 1
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000209",
+          "type": "web_vital",
+          "occurred_at": 1789732800101,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000209",
+            "type": "web_vital",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800101,
+            "page_view_event_id": "01J00000000000000000000101",
+            "path": "/vitals",
+            "page_view_occurred_at": 1789732800001,
+            "metric": "INP",
+            "value": 150,
+            "rating": "good",
+            "navigation_type": "navigate",
+            "report_sequence": 1
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000210",
+          "type": "web_vital",
+          "occurred_at": 1789732800102,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000210",
+            "type": "web_vital",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800102,
+            "page_view_event_id": "01J00000000000000000000102",
+            "path": "/vitals",
+            "page_view_occurred_at": 1789732800002,
+            "metric": "INP",
+            "value": 200,
+            "rating": "good",
+            "navigation_type": "navigate",
+            "report_sequence": 1
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000211",
+          "type": "web_vital",
+          "occurred_at": 1789732800103,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000211",
+            "type": "web_vital",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800103,
+            "page_view_event_id": "01J00000000000000000000103",
+            "path": "/vitals",
+            "page_view_occurred_at": 1789732800003,
+            "metric": "INP",
+            "value": 600,
+            "rating": "poor",
+            "navigation_type": "navigate",
+            "report_sequence": 1
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000212",
+          "type": "web_vital",
+          "occurred_at": 1789732800100,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000212",
+            "type": "web_vital",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800100,
+            "page_view_event_id": "01J00000000000000000000100",
+            "path": "/vitals",
+            "page_view_occurred_at": 1789732800000,
+            "metric": "LCP",
+            "value": 1000,
+            "rating": "good",
+            "navigation_type": "navigate",
+            "report_sequence": 1
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000213",
+          "type": "web_vital",
+          "occurred_at": 1789732800101,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000213",
+            "type": "web_vital",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800101,
+            "page_view_event_id": "01J00000000000000000000101",
+            "path": "/vitals",
+            "page_view_occurred_at": 1789732800001,
+            "metric": "LCP",
+            "value": 2000,
+            "rating": "good",
+            "navigation_type": "navigate",
+            "report_sequence": 1
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000214",
+          "type": "web_vital",
+          "occurred_at": 1789732800102,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000214",
+            "type": "web_vital",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800102,
+            "page_view_event_id": "01J00000000000000000000102",
+            "path": "/vitals",
+            "page_view_occurred_at": 1789732800002,
+            "metric": "LCP",
+            "value": 2500,
+            "rating": "good",
+            "navigation_type": "navigate",
+            "report_sequence": 1
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000215",
+          "type": "web_vital",
+          "occurred_at": 1789732800103,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000215",
+            "type": "web_vital",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800103,
+            "page_view_event_id": "01J00000000000000000000103",
+            "path": "/vitals",
+            "page_view_occurred_at": 1789732800003,
+            "metric": "LCP",
+            "value": 5000,
+            "rating": "poor",
+            "navigation_type": "navigate",
+            "report_sequence": 1
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000216",
+          "type": "web_vital",
+          "occurred_at": 1789732800100,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000216",
+            "type": "web_vital",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800100,
+            "page_view_event_id": "01J00000000000000000000100",
+            "path": "/vitals",
+            "page_view_occurred_at": 1789732800000,
+            "metric": "TTFB",
+            "value": 500,
+            "rating": "good",
+            "navigation_type": "navigate",
+            "report_sequence": 1
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000217",
+          "type": "web_vital",
+          "occurred_at": 1789732800101,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000217",
+            "type": "web_vital",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800101,
+            "page_view_event_id": "01J00000000000000000000101",
+            "path": "/vitals",
+            "page_view_occurred_at": 1789732800001,
+            "metric": "TTFB",
+            "value": 700,
+            "rating": "good",
+            "navigation_type": "navigate",
+            "report_sequence": 1
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000218",
+          "type": "web_vital",
+          "occurred_at": 1789732800102,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000218",
+            "type": "web_vital",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800102,
+            "page_view_event_id": "01J00000000000000000000102",
+            "path": "/vitals",
+            "page_view_occurred_at": 1789732800002,
+            "metric": "TTFB",
+            "value": 800,
+            "rating": "good",
+            "navigation_type": "navigate",
+            "report_sequence": 1
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000219",
+          "type": "web_vital",
+          "occurred_at": 1789732800103,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000219",
+            "type": "web_vital",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800103,
+            "page_view_event_id": "01J00000000000000000000103",
+            "path": "/vitals",
+            "page_view_occurred_at": 1789732800003,
+            "metric": "TTFB",
+            "value": 2000,
+            "rating": "poor",
+            "navigation_type": "navigate",
+            "report_sequence": 1
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000221",
+          "type": "web_vital",
+          "occurred_at": 1789732800200,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000221",
+            "type": "web_vital",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800200,
+            "page_view_event_id": "01J00000000000000000000100",
+            "path": "/vitals",
+            "page_view_occurred_at": 1789732800000,
+            "metric": "LCP",
+            "value": 1500,
+            "rating": "good",
+            "navigation_type": "navigate",
+            "report_sequence": 2
+          }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000222",
+          "type": "web_vital",
+          "occurred_at": 1789732800201,
+          "received_at": "2026-09-18T12:00:00Z",
+          "path": "/vitals",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000222",
+            "type": "web_vital",
+            "site_id": "site_playground",
+            "occurred_at": 1789732800201,
+            "page_view_event_id": "01J00000000000000000000100",
+            "path": "/vitals",
+            "page_view_occurred_at": 1789732800000,
+            "metric": "LCP",
+            "value": 1750,
+            "rating": "good",
+            "navigation_type": "navigate",
+            "report_sequence": 2
+          }
+        }
+      ]
+    },
+    "page_view_daily": [
+      {
+        "site_id": "site_playground",
+        "day": "2026-09-18",
+        "page_views": 4
+      }
+    ],
+    "page_view_routes": [
+      {
+        "site_id": "site_playground",
+        "day": "2026-09-18",
+        "path": "/vitals",
+        "page_views": 4
+      }
+    ],
+    "page_view_totals": [
+      {
+        "site_id": "site_playground",
+        "page_views": 4
+      }
+    ],
+    "web_vital_facts": [
+      {
+        "site_id": "site_playground",
+        "page_view_event_id": "01J00000000000000000000100",
+        "page_view_occurred_at": 1789732800000,
+        "path": "/vitals",
+        "metric": "CLS",
+        "value": 0.01,
+        "rating": "good",
+        "report_sequence": 1
+      },
+      {
+        "site_id": "site_playground",
+        "page_view_event_id": "01J00000000000000000000100",
+        "page_view_occurred_at": 1789732800000,
+        "path": "/vitals",
+        "metric": "FCP",
+        "value": 1000,
+        "rating": "good",
+        "report_sequence": 1
+      },
+      {
+        "site_id": "site_playground",
+        "page_view_event_id": "01J00000000000000000000100",
+        "page_view_occurred_at": 1789732800000,
+        "path": "/vitals",
+        "metric": "INP",
+        "value": 100,
+        "rating": "good",
+        "report_sequence": 1
+      },
+      {
+        "site_id": "site_playground",
+        "page_view_event_id": "01J00000000000000000000100",
+        "page_view_occurred_at": 1789732800000,
+        "path": "/vitals",
+        "metric": "LCP",
+        "value": 1500,
+        "rating": "good",
+        "report_sequence": 2
+      },
+      {
+        "site_id": "site_playground",
+        "page_view_event_id": "01J00000000000000000000100",
+        "page_view_occurred_at": 1789732800000,
+        "path": "/vitals",
+        "metric": "TTFB",
+        "value": 500,
+        "rating": "good",
+        "report_sequence": 1
+      },
+      {
+        "site_id": "site_playground",
+        "page_view_event_id": "01J00000000000000000000101",
+        "page_view_occurred_at": 1789732800001,
+        "path": "/vitals",
+        "metric": "CLS",
+        "value": 0.03,
+        "rating": "good",
+        "report_sequence": 1
+      },
+      {
+        "site_id": "site_playground",
+        "page_view_event_id": "01J00000000000000000000101",
+        "page_view_occurred_at": 1789732800001,
+        "path": "/vitals",
+        "metric": "FCP",
+        "value": 1500,
+        "rating": "good",
+        "report_sequence": 1
+      },
+      {
+        "site_id": "site_playground",
+        "page_view_event_id": "01J00000000000000000000101",
+        "page_view_occurred_at": 1789732800001,
+        "path": "/vitals",
+        "metric": "INP",
+        "value": 150,
+        "rating": "good",
+        "report_sequence": 1
+      },
+      {
+        "site_id": "site_playground",
+        "page_view_event_id": "01J00000000000000000000101",
+        "page_view_occurred_at": 1789732800001,
+        "path": "/vitals",
+        "metric": "LCP",
+        "value": 2000,
+        "rating": "good",
+        "report_sequence": 1
+      },
+      {
+        "site_id": "site_playground",
+        "page_view_event_id": "01J00000000000000000000101",
+        "page_view_occurred_at": 1789732800001,
+        "path": "/vitals",
+        "metric": "TTFB",
+        "value": 700,
+        "rating": "good",
+        "report_sequence": 1
+      },
+      {
+        "site_id": "site_playground",
+        "page_view_event_id": "01J00000000000000000000102",
+        "page_view_occurred_at": 1789732800002,
+        "path": "/vitals",
+        "metric": "CLS",
+        "value": 0.09,
+        "rating": "good",
+        "report_sequence": 1
+      },
+      {
+        "site_id": "site_playground",
+        "page_view_event_id": "01J00000000000000000000102",
+        "page_view_occurred_at": 1789732800002,
+        "path": "/vitals",
+        "metric": "FCP",
+        "value": 1800,
+        "rating": "good",
+        "report_sequence": 1
+      },
+      {
+        "site_id": "site_playground",
+        "page_view_event_id": "01J00000000000000000000102",
+        "page_view_occurred_at": 1789732800002,
+        "path": "/vitals",
+        "metric": "INP",
+        "value": 200,
+        "rating": "good",
+        "report_sequence": 1
+      },
+      {
+        "site_id": "site_playground",
+        "page_view_event_id": "01J00000000000000000000102",
+        "page_view_occurred_at": 1789732800002,
+        "path": "/vitals",
+        "metric": "LCP",
+        "value": 2500,
+        "rating": "good",
+        "report_sequence": 1
+      },
+      {
+        "site_id": "site_playground",
+        "page_view_event_id": "01J00000000000000000000102",
+        "page_view_occurred_at": 1789732800002,
+        "path": "/vitals",
+        "metric": "TTFB",
+        "value": 800,
+        "rating": "good",
+        "report_sequence": 1
+      },
+      {
+        "site_id": "site_playground",
+        "page_view_event_id": "01J00000000000000000000103",
+        "page_view_occurred_at": 1789732800003,
+        "path": "/vitals",
+        "metric": "CLS",
+        "value": 0.2,
+        "rating": "needs_improvement",
+        "report_sequence": 1
+      },
+      {
+        "site_id": "site_playground",
+        "page_view_event_id": "01J00000000000000000000103",
+        "page_view_occurred_at": 1789732800003,
+        "path": "/vitals",
+        "metric": "FCP",
+        "value": 3000,
+        "rating": "needs_improvement",
+        "report_sequence": 1
+      },
+      {
+        "site_id": "site_playground",
+        "page_view_event_id": "01J00000000000000000000103",
+        "page_view_occurred_at": 1789732800003,
+        "path": "/vitals",
+        "metric": "INP",
+        "value": 600,
+        "rating": "poor",
+        "report_sequence": 1
+      },
+      {
+        "site_id": "site_playground",
+        "page_view_event_id": "01J00000000000000000000103",
+        "page_view_occurred_at": 1789732800003,
+        "path": "/vitals",
+        "metric": "LCP",
+        "value": 5000,
+        "rating": "poor",
+        "report_sequence": 1
+      },
+      {
+        "site_id": "site_playground",
+        "page_view_event_id": "01J00000000000000000000103",
+        "page_view_occurred_at": 1789732800003,
+        "path": "/vitals",
+        "metric": "TTFB",
+        "value": 2000,
+        "rating": "poor",
+        "report_sequence": 1
+      }
+    ],
+    "api": {
+      "overview": {
+        "status": 200,
+        "body": {
+          "site_id": "site_playground",
+          "page_views": 4
+        }
+      },
+      "range_overview": {
+        "status": 200,
+        "body": {
+          "site_id": "site_playground",
+          "from": "2026-09-18",
+          "to": "2026-09-18",
+          "page_views": 4
+        }
+      },
+      "timeline": {
+        "status": 200,
+        "body": {
+          "site_id": "site_playground",
+          "from": "2026-09-18",
+          "to": "2026-09-18",
+          "items": [
+            {
+              "day": "2026-09-18",
+              "page_views": 4
+            }
+          ]
+        }
+      },
+      "pages": {
+        "status": 200,
+        "body": {
+          "site_id": "site_playground",
+          "from": "2026-09-18",
+          "to": "2026-09-18",
+          "items": [
+            {
+              "path": "/vitals",
+              "page_views": 4
+            }
+          ]
+        }
+      },
+      "web_vitals": {
+        "status": 200,
+        "body": {
+          "site_id": "site_playground",
+          "from": "2026-09-18",
+          "to": "2026-09-18",
+          "items": [
+            {
+              "path": "/vitals",
+              "metric": "CLS",
+              "count": 4,
+              "p75": 0.09,
+              "good_count": 3,
+              "needs_improvement_count": 1,
+              "poor_count": 0,
+              "status": "available"
+            },
+            {
+              "path": "/vitals",
+              "metric": "FCP",
+              "count": 4,
+              "p75": 1800,
+              "good_count": 3,
+              "needs_improvement_count": 1,
+              "poor_count": 0,
+              "status": "available"
+            },
+            {
+              "path": "/vitals",
+              "metric": "INP",
+              "count": 4,
+              "p75": 200,
+              "good_count": 3,
+              "needs_improvement_count": 0,
+              "poor_count": 1,
+              "status": "available"
+            },
+            {
+              "path": "/vitals",
+              "metric": "LCP",
+              "count": 4,
+              "p75": 2500,
+              "good_count": 3,
+              "needs_improvement_count": 0,
+              "poor_count": 1,
+              "status": "available"
+            },
+            {
+              "path": "/vitals",
+              "metric": "TTFB",
+              "count": 4,
+              "p75": 800,
+              "good_count": 3,
+              "needs_improvement_count": 0,
+              "poor_count": 1,
+              "status": "available"
+            }
+          ],
+          "data_as_of": "<dynamic>",
+          "freshness_status": "current",
+          "aggregation_version": 1,
+          "total": 20
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "event_id": "01J00000000000000000000001",
+  "type": "web_vital",
+  "site_id": "site_example",
+  "occurred_at": 1760000000500,
+  "page_view_event_id": "01J00000000000000000000000",
+  "path": "/pricing",
+  "page_view_occurred_at": 1760000000000,
+  "metric": "CLS",
+  "value": 100.01,
+  "rating": "poor",
+  "navigation_type": "navigate",
+  "report_sequence": 1
+}

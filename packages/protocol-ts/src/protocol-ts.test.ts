@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { isWebVitalEvent, webVitalRating } from "./index";
 import type { BrowserContextV1, EventBatch, PageViewEvent } from "./index";
 
 describe("protocol types", () => {
@@ -62,5 +63,35 @@ describe("protocol types", () => {
 
     expect(batch.events[0].schema_version).toBe(1);
     expect(event.context?.user_agent).toBe("unknown");
+  });
+});
+
+describe("Web Vital protocol helpers", () => {
+  const sample = {
+    schema_version: 1,
+    event_id: "01J00000000000000000000001",
+    type: "web_vital",
+    site_id: "site_example",
+    occurred_at: 1760000000500,
+    page_view_event_id: "01J00000000000000000000000",
+    path: "/pricing",
+    page_view_occurred_at: 1760000000000,
+    metric: "LCP",
+    value: 2500,
+    rating: "good",
+    navigation_type: "navigate",
+    report_sequence: 1,
+  };
+  it("validates linked reports and frozen rating boundaries", () => {
+    expect(isWebVitalEvent(sample)).toBe(true);
+    expect(webVitalRating("LCP", 2500)).toBe("good");
+    expect(webVitalRating("LCP", 2500.01)).toBe("needs_improvement");
+    expect(webVitalRating("CLS", 100.01)).toBeNull();
+    expect(isWebVitalEvent({ ...sample, rating: "poor" })).toBe(false);
+    expect(isWebVitalEvent({ ...sample, occurred_at: -1 })).toBe(false);
+    expect(isWebVitalEvent({ ...sample, page_view_occurred_at: -1 })).toBe(false);
+    expect(isWebVitalEvent({ ...sample, occurred_at: sample.page_view_occurred_at - 1 })).toBe(
+      false,
+    );
   });
 });

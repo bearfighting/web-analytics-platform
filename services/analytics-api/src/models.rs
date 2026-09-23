@@ -161,3 +161,36 @@ pub(crate) struct EventDailyRow {
     pub(crate) event_name: String,
     pub(crate) event_count: i64,
 }
+
+#[derive(Debug, Serialize)]
+pub(crate) struct WebVitalReportResponse {
+    pub site_id: String,
+    pub from: String,
+    pub to: String,
+    pub total: i64,
+    pub items: Vec<WebVitalReportItem>,
+    pub data_as_of: Option<chrono::DateTime<chrono::Utc>>,
+    pub freshness_status: String,
+    pub aggregation_version: i32,
+}
+#[derive(Debug, Serialize)]
+pub(crate) struct WebVitalReportItem {
+    pub path: String,
+    pub metric: String,
+    pub count: i64,
+    pub p75: Option<f64>,
+    pub good_count: i64,
+    pub needs_improvement_count: i64,
+    pub poor_count: i64,
+    pub status: String,
+}
+#[derive(Debug, sqlx::FromRow)]
+pub(crate) struct WebVitalReportRow {
+    pub path: String,
+    pub metric: String,
+    pub count: i64,
+    pub p75: Option<f64>,
+    pub good_count: i64,
+    pub needs_improvement_count: i64,
+    pub poor_count: i64,
+}
