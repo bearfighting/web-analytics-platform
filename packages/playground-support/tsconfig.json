@@ -5,9 +5,9 @@
     "rootDir": "src",
     "outDir": "dist",
     "paths": {
-      "@web-analytics/analytics-core": ["../analytics-core/src/index.ts"],
-      "@web-analytics/protocol-ts": ["../protocol-ts/src/index.ts"],
-      "@web-analytics/transport": ["../transport/src/index.ts"]
+      "@web-analytics/analytics-core": ["packages/analytics-core/src/index.ts"],
+      "@web-analytics/protocol-ts": ["packages/protocol-ts/src/index.ts"],
+      "@web-analytics/transport": ["packages/transport/src/index.ts"]
     }
   },
   "include": ["src/**/*.ts"],
