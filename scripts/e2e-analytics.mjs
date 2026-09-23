@@ -14,7 +14,7 @@ const fixturesDirectory = path.join(
   "protocol",
   "contracts",
   "analytics-api",
-  "v1",
+  "current",
   "fixtures",
 );
 const fixtureNames = [

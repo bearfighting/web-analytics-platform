@@ -19,7 +19,7 @@ const fixturesDirectory = path.join(
   "protocol",
   "contracts",
   "analytics-api",
-  "v1",
+  "current",
   "fixtures",
 );
 const phase6FixturesDirectory = path.join(root, "tests", "fixtures", "dashboard");
