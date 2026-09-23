@@ -17,6 +17,7 @@
     "jsx": "react-jsx",
     "paths": {
       "@web-analytics/observer-core": ["../../packages/observer-core/src/index.ts"],
+      "@web-analytics/observer-tanstack-router": ["../../packages/observer-tanstack-router/src/index.ts"],
       "@web-analytics/router-adapters/tanstack-router": [
         "../../packages/router-adapters/src/tanstack-router.tsx"
       ],

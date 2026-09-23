@@ -18,6 +18,7 @@
     "paths": {
       "@web-analytics/analytics-browser": ["../../packages/analytics-browser/src/index.ts"],
       "@web-analytics/observer-core": ["../../packages/observer-core/src/index.ts"],
+      "@web-analytics/observer-react-router": ["../../packages/observer-react-router/src/index.ts"],
       "@web-analytics/router-adapters/react-router": [
         "../../packages/router-adapters/src/react-router.tsx"
       ],
