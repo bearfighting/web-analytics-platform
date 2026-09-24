@@ -893,6 +893,11 @@ async fn once_cli_processes_the_backlog() {
 
     let status = std::process::Command::new(env!("CARGO_BIN_EXE_processor"))
         .env("DATABASE_URL", database_url())
+        .env(
+            "ANALYTICS_DEFINITIONS_FILE",
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../config/analytics-definitions.json"),
+        )
         .arg("--once")
         .status()
         .expect("processor binary should start");
