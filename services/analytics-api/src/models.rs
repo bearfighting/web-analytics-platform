@@ -265,7 +265,11 @@ pub(crate) struct GeoCountryReportResponse {
     pub(crate) from: String,
     pub(crate) to: String,
     pub(crate) coverage_from: Option<NaiveDate>,
+    pub(crate) providers: Vec<String>,
     pub(crate) items: Vec<GeoCountryItem>,
+    pub(crate) data_as_of: Option<chrono::DateTime<chrono::Utc>>,
+    pub(crate) freshness_status: String,
+    pub(crate) aggregation_version: i32,
 }
 
 #[derive(Debug, sqlx::FromRow)]

@@ -16,19 +16,9 @@
         "operationId": "geoCountryReport",
         "summary": "Country Page View report",
         "parameters": [
-          { "name": "site_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          {
-            "name": "from",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "string", "format": "date" }
-          },
-          {
-            "name": "to",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "string", "format": "date" }
-          }
+          { "$ref": "#/components/parameters/SiteId" },
+          { "$ref": "#/components/parameters/FromPath" },
+          { "$ref": "#/components/parameters/ToPath" }
         ],
         "responses": {
           "200": {
@@ -38,7 +28,9 @@
                 "schema": { "$ref": "#/components/schemas/GeoCountryReportResponse" }
               }
             }
-          }
+          },
+          "400": { "$ref": "#/components/responses/InvalidQuery" },
+          "500": { "$ref": "#/components/responses/AnalyticsApiError" }
         }
       }
     },
@@ -1241,16 +1233,37 @@
       },
       "GeoCountryReportResponse": {
         "type": "object",
-        "required": ["site_id", "from", "to", "coverage_from", "items"],
+        "required": [
+          "site_id",
+          "from",
+          "to",
+          "coverage_from",
+          "providers",
+          "items",
+          "data_as_of",
+          "freshness_status",
+          "aggregation_version"
+        ],
         "properties": {
           "site_id": { "type": "string" },
           "from": { "type": "string", "format": "date" },
           "to": { "type": "string", "format": "date" },
           "coverage_from": { "type": ["string", "null"], "format": "date" },
+          "providers": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "type": "string", "enum": ["db-ip", "maxmind"] }
+          },
           "items": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/GeoCountryReportItem" }
-          }
+          },
+          "data_as_of": { "type": ["string", "null"], "format": "date-time" },
+          "freshness_status": {
+            "type": "string",
+            "enum": ["current", "stale", "rebuilding", "failed"]
+          },
+          "aggregation_version": { "type": "integer", "minimum": 1 }
         },
         "additionalProperties": false
       },

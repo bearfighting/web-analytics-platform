@@ -447,6 +447,10 @@ it("requests and validates Geo country reports including unknown", async () => {
     from: "2026-09-18",
     to: "2026-09-19",
     coverage_from: "2026-09-18",
+    providers: ["maxmind"],
+    data_as_of: "2026-09-19T12:00:00Z",
+    freshness_status: "current",
+    aggregation_version: 1,
     items: [
       { country_code: "CA", page_views: 3 },
       { country_code: "unknown", page_views: 1 },
@@ -466,5 +470,10 @@ it("requests and validates Geo country reports including unknown", async () => {
   );
   await expect(
     invalid.client.geoCountries("site_playground", "2026-09-18", "2026-09-19"),
+  ).rejects.toBeInstanceOf(AnalyticsApiClientError);
+
+  const unsupportedProvider = clientFor(jsonResponse({ ...result, providers: ["other"] }));
+  await expect(
+    unsupportedProvider.client.geoCountries("site_playground", "2026-09-18", "2026-09-19"),
   ).rejects.toBeInstanceOf(AnalyticsApiClientError);
 });

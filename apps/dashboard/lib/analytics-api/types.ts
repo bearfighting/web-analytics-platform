@@ -180,5 +180,9 @@ export interface GeoCountryResponse {
   from: string;
   to: string;
   coverage_from: string | null;
+  providers: string[];
   items: GeoCountryItem[];
+  data_as_of: string | null;
+  freshness_status: FreshnessStatus;
+  aggregation_version: number;
 }

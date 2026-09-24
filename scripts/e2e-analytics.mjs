@@ -1,3 +1,5 @@
+/* global console, fetch, process, setTimeout, structuredClone */
+
 import { execFileSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -27,6 +29,7 @@ const fixtureNames = [
   "all-time-overview.json",
   "custom-events.json",
   "web-vitals.json",
+  "geo-countries.json",
 ].filter((name) => !process.env.E2E_FIXTURES || process.env.E2E_FIXTURES.split(",").includes(name));
 
 const composeBaseArgs = [
@@ -69,13 +72,15 @@ async function runFixtures() {
         ["site_beta", "e2e-test-key-beta"],
       ]);
       for (const siteId of new Set(fixture.input.events.map((event) => event.site_id))) {
-        await postEvents(
+        await postFixtureEvents(
+          fixture,
           fixture.input.events.filter((event) => event.site_id === siteId),
           keys.get(siteId),
         );
       }
     }
 
+    if (fixture.id === "geo-countries") await assertGeoPendingBeforeProcessing();
     const finishedAt = new Date();
     await runProcessorOnce();
     await assertFixture(fixture, startedAt, finishedAt);
@@ -87,7 +92,8 @@ async function runFixtures() {
           site_alpha: "e2e-test-key-alpha",
           site_beta: "e2e-test-key-beta",
         };
-        await postEvents(
+        await postFixtureEvents(
+          fixture,
           fixture.input.events.filter((event) => event.site_id === siteId),
           keys[siteId],
         );
@@ -109,13 +115,22 @@ async function runFixtures() {
   }
 }
 
-async function postEvents(events, ingestKey) {
+async function postFixtureEvents(fixture, events, ingestKey) {
+  const forwarded = fixture.input.geo_forwarded_for;
+  if (!forwarded) return postEvents(events, ingestKey);
+  for (const event of events) {
+    await postEvents([event], ingestKey, forwarded[event.event_id]);
+  }
+}
+
+async function postEvents(events, ingestKey, forwardedFor) {
   const response = await fetch(`${collectorUrl}/v1/events`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
       origin,
       "x-ingest-key": ingestKey,
+      ...(forwardedFor ? { "x-forwarded-for": forwardedFor } : {}),
     },
     body: JSON.stringify({ schema_version: 1, events }),
   });
@@ -124,6 +139,17 @@ async function postEvents(events, ingestKey) {
   assert(
     body.accepted === events.length,
     `Collector accepted ${body.accepted}, expected ${events.length}`,
+  );
+}
+
+async function assertGeoPendingBeforeProcessing() {
+  const response = await fetch(
+    `${analyticsUrl}/v1/sites/site_playground/reports/2026-09-18/2026-09-18/geo`,
+  );
+  const body = await response.json();
+  assert(
+    response.status === 200 && body.freshness_status === "stale",
+    "pending Page Views must mark Geo report stale",
   );
 }
 
@@ -254,6 +280,53 @@ async function assertFixture(fixture, startedAt, finishedAt, repeated = false) {
   );
   assertJsonEqual(totals, expected.page_view_totals, `${fixture.id}: total aggregate mismatch`);
 
+  if (expected.geo_country_facts) {
+    const facts = queryJson(
+      "SELECT f.site_id,f.country_code,m.provider,m.dataset_version,m.parser_version,(extract(epoch FROM f.occurred_at)*1000)::bigint AS occurred_at FROM geo_country_facts f JOIN geo_event_metadata m USING (site_id,raw_event_id) ORDER BY f.occurred_at",
+    );
+    assert(facts.length === expected.geo_country_facts.length, "Geo facts must be idempotent");
+    assertJsonEqual(
+      facts.map(({ site_id, country_code, provider, parser_version, occurred_at }) => ({
+        site_id,
+        country_code,
+        provider,
+        parser_version,
+        occurred_at,
+      })),
+      expected.geo_country_facts.map((fact) => ({
+        ...fact,
+        occurred_at: Date.parse(fact.occurred_at),
+      })),
+      `${fixture.id}: Geo country facts mismatch`,
+    );
+    assert(
+      facts.every(
+        (fact) =>
+          fact.dataset_version.startsWith("GeoLite2-Country-") &&
+          fact.dataset_version !== "GeoLite2-Country-",
+      ),
+      "Geo metadata must include the synthetic dataset release",
+    );
+    const privatePayloads = queryJson(
+      "SELECT payload::text FROM raw_events WHERE payload::text LIKE '%2.125.160.217%' OR payload::text LIKE '%192.0.2.1%' UNION ALL SELECT concat_ws('|',country_code,provider,dataset_version,parser_version) FROM geo_event_metadata WHERE concat_ws('|',country_code,provider,dataset_version,parser_version) LIKE '%2.125.160.217%' OR concat_ws('|',country_code,provider,dataset_version,parser_version) LIKE '%192.0.2.1%'",
+    );
+    assert(
+      privatePayloads.length === 0,
+      "client IP must never be persisted in raw events or Geo metadata",
+    );
+    const logs = runCompose(["logs", "--no-color", "collector", "analytics-api"], {
+      capture: true,
+      allowFailure: true,
+    });
+    assert(
+      !logs.includes("2.125.160.217") &&
+        !logs.includes("192.0.2.1") &&
+        !processorOutput.includes("2.125.160.217") &&
+        !processorOutput.includes("192.0.2.1"),
+      "client IP must not appear in application logs",
+    );
+  }
+
   if (expected.web_vital_facts) {
     const facts = queryJson(
       "SELECT site_id,page_view_event_id,(extract(epoch FROM page_view_occurred_at)*1000)::bigint AS page_view_occurred_at,path,metric,value,rating,report_sequence FROM web_vital_facts ORDER BY page_view_event_id,metric",
@@ -287,6 +360,88 @@ async function assertApiResponses(api) {
     `/v1/sites/${api.pages.body.site_id}/reports/${api.pages.body.from}/${api.pages.body.to}/pages`,
     api.pages,
   );
+  if (api.geo_countries) {
+    const expected = structuredClone(api.geo_countries);
+    expected.body.data_as_of = undefined;
+    expected.body.coverage_from = undefined;
+    const response = await fetch(
+      `${analyticsUrl}/v1/sites/${api.geo_countries.body.site_id}/reports/${api.geo_countries.body.from}/${api.geo_countries.body.to}/geo`,
+    );
+    const body = await response.json();
+    assert(response.status === 200, "Geo country report must return HTTP 200");
+    assert(body.data_as_of !== null, "Geo report must expose the Page View watermark");
+    assert(
+      ["current", "stale", "rebuilding", "failed"].includes(body.freshness_status),
+      "Geo freshness status is invalid",
+    );
+    assert(typeof body.coverage_from === "string", "Geo coverage start must be reported");
+    assert(body.providers.includes("maxmind"), "synthetic Geo E2E must report its MaxMind source");
+    delete body.data_as_of;
+    delete body.coverage_from;
+    assertJsonEqual(body, expected.body, "Geo country response mismatch");
+
+    runCompose([
+      "exec",
+      "-T",
+      "postgres",
+      "psql",
+      "-U",
+      "analytics",
+      "-d",
+      "analytics",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-c",
+      "UPDATE geo_event_metadata SET provider='db-ip' WHERE site_id='site_playground' AND country_code='GB'",
+    ]);
+    const mixedProviders = await (
+      await fetch(
+        `${analyticsUrl}/v1/sites/${api.geo_countries.body.site_id}/reports/${api.geo_countries.body.from}/${api.geo_countries.body.to}/geo`,
+      )
+    ).json();
+    assertJsonEqual(
+      mixedProviders.providers,
+      ["db-ip", "maxmind"],
+      "Geo report must identify all providers present in the selected range",
+    );
+    runCompose([
+      "exec",
+      "-T",
+      "postgres",
+      "psql",
+      "-U",
+      "analytics",
+      "-d",
+      "analytics",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-c",
+      "UPDATE geo_event_metadata SET provider='maxmind' WHERE site_id='site_playground' AND country_code='GB'",
+    ]);
+    const isolated = await (
+      await fetch(
+        `${analyticsUrl}/v1/sites/site_alpha/reports/${api.geo_countries.body.from}/${api.geo_countries.body.to}/geo`,
+      )
+    ).json();
+    assert(
+      isolated.items.length === 0 && isolated.data_as_of === null,
+      "Geo report must remain site-isolated",
+    );
+    const empty = await (
+      await fetch(`${analyticsUrl}/v1/sites/site_playground/reports/2026-08-01/2026-08-02/geo`)
+    ).json();
+    assert(
+      empty.items.length === 0 &&
+        empty.providers.length === 0 &&
+        empty.freshness_status === "current",
+      "empty Geo date range must be successful",
+    );
+    const invalid = await fetch(
+      `${analyticsUrl}/v1/sites/site_playground/reports/not-a-date/2026-09-18/geo`,
+    );
+    assert(invalid.status === 400, "Geo report must reject invalid dates");
+  }
+
   if (api.web_vitals) {
     const expected = structuredClone(api.web_vitals);
     expected.body.data_as_of = undefined;

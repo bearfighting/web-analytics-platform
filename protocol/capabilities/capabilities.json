@@ -384,8 +384,8 @@
       "processor": {
         "facts": ["geo_country_facts"],
         "rebuild": "explicit_backfill",
-        "provider": "maxmind",
-        "dataset": "GeoLite2-Country",
+        "provider": "maxmind or db-ip, detected from the local MMDB type",
+        "dataset": "GeoLite2-Country or DBIP-City-Lite; reads country.iso_code only",
         "parser_version": "1"
       },
       "api": {

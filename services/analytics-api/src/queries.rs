@@ -68,6 +68,41 @@ pub(crate) async fn geo_country_coverage_from(
     .await
 }
 
+pub(crate) async fn page_view_watermark(
+    pool: &PgPool,
+    site_id: &str,
+) -> Result<Option<chrono::DateTime<chrono::Utc>>, sqlx::Error> {
+    sqlx::query_scalar::<_, Option<chrono::DateTime<chrono::Utc>>>(
+        "SELECT processed_received_watermark FROM analytics_watermarks
+         WHERE site_id=$1 AND generation_id IS NULL AND source_name='page_views'",
+    )
+    .bind(site_id)
+    .fetch_optional(pool)
+    .await
+    .map(Option::flatten)
+}
+
+pub(crate) async fn geo_country_freshness(
+    pool: &PgPool,
+    site_id: &str,
+) -> Result<String, sqlx::Error> {
+    let mut transaction = pool.begin().await?;
+    let rebuild_status = rebuild_freshness_status(&mut transaction, site_id).await?;
+    if let Some(status) = rebuild_status {
+        transaction.commit().await?;
+        return Ok(status);
+    }
+    let pending = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(SELECT 1 FROM raw_events
+         WHERE site_id=$1 AND event_type='page_view' AND processed_at IS NULL)",
+    )
+    .bind(site_id)
+    .fetch_one(&mut *transaction)
+    .await?;
+    transaction.commit().await?;
+    Ok(if pending { "stale" } else { "current" }.to_owned())
+}
+
 pub(crate) async fn pages(
     pool: &PgPool,
     site_id: &str,
@@ -591,6 +626,28 @@ pub(crate) async fn definition_freshness(
     } else {
         "current".to_owned()
     })
+}
+
+pub(crate) async fn geo_country_providers(
+    pool: &PgPool,
+    site_id: &str,
+    range: DateRange,
+) -> Result<Vec<String>, sqlx::Error> {
+    sqlx::query_scalar::<_, String>(
+        "SELECT DISTINCT m.provider
+         FROM geo_country_facts f
+         JOIN geo_event_metadata m
+           ON m.raw_event_id=f.raw_event_id AND m.site_id=f.site_id
+         WHERE f.site_id=$1
+           AND f.occurred_at >= ($2::date::timestamp AT TIME ZONE 'UTC')
+           AND f.occurred_at < (($3::date + INTERVAL '1 day')::timestamp AT TIME ZONE 'UTC')
+         ORDER BY m.provider",
+    )
+    .bind(site_id)
+    .bind(range.from)
+    .bind(range.to)
+    .fetch_all(pool)
+    .await
 }
 
 pub(crate) async fn geo_country_rows(

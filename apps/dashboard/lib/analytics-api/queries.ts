@@ -106,6 +106,12 @@ export function isGeoCountryResponse(value: unknown): value is GeoCountryRespons
     isValidDate(value.to) &&
     (value.coverage_from === null ||
       (isString(value.coverage_from) && isValidDate(value.coverage_from))) &&
+    Array.isArray(value.providers) &&
+    value.providers.every((provider) => provider === "db-ip" || provider === "maxmind") &&
+    new Set(value.providers).size === value.providers.length &&
+    isNullableDateTime(value.data_as_of) &&
+    isFreshnessStatus(value.freshness_status) &&
+    isPositiveInteger(value.aggregation_version) &&
     Array.isArray(value.items) &&
     value.items.every(
       (item) =>

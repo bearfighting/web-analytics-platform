@@ -36,7 +36,11 @@ function createClient(overrides: Partial<AnalyticsApiClient> = {}): AnalyticsApi
       from: context.dateRange.from,
       to: context.dateRange.to,
       coverage_from: null,
+      providers: [],
       items: [],
+      data_as_of: null,
+      freshness_status: "current",
+      aggregation_version: 1,
     }),
     conversions: vi.fn().mockResolvedValue({
       site_id: context.siteId,

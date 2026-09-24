@@ -29,12 +29,25 @@ pub(crate) async fn countries(
     let coverage_from = queries::geo_country_coverage_from(&state.pool, &site_id)
         .await
         .map_err(ApiError::database)?;
+    let providers = queries::geo_country_providers(&state.pool, &site_id, range)
+        .await
+        .map_err(ApiError::database)?;
+    let data_as_of = queries::page_view_watermark(&state.pool, &site_id)
+        .await
+        .map_err(ApiError::database)?;
+    let freshness_status = queries::geo_country_freshness(&state.pool, &site_id)
+        .await
+        .map_err(ApiError::database)?;
     Ok(Json(GeoCountryReportResponse {
         site_id,
         from,
         to,
         coverage_from,
+        providers,
         items,
+        data_as_of,
+        freshness_status,
+        aggregation_version: 1,
     })
     .into_response())
 }

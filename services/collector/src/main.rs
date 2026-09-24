@@ -53,7 +53,7 @@ async fn serve(args: ServeArgs) -> Result<(), CollectorError> {
     let policy = collector::security::KeyPolicy::new(registry);
     let geo_path = std::env::var("GEOIP_DATABASE_PATH").map_err(|_| {
         CollectorError::GeoConfiguration(
-            "GEOIP_DATABASE_PATH must point to a local GeoLite2 Country MMDB".to_owned(),
+            "GEOIP_DATABASE_PATH must point to a supported local GeoLite2 Country or DB-IP City Lite MMDB".to_owned(),
         )
     })?;
     let geo = collector::geo::GeoLookup::open(Path::new(&geo_path))?;

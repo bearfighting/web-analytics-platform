@@ -1,3 +1,5 @@
+/* global console, process */
+
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -64,6 +66,7 @@ function validateOpenApi(document) {
     "/v1/sites/{site_id}/reports/{from}/{to}/overview",
     "/v1/sites/{site_id}/reports/{from}/{to}/timeline",
     "/v1/sites/{site_id}/reports/{from}/{to}/pages",
+    "/v1/sites/{site_id}/reports/{from}/{to}/geo",
     "/v1/sites/{site_id}/reports/{from}/{to}/events",
     "/v1/sites/{site_id}/reports/{from}/{to}/conversions",
     "/v1/sites/{site_id}/reports/{from}/{to}/funnels",
@@ -81,6 +84,7 @@ function validateOpenApi(document) {
     "/v1/sites/{site_id}/reports/{from}/{to}/overview": ["200", "400", "500"],
     "/v1/sites/{site_id}/reports/{from}/{to}/timeline": ["200", "400", "500"],
     "/v1/sites/{site_id}/reports/{from}/{to}/pages": ["200", "400", "500"],
+    "/v1/sites/{site_id}/reports/{from}/{to}/geo": ["200", "400", "500"],
     "/v1/sites/{site_id}/reports/{from}/{to}/events": ["200", "400", "500"],
     "/v1/sites/{site_id}/reports/{from}/{to}/conversions": ["200", "400", "500"],
     "/v1/sites/{site_id}/reports/{from}/{to}/funnels": ["200", "400", "500"],
@@ -100,6 +104,7 @@ function validateOpenApi(document) {
     "RangeOverviewResponse",
     "TimelineResponse",
     "PagesResponse",
+    "GeoCountryReportResponse",
     "EventsReportResponse",
     "ConversionReportResponse",
     "ConversionReportItem",
@@ -138,6 +143,7 @@ function validateOpenApi(document) {
     "/v1/sites/{site_id}/reports/{from}/{to}/overview",
     "/v1/sites/{site_id}/reports/{from}/{to}/timeline",
     "/v1/sites/{site_id}/reports/{from}/{to}/pages",
+    "/v1/sites/{site_id}/reports/{from}/{to}/geo",
     "/v1/sites/{site_id}/reports/{from}/{to}/events",
     "/v1/sites/{site_id}/reports/{from}/{to}/conversions",
     "/v1/sites/{site_id}/reports/{from}/{to}/funnels",
@@ -548,6 +554,18 @@ function validateApiResponses(api, fixtureName) {
       )
     )
       errors.push(`${fixtureName}: geo_countries items are invalid`);
+    if (
+      name === "geo_countries" &&
+      (!Array.isArray(response.body.providers) ||
+        !response.body.providers.every((provider) => ["db-ip", "maxmind"].includes(provider)) ||
+        new Set(response.body.providers).size !== response.body.providers.length ||
+        !Object.hasOwn(response.body, "coverage_from") ||
+        !(response.body.coverage_from === null || isDate(response.body.coverage_from)) ||
+        !(response.body.data_as_of === null || isIsoDateTime(response.body.data_as_of)) ||
+        !["current", "stale", "rebuilding", "failed"].includes(response.body.freshness_status) ||
+        response.body.aggregation_version !== 1)
+    )
+      errors.push(`${fixtureName}: geo_countries freshness and coverage fields are invalid`);
     if (name === "events" && (!Number.isInteger(response.body.total) || response.body.total < 0))
       errors.push(`${fixtureName}: events total must be a non-negative integer`);
     if (

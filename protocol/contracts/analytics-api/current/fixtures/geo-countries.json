@@ -11,8 +11,20 @@
         "site_id": "site_playground",
         "occurred_at": 1789732800000,
         "path": "/"
+      },
+      {
+        "schema_version": 1,
+        "event_id": "01J00000000000000000000002",
+        "type": "page_view",
+        "site_id": "site_playground",
+        "occurred_at": 1789732801000,
+        "path": "/unknown"
       }
-    ]
+    ],
+    "geo_forwarded_for": {
+      "01J00000000000000000000001": "2.125.160.217",
+      "01J00000000000000000000002": "192.0.2.1"
+    }
   },
   "processor": {
     "mode": "once",
@@ -20,7 +32,7 @@
   },
   "expected": {
     "raw_events": {
-      "inserted": 1,
+      "inserted": 2,
       "duplicates_ignored": 0,
       "events": [
         {
@@ -39,6 +51,23 @@
             "occurred_at": 1789732800000,
             "path": "/"
           }
+        },
+        {
+          "schema_version": 1,
+          "site_id": "site_playground",
+          "event_id": "01J00000000000000000000002",
+          "type": "page_view",
+          "occurred_at": 1789732801000,
+          "received_at": "2026-09-18T12:00:05Z",
+          "path": "/unknown",
+          "payload": {
+            "schema_version": 1,
+            "event_id": "01J00000000000000000000002",
+            "type": "page_view",
+            "site_id": "site_playground",
+            "occurred_at": 1789732801000,
+            "path": "/unknown"
+          }
         }
       ]
     },
@@ -46,7 +75,7 @@
       {
         "site_id": "site_playground",
         "day": "2026-09-18",
-        "page_views": 1
+        "page_views": 2
       }
     ],
     "page_view_routes": [
@@ -55,12 +84,18 @@
         "day": "2026-09-18",
         "path": "/",
         "page_views": 1
+      },
+      {
+        "site_id": "site_playground",
+        "day": "2026-09-18",
+        "path": "/unknown",
+        "page_views": 1
       }
     ],
     "page_view_totals": [
       {
         "site_id": "site_playground",
-        "page_views": 1
+        "page_views": 2
       }
     ],
     "api": {
@@ -68,7 +103,7 @@
         "status": 200,
         "body": {
           "site_id": "site_playground",
-          "page_views": 1
+          "page_views": 2
         }
       },
       "range_overview": {
@@ -77,7 +112,7 @@
           "site_id": "site_playground",
           "from": "2026-09-18",
           "to": "2026-09-18",
-          "page_views": 1
+          "page_views": 2
         }
       },
       "timeline": {
@@ -86,11 +121,10 @@
           "site_id": "site_playground",
           "from": "2026-09-18",
           "to": "2026-09-18",
-          "coverage_from": "2026-09-18",
           "items": [
             {
               "day": "2026-09-18",
-              "page_views": 1
+              "page_views": 2
             }
           ]
         }
@@ -105,6 +139,10 @@
             {
               "path": "/",
               "page_views": 1
+            },
+            {
+              "path": "/unknown",
+              "page_views": 1
             }
           ]
         }
@@ -117,21 +155,36 @@
           "to": "2026-09-18",
           "items": [
             {
-              "country_code": "CA",
+              "country_code": "GB",
+              "page_views": 1
+            },
+            {
+              "country_code": "unknown",
               "page_views": 1
             }
-          ]
+          ],
+          "coverage_from": "2026-09-18",
+          "providers": ["maxmind"],
+          "data_as_of": "2026-09-18T12:00:05Z",
+          "freshness_status": "current",
+          "aggregation_version": 1
         }
       }
     },
     "geo_country_facts": [
       {
         "site_id": "site_playground",
-        "country_code": "CA",
+        "country_code": "GB",
         "provider": "maxmind",
-        "dataset_version": "GeoLite2-Country-20260918",
         "parser_version": "1",
         "occurred_at": "2026-09-18T12:00:00Z"
+      },
+      {
+        "site_id": "site_playground",
+        "country_code": "unknown",
+        "provider": "maxmind",
+        "parser_version": "1",
+        "occurred_at": "2026-09-18T12:00:01Z"
       }
     ]
   }

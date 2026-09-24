@@ -1,11 +1,11 @@
-/* global console, fetch, process, setTimeout */
+/* global console, fetch, process, setTimeout, window, localStorage, document */
 
 import { execFileSync } from "node:child_process";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const composeFiles = ["-f", "compose.yaml", "-f", "compose.backend.yaml", "-f", "compose.e2e.yaml"];
@@ -197,21 +197,25 @@ function enablePhase6(siteId) {
 async function postFixtureEvents(input) {
   for (const siteId of new Set(input.events.map((event) => event.site_id))) {
     const events = input.events.filter((event) => event.site_id === siteId);
-    const response = await fetch(`${collectorUrl}/v1/events`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        origin: "http://localhost:3000",
-        "x-ingest-key": keys[siteId],
-      },
-      body: JSON.stringify({ schema_version: 1, events }),
-    });
-    const body = await response.json();
-    assert(response.status === 202, `Collector rejected events: ${JSON.stringify(body)}`);
-    assert(
-      body.accepted === events.length,
-      `Collector accepted ${body.accepted}, expected ${events.length}`,
-    );
+    for (const event of input.geo_forwarded_for ? events : [null]) {
+      const batch = event ? [event] : events;
+      const response = await fetch(`${collectorUrl}/v1/events`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+          "x-ingest-key": keys[siteId],
+          ...(event ? { "x-forwarded-for": input.geo_forwarded_for[event.event_id] } : {}),
+        },
+        body: JSON.stringify({ schema_version: 1, events: batch }),
+      });
+      const body = await response.json();
+      assert(response.status === 202, `Collector rejected events: ${JSON.stringify(body)}`);
+      assert(
+        body.accepted === batch.length,
+        `Collector accepted ${body.accepted}, expected ${batch.length}`,
+      );
+    }
   }
 }
 
@@ -342,6 +346,51 @@ async function expectReportRows(page, sectionName, rows) {
   assert(
     JSON.stringify(actual) === JSON.stringify(rows),
     `${sectionName} rows mismatch: ${JSON.stringify(actual)}`,
+  );
+}
+
+async function assertGeoCountries(page) {
+  const data = await fixture("geo-countries");
+  await prepareFixture(data);
+  await page.goto(rangeUrl("site_playground", "2026-09-18", "2026-09-18"));
+  await expectReportRows(page, "Countries", ["GB 1", "Unknown 1"]);
+  assert(
+    !(await page.getByText(/Geo report data freshness:/).count()),
+    "current Geo report should not display a warning state",
+  );
+  await page.getByText(/Earlier Page Views are not included/).waitFor();
+  assert(
+    (await page.getByRole("link", { name: "DB-IP" }).count()) === 0,
+    "MaxMind-only range must not show DB-IP attribution",
+  );
+  runCompose([
+    "exec",
+    "-T",
+    "postgres",
+    "psql",
+    "-U",
+    "analytics",
+    "-d",
+    "analytics",
+    "-v",
+    "ON_ERROR_STOP=1",
+    "-c",
+    "UPDATE geo_event_metadata SET provider='db-ip' WHERE raw_event_id=(SELECT raw_event_id FROM geo_country_facts WHERE site_id='site_playground' AND country_code='GB' LIMIT 1)",
+  ]);
+  await page.reload();
+  await expect(page.getByRole("link", { name: "DB-IP" })).toHaveAttribute(
+    "href",
+    "https://db-ip.com",
+  );
+  await page.goto(rangeUrl("site_playground", "2026-09-01", "2026-09-01"));
+  await page
+    .locator("section.card")
+    .filter({ hasText: "Countries" })
+    .getByText("No page view data")
+    .waitFor();
+  assert(
+    (await page.getByRole("link", { name: "DB-IP" }).count()) === 0,
+    "empty range must not show DB-IP attribution",
   );
 }
 
@@ -920,6 +969,8 @@ try {
 
   await assertSinglePageView(page);
   console.log("PASS single-page-view dashboard");
+  await assertGeoCountries(page);
+  console.log("PASS geo-countries dashboard");
   await assertCustomEvents(page);
   console.log("PASS custom-events dashboard");
   await assertBackfilledConversionFunnels(page);

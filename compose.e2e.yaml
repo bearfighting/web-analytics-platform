@@ -18,6 +18,12 @@ services:
   collector:
     environment:
       COLLECTOR_CONFIG: /workspace/protocol/contracts/http-ingestion/current/config/collector.e2e.toml
+      GEOIP_DATABASE_PATH: /workspace/data/GeoLite2-Country.mmdb
+      GEOIP_TRUSTED_PROXIES: 10.0.0.0/8,127.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+    volumes: !override
+      - .:/workspace
+      - collector_target:/workspace/target
+      - ./tests/fixtures/geo/GeoLite2-Country-Test.mmdb:/workspace/data/GeoLite2-Country.mmdb:ro
     ports: !override
       - "${E2E_COLLECTOR_PORT:-14001}:4001"
     depends_on:

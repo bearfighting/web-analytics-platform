@@ -18,9 +18,28 @@ pnpm install
 
 ## Configure Geo country lookup
 
-The backend profile requires a locally supplied MaxMind GeoLite2 Country MMDB file. Obtain the dataset under MaxMind's terms and place it at `./data/GeoLite2-Country.mmdb`; the directory is mounted read-only into the Collector. Compose does not download the dataset, and the Collector fails to start if the path is missing or invalid.
+The backend profile requires an operator-supplied local MMDB. Supported sources are MaxMind GeoLite2 Country and DB-IP City Lite; both are read only for ISO country code lookup. Place the selected database at `./data/GeoLite2-Country.mmdb`, mounted read-only into Collector. The database filename does not select the provider; Collector checks the MMDB type and records the provider and build epoch. Compose never downloads a dataset, and Collector fails startup if the file is absent, unreadable, corrupt, or unsupported.
 
-Set `GEOIP_TRUSTED_PROXIES` to a comma-separated list of proxy CIDRs only when the Collector is behind known proxies. Forwarded client IPs are ignored by default.
+Set `GEOIP_TRUSTED_PROXIES` to a comma-separated list of proxy CIDRs only when Collector is behind known proxies. Forwarded client IPs are ignored by default.
+
+### Offline Geo database update
+
+MaxMind GeoLite2 Country requires an authorized account and use under the [GeoLite End User License Agreement](https://www.maxmind.com/en/geolite/eula). MaxMind attribution must credit **MaxMind, available from [https://www.maxmind.com](https://www.maxmind.com)**; superseded database copies must be destroyed within 30 days. See [MaxMind update guidance](https://support.maxmind.com/knowledge-base/articles/download-and-update-maxmind-databases).
+
+DB-IP City Lite is distributed under [CC BY 4.0](https://db-ip.com/db/download/ip-to-city-lite). A web application must include a link to DB-IP on pages that display or use its results. The Geo report conditionally displays **IP geolocation by DB-IP** when its selected date range contains DB-IP-derived data. Follow DB-IP's release guidance and record the release/build epoch and official checksum for each file.
+
+For each operator-managed update:
+
+1. Obtain the dataset from the provider under its license. Record provider, release/build epoch and the provider's published checksum. Do not commit the database or place it in CI artifacts.
+2. Verify the published checksum and inspect MMDB metadata. Accept only `GeoLite2-Country` or `DBIP-City-Lite`; reject corrupt files, mismatched checksums and other database types.
+3. In staging, mount the candidate at `GEOIP_DATABASE_PATH`, restart Collector, and send controlled synthetic requests through the configured trusted-proxy path. Confirm country and `unknown` results. Never use a real visitor IP as a test value or log it.
+4. Keep a restricted, short-lived rollback copy. Copy the candidate to a temporary file on the same filesystem, verify it again, then atomically replace `./data/GeoLite2-Country.mmdb`. Restart Collector and check health and a synthetic country report before promotion.
+5. If validation fails, restore the verified previous file atomically and restart Collector. Securely delete superseded licensed copies according to the relevant provider license and retention terms.
+6. Record the new provider, build epoch, checksum, deployment time and smoke-test result. Record only aggregate coverage metrics; never record IP addresses.
+
+For both providers, an individual unmapped or invalid address becomes `unknown`. Historical enrichment retains only the country code and source metadata; changing the dataset does not re-resolve historical requests.
+
+If the file is absent, unreadable, corrupt, or has an unsupported database type, Collector startup fails closed; restore a verified file before restarting. If an individual address has no country record or cannot be parsed, the event is enriched as `unknown`.
 
 ## Run the Playground
 
@@ -227,6 +246,30 @@ pnpm e2e:analytics
 
 该命令会启动独立的 PostgreSQL、Collector、Processor one-shot 和 Analytics API 测试环境，逐个执行 canonical fixtures，结束后自动清理自己的容器和 volume，不影响用户已有 PostgreSQL volume。
 失败时会把 Compose config、service status 和 Collector、Processor、Analytics API、db-migrate 日志写入 `artifacts/analytics-e2e/`。
+
+### 开发期 MMDB 测试
+
+仓库附带的 [合成 GeoLite2 测试数据库](../tests/fixtures/geo/README.md) 只用于开发测试，不是正式数据集。它只由 `compose.e2e.yaml` 覆盖挂载；普通 Compose/backend 启动使用部署方提供的 `./data/GeoLite2-Country.mmdb`。
+
+只验证本地解析器、已知国家/Unknown、release metadata 和坏文件启动失败时运行：
+
+```bash
+pnpm test:geo-mmdb
+```
+
+验证本机部署方提供的 DB-IP City Lite 文件（需要放在 `./data/GeoLite2-Country.mmdb`）时运行：
+
+```bash
+pnpm test:geo-mmdb-local
+```
+
+验证完整 Collector → Processor → Analytics API Geo workflow 时运行：
+
+```bash
+E2E_FIXTURES=geo-countries.json pnpm e2e:analytics
+```
+
+这两项测试使用仓库里的合成数据库与保留地址，不需要或访问真实访客 IP，也不会下载数据库。测试地址和数据映射见 fixture README。
 
 单独运行 Protocol 校验：
 

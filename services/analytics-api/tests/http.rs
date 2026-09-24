@@ -675,9 +675,19 @@ async fn geo_country_report_includes_unknown_and_is_site_scoped() {
     let pool = pool().await;
     let site = "geo_api_test";
     reset_phase6(&pool, site).await;
-    for (event_id, country) in [
-        ("01J00000000000000000000101", "CA"),
-        ("01J00000000000000000000102", "unknown"),
+    for (event_id, country, provider, dataset) in [
+        (
+            "01J00000000000000000000101",
+            "CA",
+            "db-ip",
+            "DBIP-City-Lite-20260918",
+        ),
+        (
+            "01J00000000000000000000102",
+            "unknown",
+            "maxmind",
+            "GeoLite2-Country-20260918",
+        ),
     ] {
         let raw_id = sqlx::query_scalar::<_, i64>(
             "INSERT INTO raw_events(site_id,event_id,schema_version,event_type,occurred_at,received_at,path,payload,processed_at)
@@ -686,8 +696,8 @@ async fn geo_country_report_includes_unknown_and_is_site_scoped() {
         .bind(site).bind(event_id).fetch_one(&pool).await.unwrap();
         sqlx::query(
             "INSERT INTO geo_event_metadata(raw_event_id,site_id,country_code,provider,dataset_version,parser_version)
-             VALUES($1,$2,$3,'maxmind','GeoLite2-Country-20260918','1')",
-        ).bind(raw_id).bind(site).bind(country).execute(&pool).await.unwrap();
+             VALUES($1,$2,$3,$4,$5,'1')",
+        ).bind(raw_id).bind(site).bind(country).bind(provider).bind(dataset).execute(&pool).await.unwrap();
         sqlx::query(
             "INSERT INTO geo_country_facts(raw_event_id,site_id,country_code,occurred_at)
              VALUES($1,$2,$3,'2026-09-18T12:00:00Z')",
@@ -712,10 +722,37 @@ async fn geo_country_report_includes_unknown_and_is_site_scoped() {
     assert_eq!(response.status(), 200);
     let response = body(response).await;
     assert_eq!(response["coverage_from"], "2026-09-18");
+    assert_eq!(response["data_as_of"], serde_json::Value::Null);
+    assert_eq!(response["freshness_status"], "current");
+    assert_eq!(response["aggregation_version"], 1);
+    assert_eq!(
+        response["providers"],
+        serde_json::json!(["db-ip", "maxmind"])
+    );
     assert_eq!(response["items"][0]["country_code"], "CA");
     assert_eq!(response["items"][1]["country_code"], "unknown");
     assert_eq!(response["items"][0]["page_views"], 1);
     assert_eq!(response["items"][1]["page_views"], 1);
+
+    sqlx::query(
+        "INSERT INTO raw_events(site_id,event_id,schema_version,event_type,occurred_at,received_at,path,payload)
+         VALUES($1,'01J00000000000000000000103',1,'page_view','2026-09-18T12:00:00Z','2026-09-18T12:00:02Z','/pending','{}')",
+    )
+    .bind(site)
+    .execute(&pool)
+    .await
+    .unwrap();
+    let pending = app(pool.clone())
+        .oneshot(
+            Request::get(format!(
+                "/v1/sites/{site}/reports/2026-09-18/2026-09-18/geo"
+            ))
+            .body(axum::body::Body::empty())
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(body(pending).await["freshness_status"], "stale");
 
     let other = app(pool)
         .oneshot(
@@ -725,5 +762,7 @@ async fn geo_country_report_includes_unknown_and_is_site_scoped() {
         )
         .await
         .unwrap();
-    assert!(body(other).await["items"].as_array().unwrap().is_empty());
+    let other = body(other).await;
+    assert!(other["items"].as_array().unwrap().is_empty());
+    assert!(other["providers"].as_array().unwrap().is_empty());
 }

@@ -12,6 +12,10 @@ const response = {
   from: "2026-09-01",
   to: "2026-09-02",
   coverage_from: "2026-09-01",
+  providers: ["maxmind"],
+  data_as_of: "2026-09-02T12:00:00Z",
+  freshness_status: "current" as const,
+  aggregation_version: 1,
   items: [
     { country_code: "CA", page_views: 4 },
     { country_code: "unknown", page_views: 1 },
@@ -26,6 +30,43 @@ describe("GeoCountryTable", () => {
     expect(html).toContain("CA");
     expect(html).toContain("Unknown");
     expect(html).toContain("Page Views by country");
+    expect(html).not.toContain("IP geolocation by");
+  });
+
+  it("shows DB-IP attribution when the date range includes DB-IP data", () => {
+    const html = renderToStaticMarkup(
+      <GeoCountryTable
+        context={context}
+        state={{ status: "success", data: { ...response, providers: ["db-ip"] } }}
+      />,
+    );
+    expect(html).toContain('href="https://db-ip.com"');
+    expect(html).toContain("IP geolocation by");
+  });
+
+  it("shows freshness state and historical coverage warning", () => {
+    const html = renderToStaticMarkup(
+      <GeoCountryTable
+        context={context}
+        state={{
+          status: "success",
+          data: { ...response, coverage_from: "2026-09-02", freshness_status: "stale" },
+        }}
+      />,
+    );
+    expect(html).toContain("Geo report data freshness: stale");
+    expect(html).toContain("Earlier Page Views are not included");
+  });
+
+  it("shows failed rebuild as an alert", () => {
+    const html = renderToStaticMarkup(
+      <GeoCountryTable
+        context={context}
+        state={{ status: "success", data: { ...response, freshness_status: "failed" } }}
+      />,
+    );
+    expect(html).toContain('role="alert"');
+    expect(html).toContain("freshness: failed");
   });
 
   it("shows empty and error states", () => {

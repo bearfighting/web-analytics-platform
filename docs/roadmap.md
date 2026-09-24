@@ -186,7 +186,7 @@ Country / IP 不属于本阶段必须内容。
 
 详细执行方案见：[phase-7-design.md](phase-7-design.md)。范围基线见：[MVP Scope](mvp-scope.md)。
 
-当前状态：PR0 Protocol Consolidation、PR1 Internal Capability Boundaries、PR2 Router Adapters、PR2.1 Contract Namespace Consolidation 和 PR2.5 Unified Router Entry 已完成；PR3 Custom Events 已实现并通过端到端验收。下一步是 Web Vitals。
+当前状态：PR0–PR7 功能实现与验收已完成，详见 [Phase 7 PR7 验收记录](phase-7-pr7-acceptance.md)。Geo country-only 的实现、合成 E2E、本地 DB-IP smoke 与官方 checksum 核对已完成；真实流量 staging 部署评估列入 Release Readiness 跟进，Geo PR2 region/city 暂缓。
 
 目标：在现有 Phase 6 Analytics workflow 上完成 MVP 所需的产品功能。
 

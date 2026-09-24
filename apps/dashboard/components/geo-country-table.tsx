@@ -17,6 +17,19 @@ export function GeoCountryTable({
   return (
     <section className="card" aria-labelledby="geo-country-heading">
       <h2 id="geo-country-heading">Countries</h2>
+      {state.status === "success" && state.data.freshness_status !== "current" && (
+        <p
+          className={`freshness-${state.data.freshness_status}`}
+          role={state.data.freshness_status === "failed" ? "alert" : "status"}
+        >
+          Geo report data freshness: {state.data.freshness_status}
+        </p>
+      )}
+      {state.status === "success" && state.data.providers.includes("db-ip") && (
+        <p className="table-caption">
+          IP geolocation by <a href="https://db-ip.com">DB-IP</a>
+        </p>
+      )}
       {state.status === "success" &&
         (state.data.coverage_from === null ||
           context.dateRange.from < state.data.coverage_from) && (

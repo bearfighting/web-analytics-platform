@@ -156,6 +156,7 @@ migration job
 - secrets、Origin、Ingest Key 和数据库权限；
 - backup 和 restore；
 - migration 失败处理；
+- Geo country 部署验收：核验 DB-IP/GeoLite MMDB 官方 checksum、类型和 build epoch；在 staging 验证 Collector 启动、country/unknown 结果、离线原子更新与回滚，并记录聚合覆盖率/unknown 比例及数据库、日志无原始 IP。
 - 服务镜像回滚；
 - 目标 SDK package（当前为 `@web-analytics/analytics-browser`）的 metadata、类型入口和 pack 内容；
 - 发布前移除目标 package 的 `private` 标记，并确认 workspace 依赖可以在发布包中被正确解析；
