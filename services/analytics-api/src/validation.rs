@@ -149,9 +149,47 @@ pub(crate) fn parse_web_vitals_query(
     Ok((limit, path))
 }
 
+pub(crate) fn parse_definition_query(
+    query: Option<&str>,
+) -> Result<(i64, Option<String>), RequestError> {
+    let mut limit = None;
+    let mut definition_id = None;
+    for (key, value) in form_urlencoded::parse(query.unwrap_or_default().as_bytes()) {
+        match key.as_ref() {
+            "limit" => {
+                if limit.is_some() {
+                    return Err(RequestError::InvalidLimit);
+                }
+                limit = Some(value.into_owned());
+            }
+            "definition_id" => {
+                if definition_id.is_some() {
+                    return Err(RequestError::InvalidEventName);
+                }
+                definition_id = Some(value.into_owned());
+            }
+            _ => {}
+        }
+    }
+    let limit = parse_limit(limit.as_deref())?;
+    if definition_id.as_deref().is_some_and(|id| {
+        id.is_empty()
+            || id.len() > 64
+            || !id
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || b"_.-".contains(&byte))
+    }) {
+        return Err(RequestError::InvalidEventName);
+    }
+    Ok((limit, definition_id))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{parse_events_query, parse_limit_query, parse_range, parse_web_vitals_query};
+    use super::{
+        parse_definition_query, parse_events_query, parse_limit_query, parse_range,
+        parse_web_vitals_query,
+    };
 
     #[test]
     fn validates_inclusive_366_day_range() {
@@ -177,6 +215,18 @@ mod tests {
         assert!(parse_events_query(Some("event_name=bad%20name")).is_err());
         assert!(parse_events_query(Some("event_name=a&event_name=b")).is_err());
         assert!(parse_events_query(Some("limit=101")).is_err());
+    }
+
+    #[test]
+    fn validates_definition_filter_and_limit() {
+        assert_eq!(parse_definition_query(None).unwrap(), (20, None));
+        assert_eq!(
+            parse_definition_query(Some("definition_id=checkout&limit=100")).unwrap(),
+            (100, Some("checkout".to_owned()))
+        );
+        assert!(parse_definition_query(Some("definition_id=bad%20id")).is_err());
+        assert!(parse_definition_query(Some("definition_id=a&definition_id=b")).is_err());
+        assert!(parse_definition_query(Some("limit=101")).is_err());
     }
 
     #[test]

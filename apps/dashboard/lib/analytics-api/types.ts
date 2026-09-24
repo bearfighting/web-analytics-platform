@@ -131,3 +131,41 @@ export interface WebVitalsResponse {
   freshness_status: FreshnessStatus;
   aggregation_version: number;
 }
+
+export interface ConversionReportItem {
+  definition_id: string;
+  day: string;
+  event_count: number;
+  converted_sessions: number;
+  eligible_sessions: number;
+  conversion_rate: number;
+}
+export interface ConversionReportResponse {
+  site_id: string;
+  from: string;
+  to: string;
+  total: number;
+  definition_version: string;
+  items: ConversionReportItem[];
+  data_as_of: string | null;
+  freshness_status: FreshnessStatus;
+  aggregation_version: number;
+}
+export interface FunnelReportItem {
+  definition_id: string;
+  day: string;
+  step_index: number;
+  sessions: number;
+  conversion_rate: number;
+}
+export interface FunnelReportResponse {
+  site_id: string;
+  from: string;
+  to: string;
+  total: number;
+  definition_version: string;
+  items: FunnelReportItem[];
+  data_as_of: string | null;
+  freshness_status: FreshnessStatus;
+  aggregation_version: number;
+}

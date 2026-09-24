@@ -1,0 +1,36 @@
+{
+  "id": "funnels",
+  "status": "implemented",
+  "depends_on": ["custom_events", "conversions"],
+  "input": {
+    "event_types": ["custom_event"],
+    "required_fields": ["event_name", "occurred_at"]
+  },
+  "raw_event": {
+    "preserve": true,
+    "fields": ["event_name", "properties"]
+  },
+  "processor": {
+    "facts": ["funnel_step_facts"],
+    "rebuild": "explicit_backfill"
+  },
+  "api": {
+    "query_surface": "report",
+    "routes": ["GET /v1/sites/{site_id}/reports/{from}/{to}/funnels"]
+  },
+  "dashboard": {
+    "surface": "report",
+    "disabled": "available when deployment definitions include funnel rules",
+    "empty": "show no funnel steps",
+    "error": "show report error state"
+  },
+  "security": {
+    "consent": "required",
+    "origin_and_ingest_key": "enforced",
+    "privacy": ["do not require cross-device identity", "definitions must be site-scoped"]
+  },
+  "history": {
+    "queryable_after_disabled": false,
+    "backfill": "required"
+  }
+}

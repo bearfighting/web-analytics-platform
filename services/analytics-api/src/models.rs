@@ -194,3 +194,61 @@ pub(crate) struct WebVitalReportRow {
     pub needs_improvement_count: i64,
     pub poor_count: i64,
 }
+
+#[derive(Debug, Serialize)]
+pub(crate) struct ConversionReportItem {
+    pub definition_id: String,
+    pub day: NaiveDate,
+    pub event_count: i64,
+    pub converted_sessions: i64,
+    pub eligible_sessions: i64,
+    pub conversion_rate: f64,
+}
+#[derive(Debug, Serialize)]
+pub(crate) struct ConversionReportResponse {
+    pub site_id: String,
+    pub from: String,
+    pub to: String,
+    pub total: i64,
+    pub definition_version: String,
+    pub items: Vec<ConversionReportItem>,
+    pub data_as_of: Option<chrono::DateTime<chrono::Utc>>,
+    pub freshness_status: String,
+    pub aggregation_version: i32,
+}
+#[derive(Debug, sqlx::FromRow)]
+pub(crate) struct ConversionReportRow {
+    pub definition_id: String,
+    pub day: NaiveDate,
+    pub event_count: i64,
+    pub converted_sessions: i64,
+    pub eligible_sessions: i64,
+}
+#[derive(Debug, Serialize)]
+pub(crate) struct FunnelReportItem {
+    pub definition_id: String,
+    pub day: NaiveDate,
+    pub step_index: i32,
+    pub sessions: i64,
+    pub conversion_rate: f64,
+}
+#[derive(Debug, Serialize)]
+pub(crate) struct FunnelReportResponse {
+    pub site_id: String,
+    pub from: String,
+    pub to: String,
+    pub total: i64,
+    pub definition_version: String,
+    pub items: Vec<FunnelReportItem>,
+    pub data_as_of: Option<chrono::DateTime<chrono::Utc>>,
+    pub freshness_status: String,
+    pub aggregation_version: i32,
+}
+#[derive(Debug, sqlx::FromRow)]
+pub(crate) struct FunnelReportRow {
+    pub definition_id: String,
+    pub day: NaiveDate,
+    pub step_index: i32,
+    pub sessions: i64,
+    pub previous_step_sessions: i64,
+}

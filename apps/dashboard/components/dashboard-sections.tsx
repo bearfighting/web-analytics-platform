@@ -4,6 +4,7 @@ import { createAnalyticsApiClient } from "../lib/analytics-api/client";
 import { getAnalyticsApiUrl } from "../lib/analytics-api/config";
 import { AnalyticsApiClientError } from "../lib/analytics-api/errors";
 
+import { ConversionFunnelTables } from "./conversion-funnel-tables";
 import { EventReportTable } from "./event-report-table";
 import { LegacyDashboardSections } from "./legacy-dashboard-sections";
 import { Phase6DashboardSections } from "./phase6-dashboard-sections";
@@ -45,6 +46,11 @@ export function DashboardSections({ siteId, from, to, dimension }: DashboardSect
         </section>
         <EventReportTable context={context} state={{ status: "error", error }} />
         <WebVitalsTable context={context} state={{ status: "error", error }} />
+        <ConversionFunnelTables
+          context={context}
+          conversions={{ status: "error", error }}
+          funnels={{ status: "error", error }}
+        />
         <section className="card" aria-label="Phase 6 analytics">
           <ErrorState context={context} message={error.message} />
         </section>
@@ -67,6 +73,14 @@ export function DashboardSections({ siteId, from, to, dimension }: DashboardSect
             <section className="card" aria-label="Web Vitals">
               <h2>Web Vitals</h2>
               <p role="status">Loading Web Vitals...</p>
+            </section>
+            <section className="card" aria-label="Conversions">
+              <h2>Conversions</h2>
+              <p role="status">Loading conversions...</p>
+            </section>
+            <section className="card" aria-label="Funnels">
+              <h2>Funnels</h2>
+              <p role="status">Loading funnels...</p>
             </section>
           </>
         }

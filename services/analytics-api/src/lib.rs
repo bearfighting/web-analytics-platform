@@ -6,7 +6,7 @@ mod routes;
 mod state;
 mod validation;
 
-pub use state::{AppState, state};
+pub use state::{AppState, state, state_with_definition_version};
 
 use sqlx::postgres::PgPoolOptions;
 
@@ -15,6 +15,16 @@ pub fn connect(database_url: &str) -> Result<AppState, sqlx::Error> {
         .max_connections(5)
         .connect_lazy(database_url)?;
     Ok(state(pool))
+}
+
+pub fn connect_with_definition_version(
+    database_url: &str,
+    definition_version: String,
+) -> Result<AppState, sqlx::Error> {
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect_lazy(database_url)?;
+    Ok(state_with_definition_version(pool, definition_version))
 }
 
 pub fn router(state: AppState) -> axum::Router {

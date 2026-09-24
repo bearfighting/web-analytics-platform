@@ -36,6 +36,8 @@ export async function loadDashboardPageData(
         pages: { status: "error", error },
         events: { status: "error", error },
         webVitals: { status: "error", error },
+        conversions: { status: "error", error },
+        funnels: { status: "error", error },
         visitors: { status: "error", error },
         dimension: { status: "error", error },
       },

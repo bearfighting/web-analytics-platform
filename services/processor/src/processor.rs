@@ -21,6 +21,7 @@ type DimensionDailyCounts = (i64, HashSet<String>, HashSet<String>);
 #[derive(Clone)]
 pub struct Processor {
     pool: PgPool,
+    definitions: crate::definitions::AnalyticsDefinitions,
 }
 
 #[derive(Debug, Clone)]
@@ -43,11 +44,28 @@ pub struct RebuildSummary {
 
 impl Processor {
     pub async fn connect(database_url: &str) -> Result<Self, ProcessorError> {
+        Self::connect_with_definitions(
+            database_url,
+            crate::definitions::AnalyticsDefinitions {
+                version: "1".to_owned(),
+                sites: Vec::new(),
+            },
+        )
+        .await
+    }
+
+    pub async fn connect_with_definitions(
+        database_url: &str,
+        definitions: crate::definitions::AnalyticsDefinitions,
+    ) -> Result<Self, ProcessorError> {
+        definitions
+            .validate()
+            .map_err(|error| ProcessorError::InvalidDefinitions(error.to_string()))?;
         let pool = PgPoolOptions::new()
             .max_connections(5)
             .connect(database_url)
             .await?;
-        Ok(Self { pool })
+        Ok(Self { pool, definitions })
     }
 
     pub async fn rebuild_custom_event_facts(&self, site_id: &str) -> Result<u64, ProcessorError> {
@@ -67,8 +85,78 @@ impl Processor {
         .execute(&mut *transaction)
         .await?;
         queries::advance_custom_event_watermark(&mut transaction, site_id).await?;
+        sqlx::query(
+            "UPDATE analytics_watermarks
+             SET definition_version = NULL, updated_at = NOW()
+             WHERE site_id = $1 AND generation_id IS NULL
+               AND source_name IN ('conversions', 'funnels')",
+        )
+        .bind(site_id)
+        .execute(&mut *transaction)
+        .await?;
         transaction.commit().await?;
+        self.rebuild_conversion_funnel_facts(site_id).await?;
         Ok(result.rows_affected())
+    }
+
+    pub async fn rebuild_conversion_funnel_facts(
+        &self,
+        site_id: &str,
+    ) -> Result<u64, ProcessorError> {
+        let mut tx = self.pool.begin().await?;
+        lock_site(&mut tx, site_id).await?;
+        sqlx::query("DELETE FROM conversion_facts WHERE site_id=$1 AND definition_version=$2")
+            .bind(site_id)
+            .bind(&self.definitions.version)
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query("DELETE FROM funnel_step_facts WHERE site_id=$1 AND definition_version=$2")
+            .bind(site_id)
+            .bind(&self.definitions.version)
+            .execute(&mut *tx)
+            .await?;
+        let events = sqlx::query_as::<_, (i64, String, DateTime<Utc>, DateTime<Utc>, Option<String>, serde_json::Value)>(
+            "SELECT id,event_id,occurred_at,received_at,visitor_id::text,payload FROM raw_events WHERE site_id=$1 AND event_type='custom_event' AND processed_at IS NOT NULL ORDER BY occurred_at,event_id")
+            .bind(site_id).fetch_all(&mut *tx).await?;
+        let mut count = 0_u64;
+        for (id, event_id, occurred_at, received_at, visitor_id, payload) in events {
+            let session_id = if let Some(visitor_id) = visitor_id.as_deref() {
+                sqlx::query_scalar::<_, String>("SELECT se.session_id::text FROM session_events se JOIN analytics_generations g ON g.generation_id=se.generation_id AND g.site_id=se.site_id AND g.status='active' WHERE se.site_id=$1 AND se.visitor_id=$2::uuid AND se.occurred_at <= $3 AND se.occurred_at > $3 - INTERVAL '30 minutes' AND (se.occurred_at AT TIME ZONE 'UTC')::date=($3 AT TIME ZONE 'UTC')::date ORDER BY se.occurred_at DESC LIMIT 1")
+                    .bind(site_id).bind(visitor_id).bind(occurred_at).fetch_optional(&mut *tx).await?
+            } else {
+                None
+            };
+            sqlx::query("UPDATE custom_event_facts SET session_id=$3::uuid WHERE site_id=$1 AND event_id=$2")
+                .bind(site_id).bind(&event_id).bind(session_id.as_deref()).execute(&mut *tx).await?;
+            let event = RawEvent {
+                id,
+                event_id,
+                site_id: site_id.to_owned(),
+                occurred_at,
+                received_at,
+                path: String::new(),
+                visitor_id,
+                context_schema_version: None,
+                payload,
+            };
+            let event_name = event
+                .payload
+                .get("event_name")
+                .and_then(serde_json::Value::as_str)
+                .ok_or_else(|| ProcessorError::InvalidCustomEvent(event.event_id.clone()))?;
+            record_conversion_and_funnel_facts(
+                &mut tx,
+                &event,
+                &self.definitions,
+                event_name,
+                session_id,
+            )
+            .await?;
+            count += 1;
+        }
+        advance_definition_watermarks(&mut tx, site_id, &self.definitions.version, true).await?;
+        tx.commit().await?;
+        Ok(count)
     }
 
     pub async fn rebuild_web_vital_facts(&self, site_id: &str) -> Result<u64, ProcessorError> {
@@ -91,7 +179,7 @@ impl Processor {
             return Ok(false);
         };
 
-        process_event(&mut transaction, &event).await?;
+        process_event(&mut transaction, &event, &self.definitions).await?;
         transaction.commit().await?;
         Ok(true)
     }
@@ -156,8 +244,13 @@ impl Processor {
             parser_version,
             rebuild_reason,
         };
+        let rebuilt_site_id = request.site_id.clone();
         match self.rebuild(request).await {
-            Ok(()) => Ok(true),
+            Ok(()) => {
+                self.rebuild_conversion_funnel_facts(&rebuilt_site_id)
+                    .await?;
+                Ok(true)
+            }
             Err(ProcessorError::RebuildQueueAlreadyHandled(_)) => Ok(true),
             Err(ProcessorError::RebuildQueuePaused(_)) => Ok(false),
             Err(error) => {
@@ -267,6 +360,7 @@ impl Processor {
             rebuild_reason: reason.to_owned(),
         })
         .await?;
+        self.rebuild_conversion_funnel_facts(site_id).await?;
         Ok(summary)
     }
 
@@ -593,6 +687,7 @@ async fn continuous_watermark(
 async fn process_event(
     transaction: &mut Transaction<'_, Postgres>,
     event: &RawEvent,
+    definitions: &crate::definitions::AnalyticsDefinitions,
 ) -> Result<(), ProcessorError> {
     match event
         .payload
@@ -606,18 +701,34 @@ async fn process_event(
                 .and_then(serde_json::Value::as_str)
                 .ok_or_else(|| ProcessorError::InvalidCustomEvent(event.event_id.clone()))?;
             lock_site(transaction, &event.site_id).await?;
+            let session_id = if let Some(visitor_id) = event.visitor_id.as_deref() {
+                sqlx::query_scalar::<_, String>("SELECT se.session_id::text FROM session_events se JOIN analytics_generations g ON g.generation_id=se.generation_id AND g.site_id=se.site_id AND g.status='active' WHERE se.site_id=$1 AND se.visitor_id=$2::uuid AND se.occurred_at <= $3 AND se.occurred_at > $3 - INTERVAL '30 minutes' AND (se.occurred_at AT TIME ZONE 'UTC')::date=($3 AT TIME ZONE 'UTC')::date ORDER BY se.occurred_at DESC LIMIT 1")
+                    .bind(&event.site_id).bind(visitor_id).bind(event.occurred_at).fetch_optional(&mut **transaction).await?
+            } else {
+                None
+            };
             sqlx::query(
-                "INSERT INTO custom_event_facts (raw_event_id, site_id, event_id, occurred_at, received_at, event_name)
-                 VALUES ($1, $2, $3, $4, $5, $6)
+                "INSERT INTO custom_event_facts (raw_event_id, site_id, event_id, occurred_at, received_at, event_name, session_id)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7::uuid)
                  ON CONFLICT (site_id, event_id) DO NOTHING",
             )
             .bind(event.id).bind(&event.site_id).bind(&event.event_id)
-            .bind(event.occurred_at).bind(event.received_at).bind(event_name)
+            .bind(event.occurred_at).bind(event.received_at).bind(event_name).bind(session_id.as_deref())
             .execute(&mut **transaction).await?;
+            record_conversion_and_funnel_facts(
+                transaction,
+                event,
+                definitions,
+                event_name,
+                session_id,
+            )
+            .await?;
             if !queries::mark_processed(transaction, event.id).await? {
                 return Err(ProcessorError::RawEventNotUpdated(event.id));
             }
             queries::advance_custom_event_watermark(transaction, &event.site_id).await?;
+            advance_definition_watermarks(transaction, &event.site_id, &definitions.version, false)
+                .await?;
             return Ok(());
         }
         Some("web_vital") => {
@@ -700,6 +811,129 @@ async fn process_event(
     }
     lock_site(transaction, &event.site_id).await?;
     queries::advance_page_view_watermark(transaction, &event.site_id).await?;
+    Ok(())
+}
+
+async fn record_conversion_and_funnel_facts(
+    transaction: &mut Transaction<'_, Postgres>,
+    event: &RawEvent,
+    definitions: &crate::definitions::AnalyticsDefinitions,
+    event_name: &str,
+    session_id: Option<String>,
+) -> Result<(), ProcessorError> {
+    let Some(site) = definitions.for_site(&event.site_id) else {
+        return Ok(());
+    };
+    let properties = event.payload.get("properties").cloned().unwrap_or_default();
+    for conversion in &site.conversions {
+        if crate::definitions::matches(
+            event_name,
+            &properties,
+            &conversion.event_name,
+            &conversion.properties,
+        ) {
+            sqlx::query("INSERT INTO conversion_facts(site_id,definition_id,definition_version,event_id,occurred_at,session_id) VALUES($1,$2,$3,$4,$5,$6::uuid) ON CONFLICT DO NOTHING")
+                .bind(&event.site_id).bind(&conversion.id).bind(&definitions.version).bind(&event.event_id).bind(event.occurred_at).bind(session_id.as_deref()).execute(&mut **transaction).await?;
+        }
+    }
+    let Some(session_id) = session_id else {
+        return Ok(());
+    };
+    for funnel in &site.funnels {
+        sqlx::query("DELETE FROM funnel_step_facts WHERE site_id=$1 AND definition_id=$2 AND definition_version=$3 AND session_id=$4::uuid")
+            .bind(&event.site_id).bind(&funnel.id).bind(&definitions.version).bind(&session_id).execute(&mut **transaction).await?;
+        let session_events = sqlx::query_as::<_, (String, DateTime<Utc>, String, serde_json::Value)>("SELECT f.event_id,f.occurred_at,f.event_name,COALESCE(r.payload->'properties','{}'::jsonb) FROM custom_event_facts f JOIN raw_events r ON r.id=f.raw_event_id WHERE f.site_id=$1 AND f.session_id=$2::uuid ORDER BY f.occurred_at,f.event_id")
+            .bind(&event.site_id).bind(&session_id).fetch_all(&mut **transaction).await?;
+        let mut next_index = 0_usize;
+        let mut previous_at = None;
+        let mut cohort_day = None;
+        for (matched_event_id, occurred_at, matched_name, matched_properties) in session_events {
+            if next_index >= funnel.steps.len()
+                || previous_at.is_some_and(|previous| occurred_at <= previous)
+            {
+                continue;
+            }
+            let step = &funnel.steps[next_index];
+            if !crate::definitions::matches(
+                &matched_name,
+                &matched_properties,
+                &step.event_name,
+                &step.properties,
+            ) {
+                continue;
+            }
+            let day =
+                *cohort_day.get_or_insert_with(|| occurred_at.with_timezone(&Utc).date_naive());
+            sqlx::query("INSERT INTO funnel_step_facts(site_id,definition_id,definition_version,session_id,step_index,event_id,occurred_at,cohort_day) VALUES($1,$2,$3,$4::uuid,$5,$6,$7,$8) ON CONFLICT DO NOTHING")
+                .bind(&event.site_id).bind(&funnel.id).bind(&definitions.version).bind(&session_id).bind(next_index as i32).bind(matched_event_id).bind(occurred_at).bind(day).execute(&mut **transaction).await?;
+            next_index += 1;
+            previous_at = Some(occurred_at);
+        }
+    }
+    Ok(())
+}
+
+async fn advance_definition_watermarks(
+    transaction: &mut Transaction<'_, Postgres>,
+    site_id: &str,
+    definition_version: &str,
+    replace_definition_version: bool,
+) -> Result<(), ProcessorError> {
+    for source in ["conversions", "funnels"] {
+        let max_received = sqlx::query_scalar::<_, Option<DateTime<Utc>>>(
+            "SELECT MAX(received_at) FROM raw_events
+             WHERE site_id = $1 AND event_type = 'custom_event' AND processed_at IS NOT NULL",
+        )
+        .bind(site_id)
+        .fetch_one(&mut **transaction)
+        .await?;
+        let processed_event_count = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM raw_events
+             WHERE site_id = $1 AND event_type = 'custom_event' AND processed_at IS NOT NULL",
+        )
+        .bind(site_id)
+        .fetch_one(&mut **transaction)
+        .await?;
+        let watermark = if let Some(max_received) = max_received {
+            let first_pending = sqlx::query_scalar::<_, Option<DateTime<Utc>>>(
+                "SELECT MIN(received_at) FROM raw_events
+                 WHERE site_id = $1 AND event_type = 'custom_event' AND processed_at IS NULL
+                   AND received_at <= $2",
+            )
+            .bind(site_id)
+            .bind(max_received)
+            .fetch_one(&mut **transaction)
+            .await?;
+            Some(first_pending.map_or(max_received, |time| {
+                time - chrono::Duration::microseconds(1)
+            }))
+        } else if replace_definition_version {
+            None
+        } else {
+            continue;
+        };
+        let version_for_insert = (replace_definition_version || processed_event_count == 1)
+            .then_some(definition_version);
+        sqlx::query(
+            "INSERT INTO analytics_watermarks
+                (site_id, generation_id, source_name, processed_received_watermark, definition_version)
+             VALUES ($1, NULL, $2, $3, $4)
+             ON CONFLICT (site_id, generation_id, source_name) DO UPDATE SET
+                processed_received_watermark = EXCLUDED.processed_received_watermark,
+                definition_version = CASE
+                    WHEN $5 THEN EXCLUDED.definition_version
+                    ELSE COALESCE(analytics_watermarks.definition_version, EXCLUDED.definition_version)
+                END,
+                updated_at = NOW()",
+        )
+        .bind(site_id)
+        .bind(source)
+        .bind(watermark)
+        .bind(version_for_insert)
+        .bind(replace_definition_version)
+        .execute(&mut **transaction)
+        .await?;
+    }
     Ok(())
 }
 

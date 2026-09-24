@@ -17,6 +17,7 @@ const requiredIds = new Set([
   "all-time-overview",
   "custom-events",
   "web-vitals",
+  "conversion-funnels",
 ]);
 const errors = [];
 
@@ -63,6 +64,8 @@ function validateOpenApi(document) {
     "/v1/sites/{site_id}/reports/{from}/{to}/timeline",
     "/v1/sites/{site_id}/reports/{from}/{to}/pages",
     "/v1/sites/{site_id}/reports/{from}/{to}/events",
+    "/v1/sites/{site_id}/reports/{from}/{to}/conversions",
+    "/v1/sites/{site_id}/reports/{from}/{to}/funnels",
     "/v1/sites/{site_id}/reports/{from}/{to}/web-vitals",
     "/v1/sites/{site_id}/reports/{from}/{to}/visitors",
     "/v1/sites/{site_id}/reports/{from}/{to}/sessions",
@@ -78,6 +81,8 @@ function validateOpenApi(document) {
     "/v1/sites/{site_id}/reports/{from}/{to}/timeline": ["200", "400", "500"],
     "/v1/sites/{site_id}/reports/{from}/{to}/pages": ["200", "400", "500"],
     "/v1/sites/{site_id}/reports/{from}/{to}/events": ["200", "400", "500"],
+    "/v1/sites/{site_id}/reports/{from}/{to}/conversions": ["200", "400", "500"],
+    "/v1/sites/{site_id}/reports/{from}/{to}/funnels": ["200", "400", "500"],
     "/v1/sites/{site_id}/reports/{from}/{to}/web-vitals": ["200", "400", "500"],
     "/v1/sites/{site_id}/reports/{from}/{to}/visitors": ["200", "400", "404", "500"],
     "/v1/sites/{site_id}/reports/{from}/{to}/sessions": ["200", "400", "404", "500"],
@@ -95,6 +100,10 @@ function validateOpenApi(document) {
     "TimelineResponse",
     "PagesResponse",
     "EventsReportResponse",
+    "ConversionReportResponse",
+    "ConversionReportItem",
+    "FunnelReportResponse",
+    "FunnelReportItem",
     "EventDailyItem",
     "VisitorSessionReportResponse",
     "DimensionReportResponse",
@@ -129,6 +138,8 @@ function validateOpenApi(document) {
     "/v1/sites/{site_id}/reports/{from}/{to}/timeline",
     "/v1/sites/{site_id}/reports/{from}/{to}/pages",
     "/v1/sites/{site_id}/reports/{from}/{to}/events",
+    "/v1/sites/{site_id}/reports/{from}/{to}/conversions",
+    "/v1/sites/{site_id}/reports/{from}/{to}/funnels",
     "/v1/sites/{site_id}/reports/{from}/{to}/web-vitals",
     "/v1/sites/{site_id}/reports/{from}/{to}/visitors",
     "/v1/sites/{site_id}/reports/{from}/{to}/sessions",
@@ -490,6 +501,8 @@ function validateApiResponses(api, fixtureName) {
     "pages",
     ...(api.events ? ["events"] : []),
     ...(api.web_vitals ? ["web_vitals"] : []),
+    ...(api.conversions ? ["conversions"] : []),
+    ...(api.funnels ? ["funnels"] : []),
   ]) {
     const response = api[name];
     if (
@@ -513,12 +526,49 @@ function validateApiResponses(api, fixtureName) {
     )
       errors.push(`${fixtureName}: ${name} page_views must be a non-negative integer`);
     if (
-      (name === "timeline" || name === "pages" || name === "events") &&
+      (name === "timeline" ||
+        name === "pages" ||
+        name === "events" ||
+        name === "conversions" ||
+        name === "funnels") &&
       !Array.isArray(response.body.items)
     )
       errors.push(`${fixtureName}: ${name} items must be an array`);
     if (name === "events" && (!Number.isInteger(response.body.total) || response.body.total < 0))
       errors.push(`${fixtureName}: events total must be a non-negative integer`);
+    if (
+      (name === "conversions" || name === "funnels") &&
+      (!Number.isInteger(response.body.total) ||
+        response.body.total < 0 ||
+        typeof response.body.definition_version !== "string" ||
+        !Array.isArray(response.body.items))
+    )
+      errors.push(`${fixtureName}: ${name} response is invalid`);
+    if (
+      name === "conversions" &&
+      !response.body.items.every(
+        (item) =>
+          typeof item.definition_id === "string" &&
+          isDate(item.day) &&
+          Number.isInteger(item.event_count) &&
+          Number.isInteger(item.converted_sessions) &&
+          Number.isInteger(item.eligible_sessions) &&
+          typeof item.conversion_rate === "number",
+      )
+    )
+      errors.push(`${fixtureName}: conversion items are invalid`);
+    if (
+      name === "funnels" &&
+      !response.body.items.every(
+        (item) =>
+          typeof item.definition_id === "string" &&
+          isDate(item.day) &&
+          Number.isInteger(item.step_index) &&
+          Number.isInteger(item.sessions) &&
+          typeof item.conversion_rate === "number",
+      )
+    )
+      errors.push(`${fixtureName}: funnel items are invalid`);
     if (
       name === "web_vitals" &&
       (!Number.isInteger(response.body.total) ||

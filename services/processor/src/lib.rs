@@ -1,4 +1,5 @@
 mod capabilities;
+pub mod definitions;
 mod error;
 mod models;
 mod normalizer;

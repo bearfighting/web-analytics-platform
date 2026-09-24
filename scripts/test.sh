@@ -9,6 +9,7 @@ cargo test --workspace
 pnpm protocol:validate
 pnpm capabilities:validate
 pnpm analytics:contract:validate
+pnpm analytics:definitions:validate
 pnpm http:validate
 pnpm build:packages
 pnpm --filter @web-analytics/protocol-ts test

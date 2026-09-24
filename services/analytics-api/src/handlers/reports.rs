@@ -7,7 +7,8 @@ use axum::{
 use crate::{
     errors::{ApiError, HandlerError},
     models::{
-        EventDailyItem, EventsReportResponse, PageItem, PagesResponse, RangeOverviewResponse,
+        ConversionReportItem, ConversionReportResponse, EventDailyItem, EventsReportResponse,
+        FunnelReportItem, FunnelReportResponse, PageItem, PagesResponse, RangeOverviewResponse,
         TimelineItem, TimelineResponse, WebVitalReportItem, WebVitalReportResponse,
     },
     queries,
@@ -170,6 +171,133 @@ pub(crate) async fn web_vitals(
         from,
         to,
         total,
+        items,
+        data_as_of,
+        freshness_status,
+        aggregation_version: 1,
+    })
+    .into_response())
+}
+
+pub(crate) async fn conversions(
+    State(state): State<AppState>,
+    Path((site_id, from, to)): Path<(String, String, String)>,
+    RawQuery(raw_query): RawQuery,
+) -> Result<Response, HandlerError> {
+    let range = validation::parse_range(&from, &to)?;
+    let (limit, definition_id) = validation::parse_definition_query(raw_query.as_deref())?;
+    let rows = queries::conversion_rows(
+        &state.pool,
+        &site_id,
+        &state.definition_version,
+        range,
+        definition_id.as_deref(),
+        limit,
+    )
+    .await
+    .map_err(ApiError::database)?;
+    let total = queries::conversion_total(
+        &state.pool,
+        &site_id,
+        &state.definition_version,
+        range,
+        definition_id.as_deref(),
+    )
+    .await
+    .map_err(ApiError::database)?;
+    let items = rows
+        .into_iter()
+        .map(|row| ConversionReportItem {
+            definition_id: row.definition_id,
+            day: row.day,
+            event_count: row.event_count,
+            converted_sessions: row.converted_sessions,
+            eligible_sessions: row.eligible_sessions,
+            conversion_rate: if row.eligible_sessions == 0 {
+                0.0
+            } else {
+                row.converted_sessions as f64 / row.eligible_sessions as f64
+            },
+        })
+        .collect();
+    let data_as_of = queries::definition_watermark(&state.pool, &site_id, "conversions")
+        .await
+        .map_err(ApiError::database)?;
+    let freshness_status = queries::definition_freshness(
+        &state.pool,
+        &site_id,
+        "conversions",
+        &state.definition_version,
+    )
+    .await
+    .map_err(ApiError::database)?;
+    Ok(Json(ConversionReportResponse {
+        site_id,
+        from,
+        to,
+        total,
+        definition_version: state.definition_version,
+        items,
+        data_as_of,
+        freshness_status,
+        aggregation_version: 1,
+    })
+    .into_response())
+}
+
+pub(crate) async fn funnels(
+    State(state): State<AppState>,
+    Path((site_id, from, to)): Path<(String, String, String)>,
+    RawQuery(raw_query): RawQuery,
+) -> Result<Response, HandlerError> {
+    let range = validation::parse_range(&from, &to)?;
+    let (limit, definition_id) = validation::parse_definition_query(raw_query.as_deref())?;
+    let rows = queries::funnel_rows(
+        &state.pool,
+        &site_id,
+        &state.definition_version,
+        range,
+        definition_id.as_deref(),
+        limit,
+    )
+    .await
+    .map_err(ApiError::database)?;
+    let total = queries::funnel_total(
+        &state.pool,
+        &site_id,
+        &state.definition_version,
+        range,
+        definition_id.as_deref(),
+    )
+    .await
+    .map_err(ApiError::database)?;
+    let items = rows
+        .into_iter()
+        .map(|row| FunnelReportItem {
+            definition_id: row.definition_id,
+            day: row.day,
+            step_index: row.step_index,
+            sessions: row.sessions,
+            conversion_rate: if row.previous_step_sessions == 0 {
+                0.0
+            } else {
+                row.sessions as f64 / row.previous_step_sessions as f64
+            },
+        })
+        .collect();
+    let data_as_of = queries::definition_watermark(&state.pool, &site_id, "funnels")
+        .await
+        .map_err(ApiError::database)?;
+    let freshness_status =
+        queries::definition_freshness(&state.pool, &site_id, "funnels", &state.definition_version)
+            .await
+            .map_err(ApiError::database)?;
+    Ok(Json(FunnelReportResponse {
+        site_id,
+        from,
+        to,
+        total,
+        definition_version: state.definition_version,
         items,
         data_as_of,
         freshness_status,

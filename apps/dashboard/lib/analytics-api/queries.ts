@@ -15,6 +15,8 @@ import type {
   FreshnessStatus,
   VisitorSessionResponse,
   WebVitalsResponse,
+  ConversionReportResponse,
+  FunnelReportResponse,
 } from "./types";
 
 export const DEFAULT_PAGES_LIMIT = 20;
@@ -61,6 +63,32 @@ export function webVitalsPath(
   if (path !== undefined) q.set("path", path);
 
   return `/v1/sites/${encodeURIComponent(siteId)}/reports/${from}/${to}/web-vitals?${q.toString()}`;
+}
+
+export function conversionsPath(
+  siteId: string,
+  from: string,
+  to: string,
+  limit = 20,
+  definitionId?: string,
+): string {
+  const q = new URLSearchParams({ limit: String(limit) });
+  if (definitionId !== undefined) q.set("definition_id", definitionId);
+
+  return `/v1/sites/${encodeURIComponent(siteId)}/reports/${from}/${to}/conversions?${q.toString()}`;
+}
+
+export function funnelsPath(
+  siteId: string,
+  from: string,
+  to: string,
+  limit = 20,
+  definitionId?: string,
+): string {
+  const q = new URLSearchParams({ limit: String(limit) });
+  if (definitionId !== undefined) q.set("definition_id", definitionId);
+
+  return `/v1/sites/${encodeURIComponent(siteId)}/reports/${from}/${to}/funnels?${q.toString()}`;
 }
 
 export function visitorsPath(siteId: string, from: string, to: string): string {
@@ -163,6 +191,74 @@ export function isWebVitalsResponse(value: unknown): value is WebVitalsResponse 
         isNonNegativeInteger(item.poor_count) &&
         (item.status === "available" || item.status === "insufficient_data"),
     ) &&
+    isNullableDateTime(value.data_as_of) &&
+    isFreshnessStatus(value.freshness_status) &&
+    isPositiveInteger(value.aggregation_version)
+  );
+}
+
+export function isConversionReportResponse(value: unknown): value is ConversionReportResponse {
+  return (
+    isDefinitionReport(value) &&
+    value.items.every(
+      (item) =>
+        isRecord(item) &&
+        !("properties" in item) &&
+        !("visitor_id" in item) &&
+        isString(item.definition_id) &&
+        isString(item.day) &&
+        isValidDate(item.day) &&
+        isNonNegativeInteger(item.event_count) &&
+        isNonNegativeInteger(item.converted_sessions) &&
+        isNonNegativeInteger(item.eligible_sessions) &&
+        typeof item.conversion_rate === "number" &&
+        item.conversion_rate >= 0 &&
+        item.conversion_rate <= 1,
+    )
+  );
+}
+
+export function isFunnelReportResponse(value: unknown): value is FunnelReportResponse {
+  return (
+    isDefinitionReport(value) &&
+    value.items.every(
+      (item) =>
+        isRecord(item) &&
+        !("properties" in item) &&
+        !("visitor_id" in item) &&
+        isString(item.definition_id) &&
+        isString(item.day) &&
+        isValidDate(item.day) &&
+        isNonNegativeInteger(item.step_index) &&
+        isNonNegativeInteger(item.sessions) &&
+        typeof item.conversion_rate === "number" &&
+        item.conversion_rate >= 0 &&
+        item.conversion_rate <= 1,
+    )
+  );
+}
+
+function isDefinitionReport(value: unknown): value is Record<string, unknown> & {
+  site_id: string;
+  from: string;
+  to: string;
+  total: number;
+  definition_version: string;
+  items: unknown[];
+  data_as_of: string | null;
+  freshness_status: FreshnessStatus;
+  aggregation_version: number;
+} {
+  return (
+    isRecord(value) &&
+    isString(value.site_id) &&
+    isString(value.from) &&
+    isValidDate(value.from) &&
+    isString(value.to) &&
+    isValidDate(value.to) &&
+    isNonNegativeInteger(value.total) &&
+    isString(value.definition_version) &&
+    Array.isArray(value.items) &&
     isNullableDateTime(value.data_as_of) &&
     isFreshnessStatus(value.freshness_status) &&
     isPositiveInteger(value.aggregation_version)

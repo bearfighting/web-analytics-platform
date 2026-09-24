@@ -3,6 +3,7 @@ import React from "react";
 import { loadDashboardOverview } from "../lib/dashboard-overview";
 import { loadDashboardLegacyReports } from "../lib/dashboard-reports";
 
+import { ConversionFunnelTables } from "./conversion-funnel-tables";
 import { EventReportTable } from "./event-report-table";
 import { OverviewCard } from "./overview-card";
 import { ErrorState } from "./states/error-state";
@@ -49,6 +50,11 @@ export async function LegacyDashboardSections({ context, client }: LegacyDashboa
       <TopPagesTable context={context} state={reports.pages} />
       <EventReportTable context={context} state={reports.events} />
       <WebVitalsTable context={context} state={reports.webVitals} />
+      <ConversionFunnelTables
+        context={context}
+        conversions={reports.conversions}
+        funnels={reports.funnels}
+      />
     </>
   );
 }

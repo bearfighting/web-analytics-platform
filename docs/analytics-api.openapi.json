@@ -3,7 +3,7 @@
   "info": {
     "title": "Web Analytics API",
     "version": "1.0.0",
-    "description": "Read API for Phase 3 page view aggregates and Phase 6 visitor, session, and dimension reports. Phase 7 custom event count reports."
+    "description": "Read API for Page View, Phase 6, Custom Event, Conversion and Funnel reports."
   },
   "servers": [
     {
@@ -463,6 +463,88 @@
         "operationId": "getWebVitalsReport",
         "description": "Document-load Web Vitals grouped by Page View path and metric; report date uses the Page View UTC date. p75 uses percentile_disc(0.75) and is null below four samples."
       }
+    },
+    "/v1/sites/{site_id}/reports/{from}/{to}/conversions": {
+      "get": {
+        "operationId": "getConversions",
+        "description": "Daily matching events and session conversion rates by conversion definition.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SiteId"
+          },
+          {
+            "$ref": "#/components/parameters/FromPath"
+          },
+          {
+            "$ref": "#/components/parameters/ToPath"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/DefinitionId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daily matching events and session conversion rates by conversion definition.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversionReportResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidQuery"
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsApiError"
+          }
+        }
+      }
+    },
+    "/v1/sites/{site_id}/reports/{from}/{to}/funnels": {
+      "get": {
+        "operationId": "getFunnels",
+        "description": "Session counts by funnel step and first-step UTC cohort; each step rate uses the immediately previous step as its denominator.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SiteId"
+          },
+          {
+            "$ref": "#/components/parameters/FromPath"
+          },
+          {
+            "$ref": "#/components/parameters/ToPath"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/DefinitionId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session counts by funnel step and first-step UTC cohort, with adjacent-step conversion rates.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FunnelReportResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidQuery"
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsApiError"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -525,6 +607,16 @@
         "schema": {
           "type": "string",
           "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$"
+        }
+      },
+      "DefinitionId": {
+        "name": "definition_id",
+        "in": "query",
+        "required": false,
+        "description": "Exact deployment definition ID filter.",
+        "schema": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]{1,64}$"
         }
       }
     },
@@ -992,6 +1084,179 @@
           "aggregation_version": {
             "type": "integer",
             "minimum": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "ConversionReportItem": {
+        "type": "object",
+        "required": [
+          "definition_id",
+          "day",
+          "event_count",
+          "converted_sessions",
+          "eligible_sessions",
+          "conversion_rate"
+        ],
+        "properties": {
+          "definition_id": {
+            "type": "string"
+          },
+          "day": {
+            "type": "string",
+            "format": "date"
+          },
+          "event_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "converted_sessions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "eligible_sessions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "conversion_rate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "FunnelReportItem": {
+        "type": "object",
+        "required": ["definition_id", "day", "step_index", "sessions", "conversion_rate"],
+        "properties": {
+          "definition_id": {
+            "type": "string"
+          },
+          "day": {
+            "type": "string",
+            "format": "date"
+          },
+          "step_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sessions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "conversion_rate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "ConversionReportResponse": {
+        "type": "object",
+        "required": [
+          "site_id",
+          "from",
+          "to",
+          "total",
+          "definition_version",
+          "data_as_of",
+          "freshness_status",
+          "aggregation_version",
+          "items"
+        ],
+        "properties": {
+          "site_id": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "definition_version": {
+            "type": "string"
+          },
+          "data_as_of": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Definition pipeline processed_received watermark."
+          },
+          "freshness_status": {
+            "type": "string",
+            "enum": ["current", "stale", "rebuilding", "failed"]
+          },
+          "aggregation_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConversionReportItem"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "FunnelReportResponse": {
+        "type": "object",
+        "required": [
+          "site_id",
+          "from",
+          "to",
+          "total",
+          "definition_version",
+          "data_as_of",
+          "freshness_status",
+          "aggregation_version",
+          "items"
+        ],
+        "properties": {
+          "site_id": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "definition_version": {
+            "type": "string"
+          },
+          "data_as_of": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Definition pipeline processed_received watermark."
+          },
+          "freshness_status": {
+            "type": "string",
+            "enum": ["current", "stale", "rebuilding", "failed"]
+          },
+          "aggregation_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FunnelReportItem"
+            }
           }
         },
         "additionalProperties": false

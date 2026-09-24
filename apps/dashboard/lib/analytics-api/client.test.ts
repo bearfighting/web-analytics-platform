@@ -360,6 +360,77 @@ describe("Analytics API errors and response validation", () => {
     ).rejects.toBeInstanceOf(AnalyticsApiClientError);
   });
 
+  it("requests and validates conversion and funnel reports", async () => {
+    const conversionResponse = {
+      site_id: "site_playground",
+      from: "2026-09-18",
+      to: "2026-09-18",
+      total: 1,
+      definition_version: "v1",
+      items: [
+        {
+          definition_id: "purchase",
+          day: "2026-09-18",
+          event_count: 1,
+          converted_sessions: 1,
+          eligible_sessions: 2,
+          conversion_rate: 0.5,
+        },
+      ],
+      data_as_of: null,
+      freshness_status: "current",
+      aggregation_version: 1,
+    };
+    const funnelResponse = {
+      site_id: "site_playground",
+      from: "2026-09-18",
+      to: "2026-09-18",
+      total: 1,
+      definition_version: "v1",
+      items: [
+        {
+          definition_id: "checkout",
+          day: "2026-09-18",
+          step_index: 0,
+          sessions: 2,
+          conversion_rate: 1,
+        },
+      ],
+      data_as_of: null,
+      freshness_status: "current",
+      aggregation_version: 1,
+    };
+    const conversion = clientFor(jsonResponse(conversionResponse));
+    await expect(
+      conversion.client.conversions?.(
+        "site_playground",
+        "2026-09-18",
+        "2026-09-18",
+        10,
+        "purchase",
+      ),
+    ).resolves.toEqual(conversionResponse);
+    expect(conversion.fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/conversions?limit=10&definition_id=purchase"),
+      expect.any(Object),
+    );
+    const funnel = clientFor(jsonResponse(funnelResponse));
+    await expect(
+      funnel.client.funnels?.("site_playground", "2026-09-18", "2026-09-18"),
+    ).resolves.toEqual(funnelResponse);
+    const invalid = clientFor(
+      jsonResponse({
+        ...funnelResponse,
+        items: [
+          { ...funnelResponse.items[0], visitor_id: "must-not-be-exposed", conversion_rate: 2 },
+        ],
+      }),
+    );
+    await expect(
+      invalid.client.funnels?.("site_playground", "2026-09-18", "2026-09-18"),
+    ).rejects.toBeInstanceOf(AnalyticsApiClientError);
+  });
+
   it("maps a successful non-JSON response to a response error", async () => {
     const { client } = clientFor(new Response("not json"));
 

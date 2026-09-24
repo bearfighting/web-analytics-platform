@@ -35,7 +35,10 @@
         "origin_and_ingest_key": "enforced",
         "privacy": ["do not persist IP", "site isolation is required"]
       },
-      "history": { "queryable_after_disabled": true, "backfill": "optional" }
+      "history": {
+        "queryable_after_disabled": true,
+        "backfill": "optional"
+      }
     },
     {
       "id": "browser_context",
@@ -45,7 +48,10 @@
         "event_types": ["page_view"],
         "required_fields": ["context", "context_schema_version"]
       },
-      "raw_event": { "preserve": true, "fields": ["context", "context_schema_version"] },
+      "raw_event": {
+        "preserve": true,
+        "fields": ["context", "context_schema_version"]
+      },
       "processor": {
         "facts": ["normalized_event_context", "dimension_event_facts"],
         "rebuild": "explicit_backfill"
@@ -69,14 +75,23 @@
           "discard unsupported context fields"
         ]
       },
-      "history": { "queryable_after_disabled": true, "backfill": "required" }
+      "history": {
+        "queryable_after_disabled": true,
+        "backfill": "required"
+      }
     },
     {
       "id": "anonymous_visitors",
       "status": "implemented",
       "depends_on": ["page_views"],
-      "input": { "event_types": ["page_view"], "required_fields": ["visitor_id"] },
-      "raw_event": { "preserve": true, "fields": ["visitor_id"] },
+      "input": {
+        "event_types": ["page_view"],
+        "required_fields": ["visitor_id"]
+      },
+      "raw_event": {
+        "preserve": true,
+        "fields": ["visitor_id"]
+      },
       "processor": {
         "facts": ["visitor_event_facts", "visitor_daily"],
         "rebuild": "explicit_backfill"
@@ -100,14 +115,23 @@
           "do not expose raw identity sources"
         ]
       },
-      "history": { "queryable_after_disabled": true, "backfill": "required" }
+      "history": {
+        "queryable_after_disabled": true,
+        "backfill": "required"
+      }
     },
     {
       "id": "sessions",
       "status": "implemented",
       "depends_on": ["anonymous_visitors"],
-      "input": { "event_types": ["page_view"], "required_fields": ["visitor_id", "occurred_at"] },
-      "raw_event": { "preserve": false, "fields": [] },
+      "input": {
+        "event_types": ["page_view"],
+        "required_fields": ["visitor_id", "occurred_at"]
+      },
+      "raw_event": {
+        "preserve": false,
+        "fields": []
+      },
       "processor": {
         "facts": ["session_events", "sessions", "session_daily"],
         "rebuild": "explicit_backfill"
@@ -127,14 +151,23 @@
         "origin_and_ingest_key": "enforced",
         "privacy": ["sessions require anonymous visitor IDs", "do not expose raw identity sources"]
       },
-      "history": { "queryable_after_disabled": true, "backfill": "required" }
+      "history": {
+        "queryable_after_disabled": true,
+        "backfill": "required"
+      }
     },
     {
       "id": "dimensions",
       "status": "implemented",
       "depends_on": ["browser_context"],
-      "input": { "event_types": ["page_view"], "required_fields": ["context"] },
-      "raw_event": { "preserve": false, "fields": [] },
+      "input": {
+        "event_types": ["page_view"],
+        "required_fields": ["context"]
+      },
+      "raw_event": {
+        "preserve": false,
+        "fields": []
+      },
       "processor": {
         "facts": ["dimension_event_facts", "dimension_daily"],
         "rebuild": "explicit_backfill"
@@ -158,15 +191,27 @@
           "do not persist IP"
         ]
       },
-      "history": { "queryable_after_disabled": true, "backfill": "required" }
+      "history": {
+        "queryable_after_disabled": true,
+        "backfill": "required"
+      }
     },
     {
       "id": "custom_events",
       "status": "implemented",
       "depends_on": ["page_views"],
-      "input": { "event_types": ["custom_event"], "required_fields": ["event_name", "properties"] },
-      "raw_event": { "preserve": true, "fields": ["event_name", "properties"] },
-      "processor": { "facts": ["custom_event_facts"], "rebuild": "incremental" },
+      "input": {
+        "event_types": ["custom_event"],
+        "required_fields": ["event_name", "properties"]
+      },
+      "raw_event": {
+        "preserve": true,
+        "fields": ["event_name", "properties"]
+      },
+      "processor": {
+        "facts": ["custom_event_facts"],
+        "rebuild": "incremental"
+      },
       "api": {
         "query_surface": "report",
         "routes": ["GET /v1/sites/{site_id}/reports/{from}/{to}/events"]
@@ -186,7 +231,10 @@
           "bound property depth and size"
         ]
       },
-      "history": { "queryable_after_disabled": true, "backfill": "optional" }
+      "history": {
+        "queryable_after_disabled": true,
+        "backfill": "optional"
+      }
     },
     {
       "id": "web_vitals",
@@ -248,17 +296,29 @@
     },
     {
       "id": "conversions",
-      "status": "planned",
+      "status": "implemented",
       "depends_on": ["custom_events"],
-      "input": { "event_types": ["custom_event"], "required_fields": ["event_name", "properties"] },
-      "raw_event": { "preserve": false, "fields": [] },
-      "processor": { "facts": ["conversion_facts"], "rebuild": "explicit_backfill" },
-      "api": { "query_surface": "future_report", "routes": [] },
+      "input": {
+        "event_types": ["custom_event"],
+        "required_fields": ["event_name", "properties"]
+      },
+      "raw_event": {
+        "preserve": true,
+        "fields": ["event_name", "properties"]
+      },
+      "processor": {
+        "facts": ["conversion_facts"],
+        "rebuild": "explicit_backfill"
+      },
+      "api": {
+        "query_surface": "report",
+        "routes": ["GET /v1/sites/{site_id}/reports/{from}/{to}/conversions"]
+      },
       "dashboard": {
-        "surface": "future_report",
-        "disabled": "no conversion workflow is available",
-        "empty": "not implemented",
-        "error": "not implemented"
+        "surface": "report",
+        "disabled": "available when deployment definitions include conversion rules",
+        "empty": "show zero conversion events and empty rows",
+        "error": "show report error state"
       },
       "security": {
         "consent": "required",
@@ -268,40 +328,67 @@
           "properties inherit custom event privacy rules"
         ]
       },
-      "history": { "queryable_after_disabled": true, "backfill": "required" }
+      "history": {
+        "queryable_after_disabled": false,
+        "backfill": "required"
+      }
     },
     {
       "id": "funnels",
-      "status": "planned",
+      "status": "implemented",
       "depends_on": ["custom_events", "conversions"],
       "input": {
         "event_types": ["custom_event"],
         "required_fields": ["event_name", "occurred_at"]
       },
-      "raw_event": { "preserve": false, "fields": [] },
-      "processor": { "facts": ["funnel_step_facts"], "rebuild": "explicit_backfill" },
-      "api": { "query_surface": "future_report", "routes": [] },
+      "raw_event": {
+        "preserve": true,
+        "fields": ["event_name", "properties"]
+      },
+      "processor": {
+        "facts": ["funnel_step_facts"],
+        "rebuild": "explicit_backfill"
+      },
+      "api": {
+        "query_surface": "report",
+        "routes": ["GET /v1/sites/{site_id}/reports/{from}/{to}/funnels"]
+      },
       "dashboard": {
-        "surface": "future_report",
-        "disabled": "no funnel workflow is available",
-        "empty": "not implemented",
-        "error": "not implemented"
+        "surface": "report",
+        "disabled": "available when deployment definitions include funnel rules",
+        "empty": "show no funnel steps",
+        "error": "show report error state"
       },
       "security": {
         "consent": "required",
         "origin_and_ingest_key": "enforced",
         "privacy": ["do not require cross-device identity", "definitions must be site-scoped"]
       },
-      "history": { "queryable_after_disabled": true, "backfill": "required" }
+      "history": {
+        "queryable_after_disabled": false,
+        "backfill": "required"
+      }
     },
     {
       "id": "geo",
       "status": "planned",
       "depends_on": ["page_views"],
-      "input": { "event_types": ["page_view"], "required_fields": ["site_id"] },
-      "raw_event": { "preserve": false, "fields": [] },
-      "processor": { "facts": ["geo_country_facts"], "rebuild": "explicit_backfill" },
-      "api": { "query_surface": "future_report", "routes": [] },
+      "input": {
+        "event_types": ["page_view"],
+        "required_fields": ["site_id"]
+      },
+      "raw_event": {
+        "preserve": false,
+        "fields": []
+      },
+      "processor": {
+        "facts": ["geo_country_facts"],
+        "rebuild": "explicit_backfill"
+      },
+      "api": {
+        "query_surface": "future_report",
+        "routes": []
+      },
       "dashboard": {
         "surface": "future_report",
         "disabled": "no Geo workflow is available",
@@ -317,7 +404,10 @@
           "unresolved values become unknown"
         ]
       },
-      "history": { "queryable_after_disabled": true, "backfill": "required" }
+      "history": {
+        "queryable_after_disabled": true,
+        "backfill": "required"
+      }
     }
   ]
 }

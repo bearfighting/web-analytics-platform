@@ -10,21 +10,23 @@ use tracing::{error, info};
 struct Cli {
     #[arg(long, default_value_t = false)]
     once: bool,
-    #[arg(long, conflicts_with_all = ["rebuild", "backfill", "reparse", "once", "rebuild_web_vitals"], requires = "site_id")]
+    #[arg(long, conflicts_with_all = ["rebuild", "backfill", "reparse", "once", "rebuild_web_vitals", "rebuild_conversion_funnels"], requires = "site_id")]
     rebuild_custom_events: bool,
-    #[arg(long, conflicts_with_all = ["rebuild", "backfill", "reparse", "once", "rebuild_custom_events"], requires = "site_id")]
+    #[arg(long, conflicts_with_all = ["rebuild", "backfill", "reparse", "once", "rebuild_custom_events", "rebuild_conversion_funnels"], requires = "site_id")]
     rebuild_web_vitals: bool,
+    #[arg(long, conflicts_with_all = ["rebuild", "backfill", "reparse", "once", "rebuild_custom_events", "rebuild_web_vitals"], requires = "site_id")]
+    rebuild_conversion_funnels: bool,
     #[arg(long, env = "PROCESSOR_POLL_INTERVAL_MS", default_value_t = 1_000)]
     poll_interval_ms: u64,
     #[arg(
         long,
-        conflicts_with_all = ["backfill", "reparse", "once", "rebuild_custom_events", "rebuild_web_vitals"],
+        conflicts_with_all = ["backfill", "reparse", "once", "rebuild_custom_events", "rebuild_web_vitals", "rebuild_conversion_funnels"],
         help = "Rebuild a complete site generation; --from/--to record the rebuild scope"
     )]
     rebuild: bool,
-    #[arg(long, conflicts_with_all = ["rebuild", "reparse", "once", "rebuild_custom_events", "rebuild_web_vitals"])]
+    #[arg(long, conflicts_with_all = ["rebuild", "reparse", "once", "rebuild_custom_events", "rebuild_web_vitals", "rebuild_conversion_funnels"])]
     backfill: bool,
-    #[arg(long, conflicts_with_all = ["rebuild", "backfill", "once", "rebuild_custom_events", "rebuild_web_vitals"])]
+    #[arg(long, conflicts_with_all = ["rebuild", "backfill", "once", "rebuild_custom_events", "rebuild_web_vitals", "rebuild_conversion_funnels"])]
     reparse: bool,
     #[arg(long)]
     site_id: Option<String>,
@@ -47,12 +49,26 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let database_url = std::env::var("DATABASE_URL")
         .map_err(|_| anyhow::anyhow!("DATABASE_URL must be configured"))?;
-    let processor = Processor::connect(&database_url).await?;
+    let definitions_path = std::env::var("ANALYTICS_DEFINITIONS_FILE")
+        .unwrap_or_else(|_| "config/analytics-definitions.json".to_owned());
+    let definitions = processor::definitions::AnalyticsDefinitions::load(&definitions_path)?;
+    let processor = Processor::connect_with_definitions(&database_url, definitions).await?;
 
     if cli.rebuild_custom_events {
         let site_id = cli.site_id.as_deref().expect("clap requires --site-id");
         let count = processor.rebuild_custom_event_facts(site_id).await?;
         info!(site_id, facts = count, "custom event facts rebuilt");
+        return Ok(());
+    }
+
+    if cli.rebuild_conversion_funnels {
+        let site_id = cli.site_id.as_deref().expect("clap requires --site-id");
+        let count = processor.rebuild_conversion_funnel_facts(site_id).await?;
+        info!(
+            site_id,
+            facts = count,
+            "conversion and funnel facts rebuilt"
+        );
         return Ok(());
     }
 

@@ -9,6 +9,8 @@ axum.workspace = true
 chrono.workspace = true
 clap.workspace = true
 serde.workspace = true
+serde_json.workspace = true
+jsonschema.workspace = true
 sqlx.workspace = true
 tokio.workspace = true
 tracing.workspace = true
@@ -18,4 +20,5 @@ url.workspace = true
 [dev-dependencies]
 http-body-util.workspace = true
 serde_json.workspace = true
+jsonschema.workspace = true
 tower.workspace = true

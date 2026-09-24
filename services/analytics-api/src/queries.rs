@@ -441,3 +441,138 @@ pub(crate) async fn web_vital_freshness(
     let pending=sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM raw_events WHERE site_id=$1 AND event_type='web_vital' AND processed_at IS NULL)").bind(site_id).fetch_one(pool).await?;
     Ok(if pending { "stale" } else { "current" }.to_owned())
 }
+
+pub(crate) async fn conversion_rows(
+    pool: &PgPool,
+    site_id: &str,
+    version: &str,
+    range: DateRange,
+    definition_id: Option<&str>,
+    limit: i64,
+) -> Result<Vec<crate::models::ConversionReportRow>, sqlx::Error> {
+    sqlx::query_as::<_, crate::models::ConversionReportRow>("WITH eligible AS (SELECT (occurred_at AT TIME ZONE 'UTC')::date AS day, COUNT(DISTINCT session_id)::bigint AS sessions FROM custom_event_facts WHERE site_id=$1 AND session_id IS NOT NULL AND (occurred_at AT TIME ZONE 'UTC')::date BETWEEN $4 AND $5 GROUP BY 1), matched AS (SELECT definition_id,(occurred_at AT TIME ZONE 'UTC')::date AS day,COUNT(*)::bigint AS event_count,COUNT(DISTINCT session_id)::bigint AS converted_sessions FROM conversion_facts WHERE site_id=$1 AND definition_version=$2 AND (occurred_at AT TIME ZONE 'UTC')::date BETWEEN $4 AND $5 AND ($3::text IS NULL OR definition_id=$3) GROUP BY 1,2) SELECT m.definition_id,m.day,m.event_count,m.converted_sessions,COALESCE(e.sessions,0)::bigint AS eligible_sessions FROM matched m LEFT JOIN eligible e USING(day) ORDER BY m.definition_id,m.day LIMIT $6")
+        .bind(site_id).bind(version).bind(definition_id).bind(range.from).bind(range.to).bind(limit).fetch_all(pool).await
+}
+
+pub(crate) async fn conversion_total(
+    pool: &PgPool,
+    site_id: &str,
+    version: &str,
+    range: DateRange,
+    definition_id: Option<&str>,
+) -> Result<i64, sqlx::Error> {
+    sqlx::query_scalar("SELECT COUNT(*)::bigint FROM conversion_facts WHERE site_id=$1 AND definition_version=$2 AND (occurred_at AT TIME ZONE 'UTC')::date BETWEEN $3 AND $4 AND ($5::text IS NULL OR definition_id=$5)")
+        .bind(site_id).bind(version).bind(range.from).bind(range.to).bind(definition_id).fetch_one(pool).await
+}
+
+pub(crate) async fn funnel_rows(
+    pool: &PgPool,
+    site_id: &str,
+    version: &str,
+    range: DateRange,
+    definition_id: Option<&str>,
+    limit: i64,
+) -> Result<Vec<crate::models::FunnelReportRow>, sqlx::Error> {
+    sqlx::query_as::<_, crate::models::FunnelReportRow>("WITH counts AS (SELECT definition_id,cohort_day AS day,step_index,COUNT(DISTINCT session_id)::bigint AS sessions FROM funnel_step_facts WHERE site_id=$1 AND definition_version=$2 AND cohort_day BETWEEN $3 AND $4 AND ($5::text IS NULL OR definition_id=$5) GROUP BY definition_id,cohort_day,step_index) SELECT definition_id,day,step_index,sessions,LAG(sessions,1,sessions) OVER(PARTITION BY definition_id,day ORDER BY step_index)::bigint AS previous_step_sessions FROM counts ORDER BY definition_id,day,step_index LIMIT $6")
+        .bind(site_id).bind(version).bind(range.from).bind(range.to).bind(definition_id).bind(limit).fetch_all(pool).await
+}
+
+pub(crate) async fn funnel_total(
+    pool: &PgPool,
+    site_id: &str,
+    version: &str,
+    range: DateRange,
+    definition_id: Option<&str>,
+) -> Result<i64, sqlx::Error> {
+    sqlx::query_scalar("SELECT COUNT(DISTINCT (definition_id,session_id))::bigint FROM funnel_step_facts WHERE site_id=$1 AND definition_version=$2 AND step_index=0 AND cohort_day BETWEEN $3 AND $4 AND ($5::text IS NULL OR definition_id=$5)")
+        .bind(site_id).bind(version).bind(range.from).bind(range.to).bind(definition_id).fetch_one(pool).await
+}
+
+pub(crate) async fn definition_watermark(
+    pool: &PgPool,
+    site_id: &str,
+    source: &str,
+) -> Result<Option<chrono::DateTime<chrono::Utc>>, sqlx::Error> {
+    sqlx::query_scalar::<_,Option<chrono::DateTime<chrono::Utc>>>("SELECT processed_received_watermark FROM analytics_watermarks WHERE site_id=$1 AND generation_id IS NULL AND source_name=$2").bind(site_id).bind(source).fetch_optional(pool).await.map(Option::flatten)
+}
+
+pub(crate) async fn definition_freshness(
+    pool: &PgPool,
+    site_id: &str,
+    source: &str,
+    definition_version: &str,
+) -> Result<String, sqlx::Error> {
+    let mut transaction = pool.begin().await?;
+    if let Some(status) = rebuild_freshness_status(&mut transaction, site_id).await? {
+        transaction.rollback().await?;
+        return Ok(status);
+    }
+
+    let pending_custom_events = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(
+             SELECT 1 FROM raw_events
+             WHERE site_id = $1 AND event_type = 'custom_event' AND processed_at IS NULL
+         )",
+    )
+    .bind(site_id)
+    .fetch_one(&mut *transaction)
+    .await?;
+    if pending_custom_events {
+        transaction.rollback().await?;
+        return Ok("stale".to_owned());
+    }
+
+    let processed_custom_events = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(
+             SELECT 1 FROM raw_events
+             WHERE site_id = $1 AND event_type = 'custom_event' AND processed_at IS NOT NULL
+         )",
+    )
+    .bind(site_id)
+    .fetch_one(&mut *transaction)
+    .await?;
+    if processed_custom_events {
+        let definition_version_is_current = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(
+                 SELECT 1 FROM analytics_watermarks
+                 WHERE site_id = $1 AND generation_id IS NULL AND source_name = $2
+                   AND definition_version = $3
+             )",
+        )
+        .bind(site_id)
+        .bind(source)
+        .bind(definition_version)
+        .fetch_one(&mut *transaction)
+        .await?;
+        if !definition_version_is_current {
+            transaction.rollback().await?;
+            return Ok("stale".to_owned());
+        }
+    }
+
+    let derived_facts_behind_generation = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(
+             SELECT 1
+             FROM analytics_generations g
+             JOIN analytics_watermarks w
+               ON w.site_id = g.site_id AND w.generation_id IS NULL AND w.source_name = $2
+             WHERE g.site_id = $1 AND g.status = 'active'
+               AND EXISTS (
+                   SELECT 1 FROM raw_events r
+                   WHERE r.site_id = g.site_id AND r.event_type = 'custom_event'
+                     AND r.processed_at IS NOT NULL
+               )
+               AND g.activated_at > w.updated_at
+         )",
+    )
+    .bind(site_id)
+    .bind(source)
+    .fetch_one(&mut *transaction)
+    .await?;
+    transaction.rollback().await?;
+    Ok(if derived_facts_behind_generation {
+        "rebuilding".to_owned()
+    } else {
+        "current".to_owned()
+    })
+}

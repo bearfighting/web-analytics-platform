@@ -33,7 +33,8 @@
     "http:validate": "node ./scripts/validate-http-fixtures.mjs",
     "analytics:contract:validate": "node ./scripts/validate-analytics-api-contract.mjs",
     "dashboard:validate": "pnpm --filter @web-analytics/dashboard test",
-    "build:packages": "pnpm --filter @web-analytics/protocol-ts --filter @web-analytics/observer-core --filter @web-analytics/observer-next --filter @web-analytics/observer-react-router --filter @web-analytics/observer-tanstack-router --filter @web-analytics/analytics-core --filter @web-analytics/analytics-browser --filter @web-analytics/transport --filter @web-analytics/router-adapters --filter @web-analytics/playground-support build"
+    "build:packages": "pnpm --filter @web-analytics/protocol-ts --filter @web-analytics/observer-core --filter @web-analytics/observer-next --filter @web-analytics/observer-react-router --filter @web-analytics/observer-tanstack-router --filter @web-analytics/analytics-core --filter @web-analytics/analytics-browser --filter @web-analytics/transport --filter @web-analytics/router-adapters --filter @web-analytics/playground-support build",
+    "analytics:definitions:validate": "node ./scripts/validate-analytics-definitions.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.20.0",

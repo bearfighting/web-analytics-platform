@@ -31,6 +31,28 @@ function createClient(overrides: Partial<AnalyticsApiClient> = {}): AnalyticsApi
       freshness_status: "current",
       aggregation_version: 1,
     }),
+    conversions: vi.fn().mockResolvedValue({
+      site_id: context.siteId,
+      from: context.dateRange.from,
+      to: context.dateRange.to,
+      total: 0,
+      definition_version: "1",
+      items: [],
+      data_as_of: null,
+      freshness_status: "current",
+      aggregation_version: 1,
+    }),
+    funnels: vi.fn().mockResolvedValue({
+      site_id: context.siteId,
+      from: context.dateRange.from,
+      to: context.dateRange.to,
+      total: 0,
+      definition_version: "1",
+      items: [],
+      data_as_of: null,
+      freshness_status: "current",
+      aggregation_version: 1,
+    }),
     visitors: vi.fn().mockResolvedValue({
       site_id: context.siteId,
       from: context.dateRange.from,
@@ -86,6 +108,8 @@ describe("loadDashboardReports", () => {
 
     expect(client.timeline).toHaveBeenCalledWith("site_playground", "2026-09-18", "2026-09-18");
     expect(client.pages).toHaveBeenCalledWith("site_playground", "2026-09-18", "2026-09-18");
+    expect(client.conversions).toHaveBeenCalledWith("site_playground", "2026-09-18", "2026-09-18");
+    expect(client.funnels).toHaveBeenCalledWith("site_playground", "2026-09-18", "2026-09-18");
 
     const result = await resultPromise;
 
@@ -94,6 +118,8 @@ describe("loadDashboardReports", () => {
       pages: { status: "success", data: fixture.pages },
       events: { status: "success", data: expect.any(Object) },
       webVitals: { status: "success", data: expect.any(Object) },
+      conversions: { status: "success", data: expect.any(Object) },
+      funnels: { status: "success", data: expect.any(Object) },
       visitors: { status: "success", data: expect.any(Object) },
       dimension: { status: "success", data: expect.any(Object) },
     });
@@ -134,6 +160,8 @@ describe("loadDashboardReports", () => {
       pages: { status: "success", data: emptyFixture.pages },
       events: { status: "success", data: expect.any(Object) },
       webVitals: { status: "success", data: expect.any(Object) },
+      conversions: { status: "success", data: expect.any(Object) },
+      funnels: { status: "success", data: expect.any(Object) },
       visitors: { status: "success", data: expect.any(Object) },
       dimension: { status: "success", data: expect.any(Object) },
     });
@@ -152,6 +180,8 @@ describe("loadDashboardReports", () => {
     expect(result.timeline.status).toBe("error");
     expect(result.pages.status).toBe("error");
     expect(result.events.status).toBe("error");
+    expect(result.conversions.status).toBe("error");
+    expect(result.funnels.status).toBe("error");
     expect(clientFactory).not.toHaveBeenCalled();
   });
 });

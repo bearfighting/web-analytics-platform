@@ -52,6 +52,11 @@ const EXPECTED_MIGRATIONS: &[(i64, &str, &str)] = &[
         "add web vital facts",
         "2e4ac3134a6fcdae7cc7566174ad1485553c8897257f3fe04288cedab3ed378684b46a40a678b27c34d31703cad87850",
     ),
+    (
+        20260923001100,
+        "add conversion funnel facts",
+        "84c0855c01ae188daacf6d33b1de60f8109bf15bc038ede00bd857f7a2bb6dd305224b1a2607eddafe54b2f0a5f5f205",
+    ),
 ];
 
 #[tokio::test]

@@ -1,0 +1,39 @@
+{
+  "id": "conversions",
+  "status": "implemented",
+  "depends_on": ["custom_events"],
+  "input": {
+    "event_types": ["custom_event"],
+    "required_fields": ["event_name", "properties"]
+  },
+  "raw_event": {
+    "preserve": true,
+    "fields": ["event_name", "properties"]
+  },
+  "processor": {
+    "facts": ["conversion_facts"],
+    "rebuild": "explicit_backfill"
+  },
+  "api": {
+    "query_surface": "report",
+    "routes": ["GET /v1/sites/{site_id}/reports/{from}/{to}/conversions"]
+  },
+  "dashboard": {
+    "surface": "report",
+    "disabled": "available when deployment definitions include conversion rules",
+    "empty": "show zero conversion events and empty rows",
+    "error": "show report error state"
+  },
+  "security": {
+    "consent": "required",
+    "origin_and_ingest_key": "enforced",
+    "privacy": [
+      "definitions must not require identity data",
+      "properties inherit custom event privacy rules"
+    ]
+  },
+  "history": {
+    "queryable_after_disabled": false,
+    "backfill": "required"
+  }
+}

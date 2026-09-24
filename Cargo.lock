@@ -40,6 +40,7 @@ dependencies = [
  "chrono",
  "clap",
  "http-body-util",
+ "jsonschema",
  "serde",
  "serde_json",
  "sqlx",
