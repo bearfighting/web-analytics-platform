@@ -17,6 +17,7 @@ import type {
   WebVitalsResponse,
   ConversionReportResponse,
   FunnelReportResponse,
+  GeoCountryResponse,
 } from "./types";
 
 export const DEFAULT_PAGES_LIMIT = 20;
@@ -89,6 +90,31 @@ export function funnelsPath(
   if (definitionId !== undefined) q.set("definition_id", definitionId);
 
   return `/v1/sites/${encodeURIComponent(siteId)}/reports/${from}/${to}/funnels?${q.toString()}`;
+}
+
+export function geoCountriesPath(siteId: string, from: string, to: string): string {
+  return `/v1/sites/${encodeURIComponent(siteId)}/reports/${from}/${to}/geo`;
+}
+
+export function isGeoCountryResponse(value: unknown): value is GeoCountryResponse {
+  return (
+    isRecord(value) &&
+    isString(value.site_id) &&
+    isString(value.from) &&
+    isValidDate(value.from) &&
+    isString(value.to) &&
+    isValidDate(value.to) &&
+    (value.coverage_from === null ||
+      (isString(value.coverage_from) && isValidDate(value.coverage_from))) &&
+    Array.isArray(value.items) &&
+    value.items.every(
+      (item) =>
+        isRecord(item) &&
+        isString(item.country_code) &&
+        (item.country_code === "unknown" || /^[A-Z]{2}$/.test(item.country_code)) &&
+        isNonNegativeInteger(item.page_views),
+    )
+  );
 }
 
 export function visitorsPath(siteId: string, from: string, to: string): string {

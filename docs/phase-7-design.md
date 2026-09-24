@@ -323,6 +323,8 @@ Conversion/Funnel 依赖 Custom Events，Phase 7 只实现内部能力和固定 
 
 ## 11. PR6 — Geo
 
+> Status: Geo PR1 implementation complete; PostgreSQL integration validation requires a local GeoLite2 dataset and database; PR2 region/city deferred pending data-quality, privacy and deployment evaluation
+
 ### Geo PR1
 
 - country / country code；
@@ -332,6 +334,16 @@ Conversion/Funnel 依赖 Custom Events，Phase 7 只实现内部能力和固定 
 - 明确数据文件、版本更新、缺失数据和离线部署行为；
 - 无法解析时使用 unknown；
 - API 和 Dashboard 支持按国家查看。
+
+PR1 implementation contract:
+
+- Collector reads a local MaxMind GeoLite2 Country MMDB at `GEOIP_DATABASE_PATH`; the backend Compose profile mounts `./data` read-only at `/workspace/data`. No online downloads or external lookup requests are made.
+- Collector startup fails for a missing, unreadable, or unsupported database. Operators update the file offline and restart the Collector; the persisted dataset release is the MMDB database type plus build epoch.
+- TCP peer address is authoritative by default. `X-Forwarded-For` is accepted only when the peer matches an explicitly configured `GEOIP_TRUSTED_PROXIES` CIDR, walking from right to left and skipping trusted hops.
+- Raw IP exists only during request handling and is never persisted or logged. Geo enrichment stores country code, provider, dataset release, and parser version outside the event payload; unresolved values use `unknown`.
+- Processor builds idempotent `geo_country_facts` and supports `processor --rebuild-geo-country --site-id <site_id>` from saved enrichment metadata. Rebuild does not re-resolve historical IPs.
+- Country report route: `GET /v1/sites/{site_id}/reports/{from}/{to}/geo`; items contain ISO alpha-2 `country_code` and Page View count, including `unknown`. `coverage_from` reports the UTC receipt date of the earliest Geo-enriched Page View; the Dashboard warns when a selection starts earlier or the coverage start is unknown.
+- Decision and region/city deferral are recorded in [ADR-011](decisions/ADR-011-geo-country-privacy.md). Unknown share, dataset release, offline startup, and IP non-persistence are the PR1 evaluation record.
 
 ### Geo PR2
 

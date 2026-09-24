@@ -291,6 +291,7 @@ mod tests {
         assert!(registry.is_implemented(CapabilityId::WebVitals));
         assert!(registry.is_implemented(CapabilityId::Conversions));
         assert!(registry.is_implemented(CapabilityId::Funnels));
+        assert!(registry.is_implemented(CapabilityId::Geo));
         assert_eq!(
             registry.get(CapabilityId::CustomEvents).unwrap().status,
             CapabilityStatus::Implemented
@@ -327,6 +328,7 @@ mod tests {
             "../../../protocol/capabilities/capabilities.json"
         ))
         .expect("canonical manifest should be valid JSON");
+        manifest["capabilities"][9]["status"] = serde_json::json!("planned");
         manifest["capabilities"][9]["api"]["routes"] = serde_json::json!(["/runtime"]);
         assert!(matches!(
             CapabilityRegistry::from_json(&manifest.to_string()),

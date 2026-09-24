@@ -13,6 +13,7 @@ import type {
   WebVitalsResponse,
   ConversionReportResponse,
   FunnelReportResponse,
+  GeoCountryResponse,
 } from "./analytics-api/types";
 import type { DashboardApiDependencies } from "./dashboard-dependencies";
 import type { DashboardOverviewContext } from "./dashboard-overview";
@@ -24,6 +25,7 @@ export type DashboardReportState<T> =
 
 export interface DashboardReportsState {
   events: DashboardReportState<EventsResponse>;
+  geoCountries: DashboardReportState<GeoCountryResponse>;
   webVitals: DashboardReportState<WebVitalsResponse>;
   conversions: DashboardReportState<ConversionReportResponse>;
   funnels: DashboardReportState<FunnelReportResponse>;
@@ -35,6 +37,7 @@ export interface DashboardReportsState {
 
 export interface DashboardLegacyReportsState {
   events: DashboardReportState<EventsResponse>;
+  geoCountries: DashboardReportState<GeoCountryResponse>;
   webVitals: DashboardReportState<WebVitalsResponse>;
   conversions: DashboardReportState<ConversionReportResponse>;
   funnels: DashboardReportState<FunnelReportResponse>;
@@ -62,22 +65,29 @@ export async function loadDashboardLegacyReports(
       timeline: { status: "error", error },
       pages: { status: "error", error },
       events: { status: "error", error },
+      geoCountries: { status: "error", error },
       webVitals: { status: "error", error },
       conversions: { status: "error", error },
       funnels: { status: "error", error },
     };
   }
 
-  const [timeline, pages, events, webVitals, conversions, funnels] = await Promise.all([
-    settle(() => client.timeline(context.siteId, context.dateRange.from, context.dateRange.to)),
-    settle(() => client.pages(context.siteId, context.dateRange.from, context.dateRange.to)),
-    settle(() => client.events(context.siteId, context.dateRange.from, context.dateRange.to, 100)),
-    settle(() => loadWebVitals(client, context)),
-    settle(() => loadConversions(client, context)),
-    settle(() => loadFunnels(client, context)),
-  ]);
+  const [timeline, pages, events, geoCountries, webVitals, conversions, funnels] =
+    await Promise.all([
+      settle(() => client.timeline(context.siteId, context.dateRange.from, context.dateRange.to)),
+      settle(() => client.pages(context.siteId, context.dateRange.from, context.dateRange.to)),
+      settle(() =>
+        client.events(context.siteId, context.dateRange.from, context.dateRange.to, 100),
+      ),
+      settle(() =>
+        client.geoCountries(context.siteId, context.dateRange.from, context.dateRange.to),
+      ),
+      settle(() => loadWebVitals(client, context)),
+      settle(() => loadConversions(client, context)),
+      settle(() => loadFunnels(client, context)),
+    ]);
 
-  return { timeline, pages, events, webVitals, conversions, funnels };
+  return { timeline, pages, events, geoCountries, webVitals, conversions, funnels };
 }
 
 export async function loadDashboardPhase6Reports(
@@ -130,6 +140,7 @@ export async function loadDashboardReports(
       timeline: { status: "error", error },
       pages: { status: "error", error },
       events: { status: "error", error },
+      geoCountries: { status: "error", error },
       webVitals: { status: "error", error },
       conversions: { status: "error", error },
       funnels: { status: "error", error },
@@ -138,28 +149,37 @@ export async function loadDashboardReports(
     };
   }
 
-  const [timeline, pages, events, webVitals, conversions, funnels, visitors, dimensionReport] =
-    await Promise.all([
-      settle(() => client.timeline(context.siteId, context.dateRange.from, context.dateRange.to)),
-      settle(() => client.pages(context.siteId, context.dateRange.from, context.dateRange.to)),
-      settle(() =>
-        client.events(context.siteId, context.dateRange.from, context.dateRange.to, 100),
-      ),
-      settle(() => loadWebVitals(client, context)),
-      settle(() => loadConversions(client, context)),
-      settle(() => loadFunnels(client, context)),
-      settlePhase6(() =>
-        client.visitors(context.siteId, context.dateRange.from, context.dateRange.to),
-      ),
-      settlePhase6(() =>
-        client.dimension(context.siteId, context.dateRange.from, context.dateRange.to, dimension),
-      ),
-    ]);
+  const [
+    timeline,
+    pages,
+    events,
+    geoCountries,
+    webVitals,
+    conversions,
+    funnels,
+    visitors,
+    dimensionReport,
+  ] = await Promise.all([
+    settle(() => client.timeline(context.siteId, context.dateRange.from, context.dateRange.to)),
+    settle(() => client.pages(context.siteId, context.dateRange.from, context.dateRange.to)),
+    settle(() => client.events(context.siteId, context.dateRange.from, context.dateRange.to, 100)),
+    settle(() => client.geoCountries(context.siteId, context.dateRange.from, context.dateRange.to)),
+    settle(() => loadWebVitals(client, context)),
+    settle(() => loadConversions(client, context)),
+    settle(() => loadFunnels(client, context)),
+    settlePhase6(() =>
+      client.visitors(context.siteId, context.dateRange.from, context.dateRange.to),
+    ),
+    settlePhase6(() =>
+      client.dimension(context.siteId, context.dateRange.from, context.dateRange.to, dimension),
+    ),
+  ]);
 
   return {
     timeline,
     pages,
     events,
+    geoCountries,
     webVitals,
     conversions,
     funnels,

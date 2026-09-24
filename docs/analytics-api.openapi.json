@@ -3,7 +3,7 @@
   "info": {
     "title": "Web Analytics API",
     "version": "1.0.0",
-    "description": "Read API for Page View, Phase 6, Custom Event, Conversion and Funnel reports."
+    "description": "Read API for Page View, Geo country, Phase 6, Custom Event, Conversion and Funnel reports."
   },
   "servers": [
     {
@@ -11,6 +11,38 @@
     }
   ],
   "paths": {
+    "/v1/sites/{site_id}/reports/{from}/{to}/geo": {
+      "get": {
+        "operationId": "geoCountryReport",
+        "summary": "Country Page View report",
+        "parameters": [
+          { "name": "site_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          {
+            "name": "from",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "date" }
+          },
+          {
+            "name": "to",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "date" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page Views grouped by ISO alpha-2 country code, including unknown",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/GeoCountryReportResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+
     "/health": {
       "get": {
         "operationId": "health",
@@ -1204,6 +1236,30 @@
               "$ref": "#/components/schemas/ConversionReportItem"
             }
           }
+        },
+        "additionalProperties": false
+      },
+      "GeoCountryReportResponse": {
+        "type": "object",
+        "required": ["site_id", "from", "to", "coverage_from", "items"],
+        "properties": {
+          "site_id": { "type": "string" },
+          "from": { "type": "string", "format": "date" },
+          "to": { "type": "string", "format": "date" },
+          "coverage_from": { "type": ["string", "null"], "format": "date" },
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/GeoCountryReportItem" }
+          }
+        },
+        "additionalProperties": false
+      },
+      "GeoCountryReportItem": {
+        "type": "object",
+        "required": ["country_code", "page_views"],
+        "properties": {
+          "country_code": { "type": "string", "pattern": "^([A-Z]{2}|unknown)$" },
+          "page_views": { "type": "integer", "minimum": 0 }
         },
         "additionalProperties": false
       },

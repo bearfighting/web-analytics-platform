@@ -32,6 +32,8 @@ async fn reset(pool: &PgPool, site_id: &str) {
 
 async fn reset_phase6(pool: &PgPool, site_id: &str) {
     for table in [
+        "geo_country_facts",
+        "geo_event_metadata",
         "dimension_event_facts",
         "dimension_daily",
         "session_events",
@@ -665,4 +667,63 @@ async fn analytics_errors_are_generic() {
         value["error"]["message"],
         "Analytics API failed to complete the request"
     );
+}
+
+#[tokio::test]
+#[ignore = "requires DATABASE_URL and PostgreSQL"]
+async fn geo_country_report_includes_unknown_and_is_site_scoped() {
+    let pool = pool().await;
+    let site = "geo_api_test";
+    reset_phase6(&pool, site).await;
+    for (event_id, country) in [
+        ("01J00000000000000000000101", "CA"),
+        ("01J00000000000000000000102", "unknown"),
+    ] {
+        let raw_id = sqlx::query_scalar::<_, i64>(
+            "INSERT INTO raw_events(site_id,event_id,schema_version,event_type,occurred_at,received_at,path,payload,processed_at)
+             VALUES($1,$2,1,'page_view','2026-09-18T12:00:00Z','2026-09-18T12:00:01Z','/', '{}', NOW()) RETURNING id",
+        )
+        .bind(site).bind(event_id).fetch_one(&pool).await.unwrap();
+        sqlx::query(
+            "INSERT INTO geo_event_metadata(raw_event_id,site_id,country_code,provider,dataset_version,parser_version)
+             VALUES($1,$2,$3,'maxmind','GeoLite2-Country-20260918','1')",
+        ).bind(raw_id).bind(site).bind(country).execute(&pool).await.unwrap();
+        sqlx::query(
+            "INSERT INTO geo_country_facts(raw_event_id,site_id,country_code,occurred_at)
+             VALUES($1,$2,$3,'2026-09-18T12:00:00Z')",
+        )
+        .bind(raw_id)
+        .bind(site)
+        .bind(country)
+        .execute(&pool)
+        .await
+        .unwrap();
+    }
+    let response = app(pool.clone())
+        .oneshot(
+            Request::get(format!(
+                "/v1/sites/{site}/reports/2026-09-18/2026-09-18/geo"
+            ))
+            .body(axum::body::Body::empty())
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let response = body(response).await;
+    assert_eq!(response["coverage_from"], "2026-09-18");
+    assert_eq!(response["items"][0]["country_code"], "CA");
+    assert_eq!(response["items"][1]["country_code"], "unknown");
+    assert_eq!(response["items"][0]["page_views"], 1);
+    assert_eq!(response["items"][1]["page_views"], 1);
+
+    let other = app(pool)
+        .oneshot(
+            Request::get("/v1/sites/another_geo_api_test/reports/2026-09-18/2026-09-18/geo")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert!(body(other).await["items"].as_array().unwrap().is_empty());
 }

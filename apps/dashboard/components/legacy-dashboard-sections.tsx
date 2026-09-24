@@ -5,6 +5,7 @@ import { loadDashboardLegacyReports } from "../lib/dashboard-reports";
 
 import { ConversionFunnelTables } from "./conversion-funnel-tables";
 import { EventReportTable } from "./event-report-table";
+import { GeoCountryTable } from "./geo-country-table";
 import { OverviewCard } from "./overview-card";
 import { ErrorState } from "./states/error-state";
 import { TimelineTable } from "./timeline-table";
@@ -49,6 +50,7 @@ export async function LegacyDashboardSections({ context, client }: LegacyDashboa
       <TimelineTable context={context} state={reports.timeline} />
       <TopPagesTable context={context} state={reports.pages} />
       <EventReportTable context={context} state={reports.events} />
+      <GeoCountryTable context={context} state={reports.geoCountries} />
       <WebVitalsTable context={context} state={reports.webVitals} />
       <ConversionFunnelTables
         context={context}

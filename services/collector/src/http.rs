@@ -1,19 +1,21 @@
-use std::sync::Arc;
+use std::{net::SocketAddr, sync::Arc};
 
 use axum::{
     Json, Router,
     body::Body,
-    extract::State,
+    extract::{ConnectInfo, State},
     http::{HeaderMap, Request, StatusCode, header},
     response::{IntoResponse, Response},
     routing::{get, post},
 };
 use chrono::Utc;
 use http_body_util::{BodyExt, LengthLimitError, Limited};
+use ipnet::IpNet;
 use serde::Serialize;
 use serde_json::Value;
 
 use crate::{
+    geo::{GeoEnrichment, GeoLookup, client_ip},
     rate_limit::RateLimiter,
     security::{AccessError, KeyPolicy},
     sink::{EventSink, SinkError, StoredEvent},
@@ -28,6 +30,8 @@ pub struct AppState {
     sink: Arc<dyn EventSink>,
     policy: Arc<KeyPolicy>,
     rate_limiter: Arc<RateLimiter>,
+    geo: Option<Arc<GeoLookup>>,
+    trusted_proxies: Arc<Vec<IpNet>>,
 }
 
 pub fn router<S>(
@@ -35,6 +39,20 @@ pub fn router<S>(
     sink: S,
     policy: KeyPolicy,
     rate_limiter: RateLimiter,
+) -> Router
+where
+    S: EventSink + 'static,
+{
+    router_with_geo(validator, sink, policy, rate_limiter, None, Vec::new())
+}
+
+pub fn router_with_geo<S>(
+    validator: Validator,
+    sink: S,
+    policy: KeyPolicy,
+    rate_limiter: RateLimiter,
+    geo: Option<GeoLookup>,
+    trusted_proxies: Vec<IpNet>,
 ) -> Router
 where
     S: EventSink + 'static,
@@ -47,6 +65,8 @@ where
             sink: Arc::new(sink),
             policy: Arc::new(policy),
             rate_limiter: Arc::new(rate_limiter),
+            geo: geo.map(Arc::new),
+            trusted_proxies: Arc::new(trusted_proxies),
         })
 }
 
@@ -55,6 +75,10 @@ async fn health() -> Json<HealthResponse> {
 }
 
 async fn events(State(state): State<AppState>, request: Request<Body>) -> Response {
+    let peer_ip = request
+        .extensions()
+        .get::<ConnectInfo<SocketAddr>>()
+        .map(|info| info.0.ip());
     let headers = request.headers().clone();
     let has_origin = headers.contains_key(header::ORIGIN);
     let global_cors_origin =
@@ -111,7 +135,14 @@ async fn events(State(state): State<AppState>, request: Request<Body>) -> Respon
     let site_id = match batch_site_id(&value) {
         Ok(Some(site_id)) => site_id.to_owned(),
         Ok(None) => {
-            return validate_batch(&state, value, has_origin, global_cors_origin.as_deref()).await;
+            return validate_batch(
+                &state,
+                value,
+                has_origin,
+                global_cors_origin.as_deref(),
+                None,
+            )
+            .await;
         }
         Err(()) => {
             return with_cors(
@@ -159,7 +190,24 @@ async fn events(State(state): State<AppState>, request: Request<Body>) -> Respon
         );
     }
 
-    validate_batch(&state, value, has_origin, Some(authorized.origin.as_str())).await
+    let geo = state.geo.as_ref().map(|lookup| {
+        let client_ip = client_ip(
+            peer_ip,
+            headers
+                .get("x-forwarded-for")
+                .and_then(|value| value.to_str().ok()),
+            &state.trusted_proxies,
+        );
+        lookup.lookup(client_ip)
+    });
+    validate_batch(
+        &state,
+        value,
+        has_origin,
+        Some(authorized.origin.as_str()),
+        geo,
+    )
+    .await
 }
 
 async fn validate_batch(
@@ -167,6 +215,7 @@ async fn validate_batch(
     value: Value,
     has_origin: bool,
     cors_origin: Option<&str>,
+    geo: Option<GeoEnrichment>,
 ) -> Response {
     let batch = match state.validator.validate(&value) {
         Ok(batch) => batch,
@@ -195,10 +244,14 @@ async fn validate_batch(
     let events = batch
         .events
         .into_iter()
-        .map(|event| StoredEvent {
-            event: event.event,
-            payload: event.payload,
-            received_at,
+        .map(|event| {
+            let is_page_view = matches!(event.event, crate::protocol::AnalyticsEvent::PageView(_));
+            StoredEvent {
+                event: event.event,
+                payload: event.payload,
+                received_at,
+                geo: if is_page_view { geo.clone() } else { None },
+            }
         })
         .collect();
     if let Err(error) = state.sink.accept(events).await {

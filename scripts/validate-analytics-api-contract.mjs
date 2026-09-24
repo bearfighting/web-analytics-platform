@@ -18,6 +18,7 @@ const requiredIds = new Set([
   "custom-events",
   "web-vitals",
   "conversion-funnels",
+  "geo-countries",
 ]);
 const errors = [];
 
@@ -501,6 +502,7 @@ function validateApiResponses(api, fixtureName) {
     "pages",
     ...(api.events ? ["events"] : []),
     ...(api.web_vitals ? ["web_vitals"] : []),
+    ...(api.geo_countries ? ["geo_countries"] : []),
     ...(api.conversions ? ["conversions"] : []),
     ...(api.funnels ? ["funnels"] : []),
   ]) {
@@ -529,11 +531,23 @@ function validateApiResponses(api, fixtureName) {
       (name === "timeline" ||
         name === "pages" ||
         name === "events" ||
+        name === "geo_countries" ||
         name === "conversions" ||
         name === "funnels") &&
       !Array.isArray(response.body.items)
     )
       errors.push(`${fixtureName}: ${name} items must be an array`);
+    if (
+      name === "geo_countries" &&
+      !response.body.items.every(
+        (item) =>
+          typeof item.country_code === "string" &&
+          (item.country_code === "unknown" || /^[A-Z]{2}$/.test(item.country_code)) &&
+          Number.isInteger(item.page_views) &&
+          item.page_views >= 0,
+      )
+    )
+      errors.push(`${fixtureName}: geo_countries items are invalid`);
     if (name === "events" && (!Number.isInteger(response.body.total) || response.body.total < 0))
       errors.push(`${fixtureName}: events total must be a non-negative integer`);
     if (
@@ -589,6 +603,14 @@ function validateApiResponses(api, fixtureName) {
       !isSorted(response.body.items, (left, right) => left.day.localeCompare(right.day))
     )
       errors.push(`${fixtureName}: timeline items must be sorted by day ascending`);
+    if (
+      name === "geo_countries" &&
+      !isSorted(
+        response.body.items,
+        (a, b) => b.page_views - a.page_views || a.country_code.localeCompare(b.country_code),
+      )
+    )
+      errors.push(`${fixtureName}: geo_countries items must be sorted by count then country code`);
     if (name === "pages" && !isSorted(response.body.items, comparePageItems))
       errors.push(
         `${fixtureName}: pages items must be sorted by page_views descending and path ascending`,

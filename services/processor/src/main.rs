@@ -10,23 +10,25 @@ use tracing::{error, info};
 struct Cli {
     #[arg(long, default_value_t = false)]
     once: bool,
-    #[arg(long, conflicts_with_all = ["rebuild", "backfill", "reparse", "once", "rebuild_web_vitals", "rebuild_conversion_funnels"], requires = "site_id")]
+    #[arg(long, conflicts_with_all = ["rebuild", "backfill", "reparse", "once", "rebuild_web_vitals", "rebuild_conversion_funnels", "rebuild_geo_country"], requires = "site_id")]
     rebuild_custom_events: bool,
     #[arg(long, conflicts_with_all = ["rebuild", "backfill", "reparse", "once", "rebuild_custom_events", "rebuild_conversion_funnels"], requires = "site_id")]
     rebuild_web_vitals: bool,
     #[arg(long, conflicts_with_all = ["rebuild", "backfill", "reparse", "once", "rebuild_custom_events", "rebuild_web_vitals"], requires = "site_id")]
     rebuild_conversion_funnels: bool,
+    #[arg(long, conflicts_with_all = ["rebuild", "backfill", "reparse", "once", "rebuild_custom_events", "rebuild_web_vitals", "rebuild_conversion_funnels"], requires = "site_id")]
+    rebuild_geo_country: bool,
     #[arg(long, env = "PROCESSOR_POLL_INTERVAL_MS", default_value_t = 1_000)]
     poll_interval_ms: u64,
     #[arg(
         long,
-        conflicts_with_all = ["backfill", "reparse", "once", "rebuild_custom_events", "rebuild_web_vitals", "rebuild_conversion_funnels"],
+        conflicts_with_all = ["backfill", "reparse", "once", "rebuild_custom_events", "rebuild_web_vitals", "rebuild_conversion_funnels", "rebuild_geo_country"],
         help = "Rebuild a complete site generation; --from/--to record the rebuild scope"
     )]
     rebuild: bool,
-    #[arg(long, conflicts_with_all = ["rebuild", "reparse", "once", "rebuild_custom_events", "rebuild_web_vitals", "rebuild_conversion_funnels"])]
+    #[arg(long, conflicts_with_all = ["rebuild", "reparse", "once", "rebuild_custom_events", "rebuild_web_vitals", "rebuild_conversion_funnels", "rebuild_geo_country"])]
     backfill: bool,
-    #[arg(long, conflicts_with_all = ["rebuild", "backfill", "once", "rebuild_custom_events", "rebuild_web_vitals", "rebuild_conversion_funnels"])]
+    #[arg(long, conflicts_with_all = ["rebuild", "backfill", "once", "rebuild_custom_events", "rebuild_web_vitals", "rebuild_conversion_funnels", "rebuild_geo_country"])]
     reparse: bool,
     #[arg(long)]
     site_id: Option<String>,
@@ -69,6 +71,13 @@ async fn main() -> anyhow::Result<()> {
             facts = count,
             "conversion and funnel facts rebuilt"
         );
+        return Ok(());
+    }
+
+    if cli.rebuild_geo_country {
+        let site_id = cli.site_id.as_deref().expect("clap requires --site-id");
+        let count = processor.rebuild_geo_country_facts(site_id).await?;
+        info!(site_id, facts = count, "Geo country facts rebuilt");
         return Ok(());
     }
 
@@ -152,6 +161,29 @@ mod tests {
     use super::Cli;
     use chrono::NaiveDate;
     use clap::Parser;
+
+    #[test]
+    fn geo_country_rebuild_requires_site_id_and_conflicts_with_once() {
+        assert!(Cli::try_parse_from(["processor", "--rebuild-geo-country"]).is_err());
+        assert!(
+            Cli::try_parse_from([
+                "processor",
+                "--rebuild-geo-country",
+                "--site-id",
+                "site_geo",
+                "--once"
+            ])
+            .is_err()
+        );
+        let cli = Cli::try_parse_from([
+            "processor",
+            "--rebuild-geo-country",
+            "--site-id",
+            "site_geo",
+        ])
+        .expect("Geo rebuild arguments should parse");
+        assert!(cli.rebuild_geo_country);
+    }
 
     #[test]
     fn once_mode_is_explicit_and_poll_interval_has_default() {

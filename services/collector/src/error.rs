@@ -1,6 +1,7 @@
 use thiserror::Error;
 
 use crate::config::ConfigError;
+use crate::geo::GeoError;
 use crate::key::KeyGenerationError;
 use crate::sink::SinkError;
 use crate::validation::ValidationError;
@@ -19,6 +20,10 @@ pub enum CollectorError {
     ValidationSetup(ValidationError),
     #[error("DATABASE_URL must be configured")]
     MissingDatabaseUrl,
+    #[error("GeoIP configuration error: {0}")]
+    GeoConfiguration(String),
+    #[error(transparent)]
+    Geo(#[from] GeoError),
     #[error(transparent)]
     Storage(#[from] SinkError),
     #[error("failed to generate ingest key: {0}")]

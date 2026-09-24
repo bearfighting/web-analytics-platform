@@ -77,7 +77,8 @@ DECLARE
     20260922000800,
     20260923000900,
     20260923001000,
-    20260923001100
+    20260923001100,
+    20260924001200
   ];
   actual_migrations bigint[];
 BEGIN
@@ -112,7 +113,9 @@ DECLARE
     'custom_event_facts',
     'web_vital_facts',
     'conversion_facts',
-    'funnel_step_facts'
+    'funnel_step_facts',
+    'geo_event_metadata',
+    'geo_country_facts'
   ];
   missing_table text;
 BEGIN

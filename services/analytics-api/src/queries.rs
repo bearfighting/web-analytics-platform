@@ -1,9 +1,10 @@
+use chrono::NaiveDate;
 use sqlx::PgPool;
 
 use sqlx::{Postgres, Transaction};
 
 use crate::models::{
-    ActiveGeneration, DateRange, DimensionRow, EventDailyRow, PageRow, TimelineRow,
+    ActiveGeneration, DateRange, DimensionRow, EventDailyRow, GeoCountryRow, PageRow, TimelineRow,
     VisitorSessionRow, WatermarkRow, WebVitalReportRow,
 };
 
@@ -49,6 +50,21 @@ pub(crate) async fn timeline(
     .bind(range.from)
     .bind(range.to)
     .fetch_all(pool)
+    .await
+}
+
+pub(crate) async fn geo_country_coverage_from(
+    pool: &PgPool,
+    site_id: &str,
+) -> Result<Option<NaiveDate>, sqlx::Error> {
+    sqlx::query_scalar::<_, Option<NaiveDate>>(
+        "SELECT MIN(r.received_at AT TIME ZONE 'UTC')::date
+         FROM geo_event_metadata m
+         JOIN raw_events r ON r.id=m.raw_event_id
+         WHERE m.site_id=$1 AND r.event_type='page_view'",
+    )
+    .bind(site_id)
+    .fetch_one(pool)
     .await
 }
 
@@ -575,4 +591,25 @@ pub(crate) async fn definition_freshness(
     } else {
         "current".to_owned()
     })
+}
+
+pub(crate) async fn geo_country_rows(
+    pool: &PgPool,
+    site_id: &str,
+    range: DateRange,
+) -> Result<Vec<GeoCountryRow>, sqlx::Error> {
+    sqlx::query_as::<_, GeoCountryRow>(
+        "SELECT country_code, COUNT(*)::bigint AS page_views
+         FROM geo_country_facts
+         WHERE site_id=$1
+           AND occurred_at >= ($2::date::timestamp AT TIME ZONE 'UTC')
+           AND occurred_at < (($3::date + INTERVAL '1 day')::timestamp AT TIME ZONE 'UTC')
+         GROUP BY country_code
+         ORDER BY page_views DESC, country_code ASC",
+    )
+    .bind(site_id)
+    .bind(range.from)
+    .bind(range.to)
+    .fetch_all(pool)
+    .await
 }

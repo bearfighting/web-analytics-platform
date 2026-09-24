@@ -440,3 +440,31 @@ describe("Analytics API errors and response validation", () => {
     });
   });
 });
+
+it("requests and validates Geo country reports including unknown", async () => {
+  const result = {
+    site_id: "site_playground",
+    from: "2026-09-18",
+    to: "2026-09-19",
+    coverage_from: "2026-09-18",
+    items: [
+      { country_code: "CA", page_views: 3 },
+      { country_code: "unknown", page_views: 1 },
+    ],
+  };
+  const { client, fetchMock } = clientFor(jsonResponse(result));
+  await expect(client.geoCountries("site_playground", "2026-09-18", "2026-09-19")).resolves.toEqual(
+    result,
+  );
+  expect(fetchMock).toHaveBeenCalledWith(
+    `${baseUrl}/v1/sites/site_playground/reports/2026-09-18/2026-09-19/geo`,
+    { method: "GET", cache: "no-store" },
+  );
+
+  const invalid = clientFor(
+    jsonResponse({ ...result, items: [{ country_code: "USA", page_views: 3 }] }),
+  );
+  await expect(
+    invalid.client.geoCountries("site_playground", "2026-09-18", "2026-09-19"),
+  ).rejects.toBeInstanceOf(AnalyticsApiClientError);
+});

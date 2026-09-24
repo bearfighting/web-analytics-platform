@@ -11,5 +11,6 @@ target/
 .DS_Store
 .VSCodeCounter/
 .env
+/data/
 .env.*
 !.env.example

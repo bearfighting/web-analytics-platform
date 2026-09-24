@@ -31,6 +31,13 @@ function createClient(overrides: Partial<AnalyticsApiClient> = {}): AnalyticsApi
       freshness_status: "current",
       aggregation_version: 1,
     }),
+    geoCountries: vi.fn().mockResolvedValue({
+      site_id: context.siteId,
+      from: context.dateRange.from,
+      to: context.dateRange.to,
+      coverage_from: null,
+      items: [],
+    }),
     conversions: vi.fn().mockResolvedValue({
       site_id: context.siteId,
       from: context.dateRange.from,
@@ -108,6 +115,7 @@ describe("loadDashboardReports", () => {
 
     expect(client.timeline).toHaveBeenCalledWith("site_playground", "2026-09-18", "2026-09-18");
     expect(client.pages).toHaveBeenCalledWith("site_playground", "2026-09-18", "2026-09-18");
+    expect(client.geoCountries).toHaveBeenCalledWith("site_playground", "2026-09-18", "2026-09-18");
     expect(client.conversions).toHaveBeenCalledWith("site_playground", "2026-09-18", "2026-09-18");
     expect(client.funnels).toHaveBeenCalledWith("site_playground", "2026-09-18", "2026-09-18");
 
@@ -117,6 +125,7 @@ describe("loadDashboardReports", () => {
       timeline: { status: "success", data: fixture.timeline },
       pages: { status: "success", data: fixture.pages },
       events: { status: "success", data: expect.any(Object) },
+      geoCountries: { status: "success", data: expect.any(Object) },
       webVitals: { status: "success", data: expect.any(Object) },
       conversions: { status: "success", data: expect.any(Object) },
       funnels: { status: "success", data: expect.any(Object) },
@@ -159,6 +168,7 @@ describe("loadDashboardReports", () => {
       timeline: { status: "success", data: emptyFixture.timeline },
       pages: { status: "success", data: emptyFixture.pages },
       events: { status: "success", data: expect.any(Object) },
+      geoCountries: { status: "success", data: expect.any(Object) },
       webVitals: { status: "success", data: expect.any(Object) },
       conversions: { status: "success", data: expect.any(Object) },
       funnels: { status: "success", data: expect.any(Object) },

@@ -69,11 +69,14 @@ services:
       RUST_LOG: collector=info
       COLLECTOR_CONFIG: ${COLLECTOR_CONFIG:-/workspace/protocol/contracts/http-ingestion/current/config/collector.example.toml}
       DATABASE_URL: ${COLLECTOR_DATABASE_URL:-postgres://analytics:analytics@postgres:5432/analytics}
+      GEOIP_DATABASE_PATH: ${GEOIP_DATABASE_PATH:-/workspace/data/GeoLite2-Country.mmdb}
+      GEOIP_TRUSTED_PROXIES: ${GEOIP_TRUSTED_PROXIES:-}
     ports:
       - "4001:4001"
     volumes:
       - .:/workspace
       - collector_target:/workspace/target
+      - ./data:/workspace/data:ro
 
   postgres:
     profiles: ["storage"]

@@ -1,0 +1,45 @@
+{
+  "id": "geo",
+  "status": "implemented",
+  "depends_on": ["page_views"],
+  "input": {
+    "event_types": ["page_view"],
+    "required_fields": ["site_id"]
+  },
+  "raw_event": {
+    "preserve": false,
+    "fields": []
+  },
+  "processor": {
+    "facts": ["geo_country_facts"],
+    "rebuild": "explicit_backfill",
+    "provider": "maxmind",
+    "dataset": "GeoLite2-Country",
+    "parser_version": "1"
+  },
+  "api": {
+    "query_surface": "report",
+    "routes": ["GET /v1/sites/{site_id}/reports/{from}/{to}/geo"]
+  },
+  "dashboard": {
+    "surface": "report",
+    "disabled": "Geo country reporting is unavailable",
+    "empty": "no country data is available for this selection",
+    "error": "Geo country report could not be loaded"
+  },
+  "security": {
+    "consent": "required",
+    "origin_and_ingest_key": "enforced",
+    "privacy": [
+      "do not store or log raw IP",
+      "country only in PR1",
+      "unresolved values become unknown",
+      "lookup requires consent and existing Origin/Ingest Key enforcement",
+      "trusted proxy forwarding is opt-in and CIDR-restricted"
+    ]
+  },
+  "history": {
+    "queryable_after_disabled": true,
+    "backfill": "required"
+  }
+}

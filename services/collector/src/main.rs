@@ -1,4 +1,7 @@
-use std::net::{IpAddr, SocketAddr};
+use std::{
+    net::{IpAddr, SocketAddr},
+    path::Path,
+};
 
 use clap::Parser;
 use tracing::info;
@@ -48,7 +51,29 @@ async fn serve(args: ServeArgs) -> Result<(), CollectorError> {
         std::env::var("DATABASE_URL").map_err(|_| CollectorError::MissingDatabaseUrl)?;
     let sink = PostgresSink::connect(&database_url).await?;
     let policy = collector::security::KeyPolicy::new(registry);
-    let app = collector::http::router(validator, sink.clone(), policy, RateLimiter::new());
+    let geo_path = std::env::var("GEOIP_DATABASE_PATH").map_err(|_| {
+        CollectorError::GeoConfiguration(
+            "GEOIP_DATABASE_PATH must point to a local GeoLite2 Country MMDB".to_owned(),
+        )
+    })?;
+    let geo = collector::geo::GeoLookup::open(Path::new(&geo_path))?;
+    let trusted_proxies = std::env::var("GEOIP_TRUSTED_PROXIES")
+        .unwrap_or_default()
+        .split(',')
+        .filter(|value| !value.trim().is_empty())
+        .map(|value| value.trim().parse::<ipnet::IpNet>())
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| {
+            CollectorError::GeoConfiguration(format!("invalid GEOIP_TRUSTED_PROXIES: {error}"))
+        })?;
+    let app = collector::http::router_with_geo(
+        validator,
+        sink.clone(),
+        policy,
+        RateLimiter::new(),
+        Some(geo),
+        trusted_proxies,
+    );
 
     let listener = tokio::net::TcpListener::bind(address).await?;
 
@@ -62,7 +87,10 @@ async fn serve(args: ServeArgs) -> Result<(), CollectorError> {
         "collector started"
     );
 
-    axum::serve(listener, app)
-        .await
-        .map_err(CollectorError::Serve)
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await
+    .map_err(CollectorError::Serve)
 }

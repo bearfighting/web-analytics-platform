@@ -16,6 +16,12 @@ Phase 0 和 Phase 1 不需要 Rust、Cargo、PostgreSQL 或其他后端依赖。
 pnpm install
 ```
 
+## Configure Geo country lookup
+
+The backend profile requires a locally supplied MaxMind GeoLite2 Country MMDB file. Obtain the dataset under MaxMind's terms and place it at `./data/GeoLite2-Country.mmdb`; the directory is mounted read-only into the Collector. Compose does not download the dataset, and the Collector fails to start if the path is missing or invalid.
+
+Set `GEOIP_TRUSTED_PROXIES` to a comma-separated list of proxy CIDRs only when the Collector is behind known proxies. Forwarded client IPs are ignored by default.
+
 ## Run the Playground
 
 ```bash

@@ -169,3 +169,16 @@ export interface FunnelReportResponse {
   freshness_status: FreshnessStatus;
   aggregation_version: number;
 }
+
+export interface GeoCountryItem {
+  country_code: string;
+  page_views: number;
+}
+
+export interface GeoCountryResponse {
+  site_id: string;
+  from: string;
+  to: string;
+  coverage_from: string | null;
+  items: GeoCountryItem[];
+}

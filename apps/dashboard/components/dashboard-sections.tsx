@@ -6,6 +6,7 @@ import { AnalyticsApiClientError } from "../lib/analytics-api/errors";
 
 import { ConversionFunnelTables } from "./conversion-funnel-tables";
 import { EventReportTable } from "./event-report-table";
+import { GeoCountryTable } from "./geo-country-table";
 import { LegacyDashboardSections } from "./legacy-dashboard-sections";
 import { Phase6DashboardSections } from "./phase6-dashboard-sections";
 import { Phase6LoadingState } from "./phase6-loading-state";
@@ -45,6 +46,7 @@ export function DashboardSections({ siteId, from, to, dimension }: DashboardSect
           <ErrorState context={context} message={error.message} />
         </section>
         <EventReportTable context={context} state={{ status: "error", error }} />
+        <GeoCountryTable context={context} state={{ status: "error", error }} />
         <WebVitalsTable context={context} state={{ status: "error", error }} />
         <ConversionFunnelTables
           context={context}
@@ -69,6 +71,10 @@ export function DashboardSections({ siteId, from, to, dimension }: DashboardSect
             <section className="card" aria-label="Custom Events">
               <h2>Custom Events</h2>
               <p role="status">Loading custom events...</p>
+            </section>
+            <section className="card" aria-label="Geo countries">
+              <h2>Countries</h2>
+              <p role="status">Loading country data...</p>
             </section>
             <section className="card" aria-label="Web Vitals">
               <h2>Web Vitals</h2>

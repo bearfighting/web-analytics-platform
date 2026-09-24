@@ -912,3 +912,37 @@ async fn once_cli_processes_the_backlog() {
     .get::<Option<DateTime<Utc>>, _>("processed_at");
     assert!(processed.is_some());
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL; run pnpm test:integration"]
+async fn rebuilds_geo_country_facts_from_saved_enrichment() {
+    let (processor, pool) = setup().await;
+    let raw_id = sqlx::query_scalar::<_, i64>(
+        "INSERT INTO raw_events(site_id,event_id,schema_version,event_type,occurred_at,received_at,path,payload,processed_at)
+         VALUES('site_geo','01J00000000000000000000201',1,'page_view','2026-09-18T12:00:00Z','2026-09-18T12:00:01Z','/','{}',NOW()) RETURNING id",
+    ).fetch_one(&pool).await.unwrap();
+    sqlx::query(
+        "INSERT INTO geo_event_metadata(raw_event_id,site_id,country_code,provider,dataset_version,parser_version)
+         VALUES($1,'site_geo','unknown','maxmind','GeoLite2-Country-20260918','1')",
+    ).bind(raw_id).execute(&pool).await.unwrap();
+
+    assert_eq!(
+        processor
+            .rebuild_geo_country_facts("site_geo")
+            .await
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        processor
+            .rebuild_geo_country_facts("site_geo")
+            .await
+            .unwrap(),
+        1
+    );
+    let row = sqlx::query("SELECT country_code FROM geo_country_facts WHERE site_id='site_geo'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(row.get::<String, _>("country_code"), "unknown");
+}

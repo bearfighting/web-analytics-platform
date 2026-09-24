@@ -252,3 +252,24 @@ pub(crate) struct FunnelReportRow {
     pub sessions: i64,
     pub previous_step_sessions: i64,
 }
+
+#[derive(Debug, Serialize)]
+pub(crate) struct GeoCountryItem {
+    pub(crate) country_code: String,
+    pub(crate) page_views: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct GeoCountryReportResponse {
+    pub(crate) site_id: String,
+    pub(crate) from: String,
+    pub(crate) to: String,
+    pub(crate) coverage_from: Option<NaiveDate>,
+    pub(crate) items: Vec<GeoCountryItem>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub(crate) struct GeoCountryRow {
+    pub(crate) country_code: String,
+    pub(crate) page_views: i64,
+}

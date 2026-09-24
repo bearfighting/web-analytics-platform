@@ -8,6 +8,8 @@ import {
   funnelsPath,
   isConversionReportResponse,
   isFunnelReportResponse,
+  geoCountriesPath,
+  isGeoCountryResponse,
   isDimensionResponse,
   isAnalyticsApiErrorResponse,
   isOverviewResponse,
@@ -38,6 +40,7 @@ import type {
   WebVitalsResponse,
   ConversionReportResponse,
   FunnelReportResponse,
+  GeoCountryResponse,
 } from "./types";
 
 export interface AnalyticsApiClientOptions {
@@ -78,6 +81,7 @@ export interface AnalyticsApiClient {
     limit?: number,
     path?: string,
   ): Promise<WebVitalsResponse>;
+  geoCountries(siteId: string, from: string, to: string): Promise<GeoCountryResponse>;
   visitors(siteId: string, from: string, to: string): Promise<VisitorSessionResponse>;
   sessions(siteId: string, from: string, to: string): Promise<VisitorSessionResponse>;
   dimension(
@@ -126,6 +130,12 @@ export function createAnalyticsApiClient(options: AnalyticsApiClientOptions): An
       requestJson(
         `${baseUrl}${webVitalsPath(siteId, from, to, limit, path)}`,
         (v): v is WebVitalsResponse => isWebVitalsResponse(v) && matchesRange(v, siteId, from, to),
+      ),
+    geoCountries: (siteId, from, to) =>
+      requestJson(
+        `${baseUrl}${geoCountriesPath(siteId, from, to)}`,
+        (value): value is GeoCountryResponse =>
+          isGeoCountryResponse(value) && matchesRange(value, siteId, from, to),
       ),
     visitors: (siteId, from, to) =>
       requestJson(

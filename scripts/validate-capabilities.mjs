@@ -49,8 +49,9 @@ if (!validateManifest(manifest)) {
     "web_vitals",
     "conversions",
     "funnels",
+    "geo",
   ]);
-  const expectedPlanned = new Set(["geo"]);
+  const expectedPlanned = new Set();
   const errors = [];
 
   if (capabilities.size !== 10) errors.push("manifest must contain exactly 10 unique capabilities");

@@ -34,6 +34,10 @@ pub(crate) fn router(state: AppState) -> Router {
             get(handlers::reports::web_vitals),
         )
         .route(
+            "/v1/sites/{site_id}/reports/{from}/{to}/geo",
+            get(handlers::geo::countries),
+        )
+        .route(
             "/v1/sites/{site_id}/reports/{from}/{to}/events",
             get(handlers::reports::events),
         )

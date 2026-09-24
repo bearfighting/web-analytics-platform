@@ -19,3 +19,5 @@ approved.
 Business services consume this schema but do not create or upgrade it during
 startup. Deploy the migration job before deploying service versions that
 require the new schema.
+
+- `20260924001200_add_geo_country_facts.sql` stores country-only enrichment metadata and processor facts; raw client IP is never persisted.

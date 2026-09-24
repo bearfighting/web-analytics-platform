@@ -7,13 +7,14 @@ use sqlx::{PgPool, postgres::PgPoolOptions};
 use thiserror::Error;
 use tokio::sync::RwLock;
 
-use crate::protocol::AnalyticsEvent;
+use crate::{geo::GeoEnrichment, protocol::AnalyticsEvent};
 
 #[derive(Debug, Clone)]
 pub struct StoredEvent {
     pub event: AnalyticsEvent,
     pub payload: Value,
     pub received_at: DateTime<Utc>,
+    pub geo: Option<GeoEnrichment>,
 }
 
 #[derive(Debug, Error)]
@@ -112,13 +113,14 @@ impl EventSink for PostgresSink {
             }
             let event_type = stored.event.event_type_name();
 
-            sqlx::query(
+            let raw_event_id = sqlx::query_scalar::<_, i64>(
                 "INSERT INTO raw_events
                 (site_id, event_id, schema_version, event_type, occurred_at,
                      received_at, path, url, title, referrer, visitor_id,
                      context_schema_version, payload)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::uuid, $12, $13)
-                 ON CONFLICT (site_id, event_id) DO NOTHING",
+                 ON CONFLICT (site_id, event_id) DO NOTHING
+                 RETURNING id",
             )
             .bind(stored.event.site_id())
             .bind(stored.event.event_id())
@@ -133,8 +135,26 @@ impl EventSink for PostgresSink {
             .bind(stored.event.visitor_id())
             .bind(stored.event.context_schema_version())
             .bind(stored.payload)
-            .execute(&mut *transaction)
+            .fetch_optional(&mut *transaction)
             .await?;
+
+            if let (Some(raw_event_id), Some(geo)) = (raw_event_id, stored.geo)
+                && matches!(stored.event, AnalyticsEvent::PageView(_))
+            {
+                sqlx::query(
+                        "INSERT INTO geo_event_metadata
+                         (raw_event_id, site_id, country_code, provider, dataset_version, parser_version)
+                         VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (raw_event_id) DO NOTHING",
+                    )
+                    .bind(raw_event_id)
+                    .bind(stored.event.site_id())
+                    .bind(geo.country_code)
+                    .bind(geo.provider)
+                    .bind(geo.dataset_version)
+                    .bind(geo.parser_version)
+                    .execute(&mut *transaction)
+                    .await?;
+            }
         }
         for (site_id, page_view_id, path, page_view_at) in web_vital_links {
             let linked=sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM raw_events WHERE site_id=$1 AND event_id=$2 AND event_type='page_view' AND path=$3 AND occurred_at=$4)")

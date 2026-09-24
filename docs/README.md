@@ -19,7 +19,7 @@
 - [Phase 4 Design](phase-4-design.md)：Dashboard、Analytics API Query Client 和完整 Dashboard workflow 的实施计划。
 - [Phase 5 Design](phase-5-design.md)：Analytics Semantics、Visitor、Session、Browser Context 和 Dimensions 的历史契约设计。
 - [Phase 6 Design](phase-6-design.md)：Browser Visitor ID、临时 Protocol V2 rollout、Sessionization、Dimensions、Analytics API 和 Dashboard 的历史实施计划。
-- [Phase 7 Design](phase-7-design.md)：MVP 功能完善、Protocol consolidation 和 capability 边界。
+- [Phase 7 Design](phase-7-design.md)：MVP 功能完善、Protocol consolidation 和 capability 边界；PR6 首版实现 country Geo。
 - [Phase 7 PR3 Custom Events Design](phase-7-pr3-custom-events-design.md)：Custom Event 协议、属性限制、隐私、处理、查询和验收设计。
 - [Phase 8 Design](phase-8-design.md)：MVP 用户配置、配置 API 和 Dashboard 能力管理。
 - [Release Readiness](release-readiness-design.md)：MVP 最后的完整回归、稳定性、部署和发布验证。

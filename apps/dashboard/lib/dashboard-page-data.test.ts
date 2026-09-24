@@ -41,6 +41,13 @@ function createClient(): AnalyticsApiClient {
       freshness_status: "current",
       aggregation_version: 1,
     }),
+    geoCountries: vi.fn().mockResolvedValue({
+      site_id: context.siteId,
+      from: context.dateRange.from,
+      to: context.dateRange.to,
+      coverage_from: null,
+      items: [],
+    }),
     visitors: vi.fn().mockResolvedValue({
       site_id: context.siteId,
       from: context.dateRange.from,

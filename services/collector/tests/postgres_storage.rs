@@ -2,6 +2,7 @@ use axum::{body::Body, http::Request};
 use chrono::Utc;
 use collector::{
     config::{SiteConfig, SiteRegistry},
+    geo::GeoEnrichment,
     http::router,
     protocol::{AnalyticsEvent, EventType, PageViewEvent},
     rate_limit::RateLimiter,
@@ -109,6 +110,7 @@ fn stored_event(site_id: &str, event_id: &str, payload: serde_json::Value) -> St
         }),
         payload,
         received_at: Utc::now(),
+        geo: None,
     }
 }
 
@@ -271,4 +273,42 @@ async fn collector_http_writes_to_postgres_sink() {
         row.get::<serde_json::Value, _>("payload")["future_field"],
         "preserved"
     );
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL; run pnpm test:integration"]
+async fn stores_country_enrichment_without_persisting_client_ip() {
+    let (sink, pool) = setup().await;
+    let mut event = stored_event(
+        "site_geo",
+        "01J00000000000000000000091",
+        json!({"schema_version":1,"event_id":"01J00000000000000000000091","type":"page_view","site_id":"site_geo","occurred_at":1760000000000_i64,"path":"/geo"}),
+    );
+    event.geo = Some(GeoEnrichment {
+        country_code: "CA".to_owned(),
+        provider: "maxmind".to_owned(),
+        dataset_version: "GeoLite2-Country-20260918".to_owned(),
+        parser_version: "1".to_owned(),
+    });
+    sink.accept(vec![event])
+        .await
+        .expect("event should be stored");
+    let row = sqlx::query(
+        "SELECT r.payload, m.country_code, m.provider, m.dataset_version, m.parser_version
+         FROM raw_events r JOIN geo_event_metadata m ON m.raw_event_id=r.id
+         WHERE r.site_id='site_geo' AND r.event_id='01J00000000000000000000091'",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("country enrichment should be stored");
+    let payload: serde_json::Value = row.get("payload");
+    assert_eq!(row.get::<String, _>("country_code"), "CA");
+    assert_eq!(row.get::<String, _>("provider"), "maxmind");
+    assert_eq!(
+        row.get::<String, _>("dataset_version"),
+        "GeoLite2-Country-20260918"
+    );
+    assert_eq!(row.get::<String, _>("parser_version"), "1");
+    assert!(payload.get("ip").is_none());
+    assert!(payload.get("client_ip").is_none());
 }
