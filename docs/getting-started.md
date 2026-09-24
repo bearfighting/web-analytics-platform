@@ -2,9 +2,9 @@
 
 ## Requirements
 
-- Node.js 22 LTS
-- pnpm 11
-- Rust 1.96.0 with Cargo
+- Node.js 26.10.0
+- pnpm 12.6.0
+- Rust 1.98.1 with Cargo
 
 Phase 0 和 Phase 1 不需要 Rust、Cargo、PostgreSQL 或其他后端依赖。Phase 2 Collector 需要 Rust；Phase 3 Storage 需要 Docker 和 PostgreSQL。
 
@@ -191,6 +191,27 @@ pnpm http:validate
 `pnpm test` 同时校验 Event Protocol V1 的合法和非法 fixtures。
 
 ## PostgreSQL Storage
+
+Compose uses PostgreSQL 18.6. The PostgreSQL 18 official image stores data under
+`/var/lib/postgresql/18/docker`; this repository uses a new `postgres_data_v18`
+volume so an existing PostgreSQL 17 volume is never opened by the new server.
+Before switching an existing local database, make a custom-format backup while
+its PostgreSQL 17 container is still running:
+
+```bash
+docker compose exec -T postgres pg_dump -U analytics -d analytics -Fc > analytics.pg_dump
+```
+
+After starting PostgreSQL 18, restore the data into the new database, then
+apply any migrations introduced since the backup:
+
+```bash
+docker compose exec -T postgres pg_restore -U analytics -d analytics --clean --if-exists < analytics.pg_dump
+```
+
+Keep the backup outside version control and remove it after confirming the
+restore. The old named volume remains available for rollback; do not attach it
+to the PostgreSQL 18 container.
 
 启动 Phase 3 PostgreSQL：
 
@@ -384,7 +405,7 @@ Transport 不自动重试，也不持久化发送失败的事件。Collector 的
 ## CI
 
 GitHub Actions 会复用本地检查命令，并额外验证 Docker Compose 配置。CI 的
-`integration` job 使用 PostgreSQL 17 service，先运行 `pnpm test:migrations`，
+`integration` job 使用 PostgreSQL 18.6 service，先运行 `pnpm test:migrations`，
 再运行 `pnpm test:integration`；独立的 `analytics-e2e` 和 `dashboard-e2e`
 job 分别运行两个 E2E 命令。失败诊断 artifact 位于 `artifacts/analytics-e2e/`
 和 `artifacts/dashboard-e2e/`，CI 会上传它们供下载。migration job 必须先于

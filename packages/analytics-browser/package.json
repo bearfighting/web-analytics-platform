@@ -22,14 +22,15 @@
     "@web-analytics/analytics-core": "workspace:*",
     "@web-analytics/observer-core": "workspace:*",
     "@web-analytics/protocol-ts": "workspace:*",
-    "web-vitals": "6.2.2",
-    "ulid": "^2.3.0"
+    "ulid": "^3.0.2",
+    "web-vitals": "6.2.2"
   },
   "devDependencies": {
-    "ajv": "^8.17.1",
+    "@types/node": "^26.6.2",
+    "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
-    "prettier": "^3.9.7",
-    "typescript": "^5.7.3",
-    "vitest": "^3.0.9"
+    "prettier": "^3.9.9",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.1"
   }
 }

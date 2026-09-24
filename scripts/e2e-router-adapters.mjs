@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { createServer } from "node:net";
 
 import { chromium, expect } from "@playwright/test";
 
@@ -6,16 +7,25 @@ const root = new URL("..", import.meta.url).pathname;
 const servers = [];
 
 try {
-  const next = start("@web-analytics/nextjs-router-playground", 15100, "next");
-  const react = start("@web-analytics/react-router-playground", 15101, "vite");
-  const tanstack = start("@web-analytics/tanstack-router-playground", 15102, "vite");
-  await Promise.all([waitForServer(15100), waitForServer(15101), waitForServer(15102)]);
+  const [nextPort, reactPort, tanstackPort] = await Promise.all([
+    reservePort(),
+    reservePort(),
+    reservePort(),
+  ]);
+  start("@web-analytics/nextjs-router-playground", nextPort, "next");
+  start("@web-analytics/react-router-playground", reactPort, "vite");
+  start("@web-analytics/tanstack-router-playground", tanstackPort, "vite");
+  await Promise.all([
+    waitForServer(nextPort),
+    waitForServer(reactPort),
+    waitForServer(tanstackPort),
+  ]);
 
   const browser = await chromium.launch({ headless: true });
   try {
-    await checkNext(browser, "http://127.0.0.1:15100");
-    await checkRouter(browser, "http://127.0.0.1:15101", "React Router User");
-    await checkRouter(browser, "http://127.0.0.1:15102", "TanStack Router User");
+    await checkNext(browser, `http://127.0.0.1:${nextPort}`);
+    await checkRouter(browser, `http://127.0.0.1:${reactPort}`, "React Router User");
+    await checkRouter(browser, `http://127.0.0.1:${tanstackPort}`, "TanStack Router User");
   } finally {
     await browser.close();
   }
@@ -24,7 +34,18 @@ try {
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
 } finally {
-  for (const server of servers) server.kill("SIGTERM");
+  for (const server of servers) {
+    if (process.platform === "win32") {
+      server.kill("SIGTERM");
+      continue;
+    }
+
+    try {
+      process.kill(-server.pid, "SIGTERM");
+    } catch {
+      server.kill("SIGTERM");
+    }
+  }
 }
 
 async function checkNext(browser, baseUrl) {
@@ -53,6 +74,19 @@ async function checkNext(browser, baseUrl) {
   await page.close();
 }
 
+async function reservePort() {
+  const server = createServer();
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  const { port } = server.address();
+  await new Promise((resolve, reject) =>
+    server.close((error) => (error ? reject(error) : resolve())),
+  );
+  return port;
+}
+
 function start(filter, port, kind) {
   const hostFlag = kind === "next" ? "--hostname" : "--host";
   const child = spawn(
@@ -60,6 +94,7 @@ function start(filter, port, kind) {
     ["--filter", filter, "dev", hostFlag, "127.0.0.1", "--port", String(port)],
     {
       cwd: root,
+      detached: process.platform !== "win32",
       stdio: "ignore",
     },
   );

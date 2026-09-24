@@ -573,7 +573,7 @@ async function assertWebVitals(page) {
   const data = await fixture("web-vitals");
   await prepareFixture(data);
   await page.goto(rangeUrl("site_playground", "2026-09-18", "2026-09-18"));
-  const section = page.locator("section.card").filter({ hasText: "Web Vitals" });
+  const section = page.locator('section[aria-labelledby="web-vitals-heading"]');
   await expectReportRows(page, "Web Vitals", [
     "/vitals CLS 4 0.09 3 1 0",
     "/vitals FCP 4 1800 ms 3 1 0",
@@ -904,8 +904,10 @@ async function assertApiError(browser) {
       errorContainer,
       "-p",
       `${errorDashboardPort}:3000`,
+      "-v",
+      `${project}_dashboard_error_next:/workspace/apps/dashboard/.next`,
       "-e",
-      "ANALYTICS_API_URL=http://analytics-api:4999",
+      "ANALYTICS_API_URL=http://dashboard-api-error:4999",
       "dashboard",
     ],
     { capture: true },
@@ -945,6 +947,7 @@ try {
       "analytics-api",
       "dashboard",
       "playground-next",
+      "dashboard-api-error",
     ],
     {
       capture: true,
@@ -1033,6 +1036,7 @@ try {
           "analytics-api",
           "postgres",
           "db-migrate",
+          "dashboard-api-error",
         ],
         {
           capture: true,

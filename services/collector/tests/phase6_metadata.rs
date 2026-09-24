@@ -34,7 +34,7 @@ async fn cleanup(pool: &PgPool) {
         "analytics_generations",
         "analytics_feature_flags",
     ] {
-        sqlx::query(&format!("DELETE FROM {table}"))
+        sqlx::query(sqlx::AssertSqlSafe(format!("DELETE FROM {table}")))
             .execute(pool)
             .await
             .expect("phase 6 metadata cleanup should succeed");

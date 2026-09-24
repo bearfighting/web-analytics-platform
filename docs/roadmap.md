@@ -217,6 +217,11 @@ Country / IP 不属于本阶段必须内容。
 
 ```text
 PR0 Pre-configuration Hardening
+  → PR0.5a pnpm/Node.js baseline
+  → PR0.5b JavaScript development/test tools
+  → PR0.5c browser/application dependencies
+  → PR0.5d Rust toolchain and crates
+  → PR0.5e CI/infrastructure images
   → capability configuration model and migration
   → configuration API and dependency validation
   → Dashboard configuration UI

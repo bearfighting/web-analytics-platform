@@ -111,7 +111,7 @@ async fn cleanup_phase6_metadata(pool: &PgPool) {
         "analytics_generations",
         "analytics_feature_flags",
     ] {
-        sqlx::query(&format!("DELETE FROM {table}"))
+        sqlx::query(sqlx::AssertSqlSafe(format!("DELETE FROM {table}")))
             .execute(pool)
             .await
             .expect("phase 6 metadata should be cleanable");
@@ -862,11 +862,13 @@ async fn failed_aggregate_update_leaves_event_unprocessed() {
     assert!(processed.is_none());
 
     for table in ["page_view_daily", "page_view_totals"] {
-        let count = sqlx::query(&format!("SELECT COUNT(*) AS count FROM {table}"))
-            .fetch_one(&pool)
-            .await
-            .unwrap()
-            .get::<i64, _>("count");
+        let count = sqlx::query(sqlx::AssertSqlSafe(format!(
+            "SELECT COUNT(*) AS count FROM {table}"
+        )))
+        .fetch_one(&pool)
+        .await
+        .unwrap()
+        .get::<i64, _>("count");
         assert_eq!(count, 0, "{table} should be rolled back");
     }
 

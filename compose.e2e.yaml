@@ -1,4 +1,15 @@
 services:
+  dashboard-api-error:
+    image: node:26.10.0-bookworm-slim
+    command:
+      - node
+      - -e
+      - >-
+        require('node:http').createServer((req,res)=>{
+        res.writeHead(500,{'content-type':'application/json'});
+        res.end(JSON.stringify({error:{code:'e2e_error',message:'Analytics API simulated failure'}}));
+        }).listen(4999,'0.0.0.0')
+
   playground-next:
     command:
       [

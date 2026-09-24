@@ -2,10 +2,10 @@
   "name": "web-analytics-platform",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@11.5.2",
+  "packageManager": "pnpm@12.6.0",
   "engines": {
-    "node": ">=22",
-    "pnpm": ">=11 <12"
+    "node": ">=26",
+    "pnpm": ">=12 <13"
   },
   "scripts": {
     "dev": "./scripts/dev.sh",
@@ -39,16 +39,16 @@
     "test:geo-mmdb-local": "cargo test -p collector operator_dbip_city_lite_mmdb_smoke -- --ignored --nocapture"
   },
   "devDependencies": {
-    "@eslint/js": "^9.20.0",
-    "@playwright/test": "^1.55.0",
-    "ajv": "^8.17.1",
+    "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.63.0",
+    "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
-    "eslint": "^9.20.1",
-    "eslint-plugin-import": "^2.31.0",
-    "prettier": "^3.9.7",
-    "typescript": "^5.7.3",
-    "typescript-eslint": "^8.24.0",
-    "ulid": "^2.3.0",
-    "vitest": "^3.0.9"
+    "eslint": "^9.39.5",
+    "eslint-plugin-import": "^2.32.0",
+    "prettier": "^3.9.9",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.70.1",
+    "ulid": "^3.0.2",
+    "vitest": "^5.0.1"
   }
 }

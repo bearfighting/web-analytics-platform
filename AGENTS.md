@@ -111,12 +111,7 @@ Client SDK → Backend Collector → Storage / Processor / API → Dashboard
 所有 Adapter 都应实现同一观察契约：
 
 ```ts
-export type NavigationType =
-  | "initial"
-  | "push"
-  | "replace"
-  | "pop"
-  | "unknown";
+export type NavigationType = "initial" | "push" | "replace" | "pop" | "unknown";
 
 export interface NavigationEvent {
   url: string;
@@ -128,9 +123,7 @@ export interface NavigationEvent {
 }
 
 export interface NavigationObserver {
-  subscribe(
-    listener: (event: NavigationEvent) => void
-  ): () => void;
+  subscribe(listener: (event: NavigationEvent) => void): () => void;
 }
 ```
 
@@ -164,7 +157,7 @@ export interface NavigationObserver {
 
 Backend Foundation 阶段 Rust 约定：
 
-- Rust toolchain 固定为 `1.96.0`，由 `rust-toolchain.toml` 管理。
+- Rust toolchain 固定为 `1.98.1`，由 `rust-toolchain.toml` 管理。
 - Rust workspace 命令通过统一脚本执行：`cargo fmt --check`、`cargo clippy --workspace --all-targets --all-features -- -D warnings`、`cargo test --workspace` 和 `cargo build --workspace`。
 - Collector 默认监听 `0.0.0.0:4001`，配置通过 `COLLECTOR_CONFIG` 或 `--config` 指定。
 

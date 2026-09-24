@@ -1,8 +1,8 @@
-FROM node:22-bookworm-slim
+FROM node:26.10.0-bookworm-slim
 
 WORKDIR /workspace
 
-RUN npm install --global pnpm@11.5.2
+RUN npm install --global pnpm@12.6.0
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY apps ./apps

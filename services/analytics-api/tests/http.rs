@@ -22,11 +22,13 @@ async fn body(response: axum::response::Response) -> serde_json::Value {
 
 async fn reset(pool: &PgPool, site_id: &str) {
     for table in ["page_view_routes", "page_view_daily", "page_view_totals"] {
-        sqlx::query(&format!("DELETE FROM {table} WHERE site_id = $1"))
-            .bind(site_id)
-            .execute(pool)
-            .await
-            .unwrap();
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "DELETE FROM {table} WHERE site_id = $1"
+        )))
+        .bind(site_id)
+        .execute(pool)
+        .await
+        .unwrap();
     }
 }
 
@@ -50,11 +52,13 @@ async fn reset_phase6(pool: &PgPool, site_id: &str) {
         "page_view_routes",
         "page_view_totals",
     ] {
-        sqlx::query(&format!("DELETE FROM {table} WHERE site_id = $1"))
-            .bind(site_id)
-            .execute(pool)
-            .await
-            .unwrap();
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "DELETE FROM {table} WHERE site_id = $1"
+        )))
+        .bind(site_id)
+        .execute(pool)
+        .await
+        .unwrap();
     }
 }
 

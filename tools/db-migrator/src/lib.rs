@@ -29,6 +29,8 @@ pub async fn run_until(database_url: &str, target_version: i64) -> Result<()> {
         ignore_missing: false,
         locking: true,
         no_tx: false,
+        table_name: Cow::Borrowed("_sqlx_migrations"),
+        create_schemas: Cow::Borrowed(&[]),
     };
     run_with_migrator(database_url, &migrator).await
 }

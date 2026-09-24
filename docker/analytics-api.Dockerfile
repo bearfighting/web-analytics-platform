@@ -1,4 +1,4 @@
-FROM rust:1.96-bookworm
+FROM rust:1.98.1-bookworm
 
 WORKDIR /workspace
 ENV CARGO_HOME=/usr/local/cargo

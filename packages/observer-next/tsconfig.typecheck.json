@@ -3,9 +3,8 @@
   "compilerOptions": {
     "jsx": "react-jsx",
     "noEmit": true,
-    "baseUrl": "../..",
     "paths": {
-      "@web-analytics/observer-core": ["packages/observer-core/src/index.ts"]
+      "@web-analytics/observer-core": ["../../packages/observer-core/src/index.ts"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"]

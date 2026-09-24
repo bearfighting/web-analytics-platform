@@ -71,7 +71,7 @@ pnpm --filter @web-analytics/analytics-browser pack --dry-run
 
 ## 4. PostgreSQL 和 migration
 
-使用 PostgreSQL 17 验证：
+使用 PostgreSQL 18.6 验证：
 
 - 空数据库首次 migration；
 - migration 重复执行；

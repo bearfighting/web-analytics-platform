@@ -104,11 +104,13 @@ async fn assert_aggregate_rows(pool: &PgPool, expected: &Value, fixture_path: &s
         ("page_view_routes", routes.len()),
         ("page_view_totals", totals.len()),
     ] {
-        let actual_count = sqlx::query(&format!("SELECT COUNT(*) AS count FROM {table}"))
-            .fetch_one(pool)
-            .await
-            .unwrap()
-            .get::<i64, _>("count") as usize;
+        let actual_count = sqlx::query(sqlx::AssertSqlSafe(format!(
+            "SELECT COUNT(*) AS count FROM {table}"
+        )))
+        .fetch_one(pool)
+        .await
+        .unwrap()
+        .get::<i64, _>("count") as usize;
         assert_eq!(actual_count, expected_count, "{table} in {fixture_path:?}");
     }
 

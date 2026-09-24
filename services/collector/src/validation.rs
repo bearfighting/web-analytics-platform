@@ -1,9 +1,6 @@
-use std::sync::Arc;
-
-use jsonschema::{Draft, JSONSchema, SchemaResolver, SchemaResolverError};
+use jsonschema::{Draft, Retrieve, Uri};
 use serde_json::Value;
 use thiserror::Error;
-use url::Url;
 
 use crate::protocol::{AnalyticsEvent, CustomEvent, PageViewEvent, WebVitalEvent};
 
@@ -41,10 +38,10 @@ pub enum ValidationError {
 
 #[derive(Debug)]
 pub struct Validator {
-    batch: JSONSchema,
-    page_view: JSONSchema,
-    custom_event: JSONSchema,
-    web_vital: JSONSchema,
+    batch: jsonschema::Validator,
+    page_view: jsonschema::Validator,
+    custom_event: jsonschema::Validator,
+    web_vital: jsonschema::Validator,
 }
 
 impl Validator {
@@ -60,49 +57,49 @@ impl Validator {
         let context_schema: Value =
             serde_json::from_str(CONTEXT_SCHEMA).map_err(ValidationError::PageViewSchema)?;
 
-        let batch = JSONSchema::options()
+        let batch = jsonschema::options()
             .with_draft(Draft::Draft202012)
             .should_validate_formats(true)
-            .with_resolver(EmbeddedResolver {
+            .with_retriever(EmbeddedResolver {
                 page_view_schema: page_view_schema.clone(),
                 custom_event_schema: custom_event_schema.clone(),
                 web_vital_schema: web_vital_schema.clone(),
                 context_schema: context_schema.clone(),
             })
-            .compile(&batch_schema)
+            .build(&batch_schema)
             .map_err(|error| ValidationError::Compile(error.to_string()))?;
-        let page_view = JSONSchema::options()
+        let page_view = jsonschema::options()
             .with_draft(Draft::Draft202012)
             .should_validate_formats(true)
-            .with_resolver(EmbeddedResolver {
+            .with_retriever(EmbeddedResolver {
                 page_view_schema: page_view_schema.clone(),
                 custom_event_schema: custom_event_schema.clone(),
                 web_vital_schema: web_vital_schema.clone(),
                 context_schema: context_schema.clone(),
             })
-            .compile(&page_view_schema)
+            .build(&page_view_schema)
             .map_err(|error| ValidationError::Compile(error.to_string()))?;
-        let web_vital = JSONSchema::options()
+        let web_vital = jsonschema::options()
             .with_draft(Draft::Draft202012)
             .should_validate_formats(true)
-            .with_resolver(EmbeddedResolver {
+            .with_retriever(EmbeddedResolver {
                 page_view_schema: page_view_schema.clone(),
                 custom_event_schema: custom_event_schema.clone(),
                 web_vital_schema: web_vital_schema.clone(),
                 context_schema: context_schema.clone(),
             })
-            .compile(&web_vital_schema)
+            .build(&web_vital_schema)
             .map_err(|error| ValidationError::Compile(error.to_string()))?;
-        let custom_event = JSONSchema::options()
+        let custom_event = jsonschema::options()
             .with_draft(Draft::Draft202012)
             .should_validate_formats(true)
-            .with_resolver(EmbeddedResolver {
+            .with_retriever(EmbeddedResolver {
                 page_view_schema: page_view_schema.clone(),
                 custom_event_schema: custom_event_schema.clone(),
                 web_vital_schema: web_vital_schema.clone(),
                 context_schema: context_schema.clone(),
             })
-            .compile(&custom_event_schema)
+            .build(&custom_event_schema)
             .map_err(|error| ValidationError::Compile(error.to_string()))?;
 
         Ok(Self {
@@ -114,8 +111,12 @@ impl Validator {
     }
 
     pub fn validate(&self, value: &Value) -> Result<ValidatedBatch, Vec<String>> {
-        if let Err(errors) = self.batch.validate(value) {
-            return Err(errors.map(|error| error.to_string()).collect());
+        if self.batch.validate(value).is_err() {
+            return Err(self
+                .batch
+                .iter_errors(value)
+                .map(|error| error.to_string())
+                .collect());
         }
 
         let events = value
@@ -154,8 +155,11 @@ impl Validator {
             "web_vital" => &self.web_vital,
             _ => return Err(vec!["unknown event type".into()]),
         };
-        if let Err(errors) = schema.validate(value) {
-            return Err(errors.map(|error| error.to_string()).collect());
+        if schema.validate(value).is_err() {
+            return Err(schema
+                .iter_errors(value)
+                .map(|error| error.to_string())
+                .collect());
         }
         if event_type == "page_view" {
             serde_json::from_value::<PageViewEvent>(value.clone())
@@ -207,35 +211,33 @@ struct EmbeddedResolver {
     context_schema: Value,
 }
 
-impl SchemaResolver for EmbeddedResolver {
-    fn resolve(
+impl Retrieve for EmbeddedResolver {
+    fn retrieve(
         &self,
-        _root_schema: &Value,
-        url: &Url,
-        _original_reference: &str,
-    ) -> Result<Arc<Value>, SchemaResolverError> {
-        if url.as_str()
-            == "https://web-analytics-platform.dev/schemas/events/page-view-event.schema.json"
-        {
-            return Ok(Arc::new(self.page_view_schema.clone()));
-        }
-        if url.as_str()
-            == "https://web-analytics-platform.dev/schemas/events/custom-event.schema.json"
-        {
-            return Ok(Arc::new(self.custom_event_schema.clone()));
-        }
-        if url.as_str()
-            == "https://web-analytics-platform.dev/schemas/events/web-vital-event.schema.json"
-        {
-            return Ok(Arc::new(self.web_vital_schema.clone()));
-        }
-        if url.as_str()
-            == "https://web-analytics-platform.dev/schemas/contexts/browser-context.schema.json"
-        {
-            return Ok(Arc::new(self.context_schema.clone()));
-        }
-
-        Err(anyhow::anyhow!("embedded schema not found: {url}"))
+        uri: &Uri<String>,
+    ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+        let schema = match uri.as_str() {
+            "https://web-analytics-platform.dev/schemas/events/page-view-event.schema.json" => {
+                &self.page_view_schema
+            }
+            "https://web-analytics-platform.dev/schemas/events/custom-event.schema.json" => {
+                &self.custom_event_schema
+            }
+            "https://web-analytics-platform.dev/schemas/events/web-vital-event.schema.json" => {
+                &self.web_vital_schema
+            }
+            "https://web-analytics-platform.dev/schemas/contexts/browser-context.schema.json" => {
+                &self.context_schema
+            }
+            _ => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!("embedded schema not found: {uri}"),
+                )
+                .into());
+            }
+        };
+        Ok(schema.clone())
     }
 }
 

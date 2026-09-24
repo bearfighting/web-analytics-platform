@@ -1,4 +1,4 @@
-FROM rust:1.96-bookworm AS builder
+FROM rust:1.98.1-bookworm AS builder
 
 WORKDIR /workspace
 
@@ -21,7 +21,7 @@ COPY tools/db-migrator/build.rs tools/db-migrator/build.rs
 COPY migrations migrations
 RUN cargo build --locked --release -p db-migrator
 
-FROM rust:1.96-bookworm
+FROM rust:1.98.1-bookworm
 
 COPY --from=builder /workspace/target/release/db-migrator /usr/local/bin/db-migrator
 

@@ -1,4 +1,4 @@
-use jsonschema::{Draft, JSONSchema};
+use jsonschema::Draft;
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
@@ -124,12 +124,13 @@ impl CapabilityRegistry {
         let schema: serde_json::Value = serde_json::from_str(include_str!(
             "../../../protocol/capabilities/capability-contract.schema.json"
         ))?;
-        let validator = JSONSchema::options()
+        let validator = jsonschema::options()
             .with_draft(Draft::Draft202012)
-            .compile(&schema)
+            .build(&schema)
             .map_err(|error| CapabilityRegistryError::Schema(error.to_string()))?;
-        if let Err(errors) = validator.validate(&value) {
-            let message = errors
+        if validator.validate(&value).is_err() {
+            let message = validator
+                .iter_errors(&value)
                 .map(|error| error.to_string())
                 .collect::<Vec<_>>()
                 .join("; ");

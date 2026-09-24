@@ -1,9 +1,8 @@
-FROM node:22-bookworm-slim
+FROM node:26.10.0-bookworm-slim
 
 WORKDIR /workspace
 
-RUN corepack enable \
-  && corepack install --global pnpm@11.5.2 \
+RUN npm install --global pnpm@12.6.0 \
   && apt-get update \
   && apt-get install --no-install-recommends --yes curl \
   && rm -rf /var/lib/apt/lists/*

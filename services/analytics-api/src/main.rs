@@ -30,19 +30,20 @@ async fn main() -> anyhow::Result<()> {
         &std::fs::read("config/analytics-definitions.schema.json")
             .context("failed to read analytics definitions schema")?,
     )?;
-    let validator = jsonschema::JSONSchema::options()
+    let validator = jsonschema::options()
         .with_draft(jsonschema::Draft::Draft202012)
-        .compile(&definition_schema)
+        .build(&definition_schema)
         .map_err(|error| anyhow::anyhow!("invalid analytics definition schema: {error}"))?;
-    validator.validate(&definitions).map_err(|errors| {
-        anyhow::anyhow!(
+    let validation_errors = validator
+        .iter_errors(&definitions)
+        .map(|error| error.to_string())
+        .collect::<Vec<_>>();
+    if !validation_errors.is_empty() {
+        anyhow::bail!(
             "invalid analytics definitions: {}",
-            errors
-                .map(|error| error.to_string())
-                .collect::<Vec<_>>()
-                .join("; ")
-        )
-    })?;
+            validation_errors.join("; ")
+        );
+    }
     validate_definition_privacy(&definitions)?;
     let definition_version = definitions
         .get("version")

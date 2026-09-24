@@ -66,6 +66,34 @@ PR0 只收录有证据的问题：
 - 不把临时修复变成新的用户配置或内部 rollout flag；
 - 架构边界发生变化时新增 ADR。
 
+### 2.5 PR0.5 — Dependencies and Build Tool Refresh
+
+在配置模型和 migration 开始前，升级项目依赖与构建工具。项目以自身构建、测试和部署兼容为目标，不需要为外部消费者维持库的 semver 范围；允许 major 更新，但不得把升级和 capability 配置功能混在同一个 PR。执行日基线见仓库升级记录；具体执行分组如下：
+
+1. **PR0.5a — pnpm 与 Node.js 基线：** 固定 pnpm 12.6.0、Node.js 26.10.0，同步 `packageManager`、engines、`.node-version`、CI、开发文档和 Node Docker 镜像。
+2. **PR0.5b — JavaScript 开发与测试工具：** 升级 TypeScript、ESLint、Prettier、Vitest、Playwright 和相关插件，处理配置/API 迁移。若当前插件不支持最新主版本，记录 Deferred 与重试条件，不通过跳过 lint/typecheck 验收。
+3. **PR0.5c — 浏览器与应用依赖：** 升级 Next.js/React、Vite、React Router、TanStack Router、`web-vitals` 及 workspace 直接运行依赖；按集成边界拆分并同步 peer ranges。
+4. **PR0.5d — Rust 工具链与 crates：** 升级 Rust stable、workspace crates 和 `Cargo.lock`，本地与 Rust Docker 镜像一致，并处理 crate API breaking changes。
+5. **PR0.5e — CI 与基础设施镜像：** 升级 GitHub Actions、PostgreSQL 和其他构建期系统依赖。Node 镜像由 PR0.5a 固定，Rust 镜像由 PR0.5d 对齐。
+
+每批 PR 都必须：
+
+- 记录升级前后版本、官方发布来源、breaking changes 和兼容性决定；只使用正式稳定版，不使用 prerelease 或 `latest` 浮动标签。
+- 保持锁定版本和声明范围一致。执行 `pnpm install --frozen-lockfile` 不得自动改写 `packageManager` 或 lockfile；Node、pnpm、Rust 和容器版本要在本地、CI、Docker 中对齐。
+- 更新后运行对应 package 的 check/test/build；跨边界升级还要运行 migration、Rust integration、Analytics E2E、Dashboard E2E、Router Adapter E2E 和 Compose profile 验证。
+- 将不可升级项连同阻塞原因、复现证据和重试条件记录为 Deferred，不为了追求版本号而降低测试或安全边界。
+
+#### 2026-09-24 执行记录
+
+- 已设置 Node.js 26.10.0、pnpm 12.6.0、Rust 1.98.1；PostgreSQL 镜像为 18.6-alpine3.23。Node、Rust、PostgreSQL 与 GitHub Actions 均使用固定版本/发行标签。PostgreSQL 18 更改了数据目录布局，Compose 改用 `/var/lib/postgresql` 并使用新的 `postgres_data_v18` volume；旧 volume 保留，升级数据需要按 Getting Started 的备份/恢复步骤迁移。
+- JavaScript workspace 使用 Next.js 16.3.6、React 19.3.0、Vite 8.3.0、Vitest 5.0.1、Prettier 3.9.9、Playwright 1.63.0。Next ESLint 配置迁移到 flat config；Dashboard 测试显式启用 React Vite plugin。
+- Rust workspace crates 和 lockfile 已升级；SQLx 0.9 的动态 SQL 安全标记及 Migrator 初始化、jsonschema 0.57 API 变更已迁移。
+- **Deferred：TypeScript 7.0.2。** 当前 `typescript-eslint` 8.70.1 声明支持 TypeScript `<6.1.0`；升级 TS7 会越过 parser 支持范围，因此 workspace 暂用 TypeScript 6.0.3。待 typescript-eslint 官方支持 TS7 后重试，并运行完整 typecheck/build。
+- **Deferred：ESLint 10.11.0。** 当前 Next.js/React lint 依赖在 ESLint 10 Rule API 上失败（`eslint-plugin-react@7.37.5` 调用已移除的 `context.getFilename`；后续 scope manager API 也不兼容）。workspace 暂用 ESLint/@eslint/js 9.39.5，配合 Next.js flat config；待 Next/React 插件兼容 ESLint 10 后升级，并运行完整 lint/check。
+- `pnpm outdated -r` 仅列出上述 TypeScript、ESLint 和 `@eslint/js` 三项；其余 workspace 声明依赖无更新项。`pnpm install --frozen-lockfile`、`pnpm check`、`pnpm test` 和 `pnpm build` 已通过。PostgreSQL 18 migration 与 integration tests 已通过；Analytics E2E 10 个 fixture、Dashboard E2E 全部场景、Router Adapter E2E 三种路由器均通过。所有 Compose profiles 配置校验通过；Dashboard E2E 已从空的容器依赖卷完成 frozen install、镜像构建和完整浏览器流程。首次 Dashboard E2E 重跑因并行集成测试数据库占用默认端口 `15432` 未启动；清理临时数据库后重跑通过。检查期间格式校验发现 Next.js 自动生成的两个 `tsconfig.json` 排版变化，已格式化并由最终 `pnpm check` 复核。
+
+全部升级分组完成并通过干净 checkout 验证后，再开始 capability configuration model 和 migration。升级中发现的具体 bug 按 PR0 bug register 规则登记，但不因此把用户配置功能混入升级 PR。
+
 ## 3. 配置模型
 
 建议的逻辑模型：

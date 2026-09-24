@@ -1,20 +1,12 @@
-import { dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import prettier from "eslint-config-prettier/flat";
 
-import { FlatCompat } from "@eslint/eslintrc";
-import importPlugin from "eslint-plugin-import";
-
-const directory = dirname(fileURLToPath(import.meta.url));
-const compat = new FlatCompat({ baseDirectory: directory });
-const eslintConfig = [
+export default defineConfig([
+  ...nextVitals,
+  prettier,
+  globalIgnores([".next/**", "node_modules/**", "out/**", "dist/**", "coverage/**"]),
   {
-    ignores: [".next/**", "node_modules/**", "out/**", "dist/**", "coverage/**"],
-  },
-  ...compat.extends("next/core-web-vitals", "prettier"),
-  {
-    plugins: {
-      import: importPlugin,
-    },
     rules: {
       "import/order": [
         "error",
@@ -45,6 +37,4 @@ const eslintConfig = [
       ],
     },
   },
-];
-
-export default eslintConfig;
+]);

@@ -12,22 +12,22 @@
     "format:check": "prettier --check src index.html vite.config.ts tsconfig.json package.json"
   },
   "dependencies": {
-    "@web-analytics/analytics-core": "workspace:*",
     "@web-analytics/analytics-browser": "workspace:*",
+    "@web-analytics/analytics-core": "workspace:*",
     "@web-analytics/observer-core": "workspace:*",
     "@web-analytics/playground-support": "workspace:*",
-    "@web-analytics/router-adapters": "workspace:*",
     "@web-analytics/protocol-ts": "workspace:*",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "react-router-dom": "^7.0.0"
+    "@web-analytics/router-adapters": "workspace:*",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-router-dom": "^7.18.4"
   },
   "devDependencies": {
-    "@types/react": "^19.0.8",
-    "@types/react-dom": "^19.0.3",
-    "@vitejs/plugin-react": "^4.3.4",
-    "prettier": "^3.9.7",
-    "typescript": "^5.7.3",
-    "vite": "^6.1.0"
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "prettier": "^3.9.9",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.0"
   }
 }

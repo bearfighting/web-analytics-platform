@@ -23,8 +23,9 @@
     "@web-analytics/protocol-ts": "workspace:*"
   },
   "devDependencies": {
-    "prettier": "^3.9.7",
-    "vitest": "^3.0.9",
-    "typescript": "^5.7.3"
+    "@types/node": "^26.6.2",
+    "prettier": "^3.9.9",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.1"
   }
 }
