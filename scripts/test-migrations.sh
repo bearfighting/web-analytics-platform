@@ -136,6 +136,16 @@ BEGIN
     'allowed_origins', jsonb_build_array('https://example.com'), 'ingest_keys', valid_key,
     'rate_limit_per_minute', 600
   );
+  INSERT INTO site_environment_policies (site_id, environment, version, document)
+  VALUES (
+    'empty-keys-policy', 'preview', 1,
+    jsonb_build_object(
+      'schema_version', 1, 'site_id', 'empty-keys-policy', 'environment', 'preview',
+      'version', 1, 'updated_at', timestamp_text, 'enabled', TRUE,
+      'allowed_origins', jsonb_build_array('https://preview.example.com'),
+      'ingest_keys', '[]'::JSONB, 'rate_limit_per_minute', 600
+    )
+  );
   BEGIN
     INSERT INTO site_capability_configurations (site_id, version, document)
     VALUES (
@@ -503,7 +513,8 @@ DECLARE
     20260923001000,
     20260923001100,
     20260924001200,
-    20260925001300
+    20260925001300,
+    20260925001400
   ];
   actual_migrations bigint[];
 BEGIN

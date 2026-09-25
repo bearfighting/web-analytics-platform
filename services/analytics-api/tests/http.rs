@@ -1,8 +1,12 @@
-use analytics_api::{router, state};
-use axum::{body::to_bytes, http::Request};
+use analytics_api::{AdminTokens, router, state, state_with_admin_tokens};
+use axum::{
+    body::to_bytes,
+    http::{Request, StatusCode},
+};
+use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use chrono::{DateTime, Utc};
 use sqlx::{PgPool, postgres::PgPoolOptions};
-use std::env;
+use std::{env, time::Duration};
 use tower::ServiceExt;
 
 async fn pool() -> PgPool {
@@ -769,4 +773,549 @@ async fn geo_country_report_includes_unknown_and_is_site_scoped() {
     let other = body(other).await;
     assert!(other["items"].as_array().unwrap().is_empty());
     assert!(other["providers"].as_array().unwrap().is_empty());
+}
+
+fn admin_app(pool: PgPool, token: &str) -> axum::Router {
+    let configured = AdminTokens::parse(&format!("[\"{token}\"]")).unwrap();
+    router(state_with_admin_tokens(state(pool), Some(configured)))
+}
+
+fn capability_document(site_id: &str) -> (DateTime<Utc>, serde_json::Value) {
+    let now = Utc::now();
+    let timestamp = now.to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
+    let capabilities = [
+        "page_views",
+        "browser_context",
+        "anonymous_visitors",
+        "sessions",
+        "dimensions",
+        "custom_events",
+        "web_vitals",
+        "conversions",
+        "funnels",
+        "geo",
+    ]
+    .into_iter()
+    .map(|name| {
+        (
+            name.to_owned(),
+            serde_json::json!({"enabled":true,"settings":{}}),
+        )
+    })
+    .collect::<serde_json::Map<_, _>>();
+    let document = serde_json::json!({
+        "schema_version":1,
+        "site_id":site_id,
+        "version":1,
+        "updated_at":timestamp,
+        "capabilities":capabilities,
+        "consent_policy":"required",
+        "privacy_constraints":["no_ip_persistence","no_fingerprinting","consent_required"]
+    });
+    (now, document)
+}
+
+async fn clear_configuration_site(pool: &PgPool, site_id: &str) {
+    sqlx::query("DELETE FROM configuration_audit WHERE resource->>'site_id' = $1")
+        .bind(site_id)
+        .execute(pool)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM site_environment_policies WHERE site_id = $1")
+        .bind(site_id)
+        .execute(pool)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM site_capability_configurations WHERE site_id = $1")
+        .bind(site_id)
+        .execute(pool)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM analytics_feature_flags WHERE site_id = $1")
+        .bind(site_id)
+        .execute(pool)
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn configuration_admin_routes_reject_missing_and_invalid_credentials_before_database_access()
+{
+    let pool = PgPoolOptions::new()
+        .max_connections(1)
+        .acquire_timeout(Duration::from_millis(50))
+        .connect_lazy("postgres://invalid:invalid@127.0.0.1:1/invalid")
+        .unwrap();
+    let route = "/v1/admin/sites/no_such_site/capabilities";
+    let no_token = router(state(pool.clone()))
+        .oneshot(Request::get(route).body(axum::body::Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(no_token.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(body(no_token).await["error"]["code"], "unauthorized");
+
+    let token = URL_SAFE_NO_PAD.encode([17_u8; 32]);
+    let invalid = admin_app(pool, &token)
+        .oneshot(
+            Request::get(route)
+                .header(
+                    "authorization",
+                    format!("Bearer {}", URL_SAFE_NO_PAD.encode([18_u8; 32])),
+                )
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(invalid.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(body(invalid).await["error"]["code"], "unauthorized");
+
+    let lowercase_scheme = admin_app(
+        PgPoolOptions::new()
+            .max_connections(1)
+            .acquire_timeout(Duration::from_millis(50))
+            .connect_lazy("postgres://invalid:invalid@127.0.0.1:1/invalid")
+            .unwrap(),
+        &token,
+    )
+    .oneshot(
+        Request::get(route)
+            .header("authorization", format!("bearer {token}"))
+            .body(axum::body::Body::empty())
+            .unwrap(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(lowercase_scheme.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(
+        body(lowercase_scheme).await["error"]["code"],
+        "configuration_unavailable"
+    );
+
+    let unavailable = admin_app(
+        PgPoolOptions::new()
+            .max_connections(1)
+            .acquire_timeout(Duration::from_millis(50))
+            .connect_lazy("postgres://invalid:invalid@127.0.0.1:1/invalid")
+            .unwrap(),
+        &token,
+    )
+    .oneshot(
+        Request::get(route)
+            .header("authorization", format!("Bearer {token}"))
+            .body(axum::body::Body::empty())
+            .unwrap(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(unavailable.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(
+        body(unavailable).await["error"]["code"],
+        "configuration_unavailable"
+    );
+
+    let bad_body = admin_app(
+        PgPoolOptions::new()
+            .max_connections(1)
+            .connect_lazy("postgres://invalid:invalid@127.0.0.1:1/invalid")
+            .unwrap(),
+        &token,
+    )
+    .oneshot(
+        Request::put("/v1/admin/sites/site_a/capabilities")
+            .header("authorization", format!("Bearer {token}"))
+            .header("if-match", "\"1\"")
+            .header("content-type", "application/json")
+            .body(axum::body::Body::from("{"))
+            .unwrap(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(bad_body.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(
+        body(bad_body).await["error"]["code"],
+        "configuration_validation_failed"
+    );
+
+    let bad_content_type = admin_app(
+        PgPoolOptions::new()
+            .max_connections(1)
+            .connect_lazy("postgres://invalid:invalid@127.0.0.1:1/invalid")
+            .unwrap(),
+        &token,
+    )
+    .oneshot(
+        Request::put("/v1/admin/sites/site_a/capabilities")
+            .header("authorization", format!("Bearer {token}"))
+            .header("if-match", "\"1\"")
+            .header("content-type", "text/plain")
+            .body(axum::body::Body::from("{}"))
+            .unwrap(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(bad_content_type.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(
+        body(bad_content_type).await["error"]["code"],
+        "configuration_validation_failed"
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires DATABASE_URL and PostgreSQL"]
+async fn configuration_api_creates_empty_policy_then_issues_and_revokes_key_atomically() {
+    let pool = pool().await;
+    let site_id = "config_api_pr3_flow";
+    let environment = "preview";
+    clear_configuration_site(&pool, site_id).await;
+    sqlx::query(
+        "INSERT INTO analytics_feature_flags (site_id, analytics_enabled) VALUES ($1, TRUE)",
+    )
+    .bind(site_id)
+    .execute(&pool)
+    .await
+    .unwrap();
+    let (updated_at, document) = capability_document(site_id);
+    sqlx::query(
+        "INSERT INTO site_capability_configurations (site_id, version, updated_at, document) VALUES ($1, 1, $2, $3)",
+    )
+    .bind(site_id)
+    .bind(updated_at)
+    .bind(document)
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let token = URL_SAFE_NO_PAD.encode([27_u8; 32]);
+    let app = admin_app(pool.clone(), &token);
+    let capabilities_path = format!("/v1/admin/sites/{site_id}/capabilities");
+    let capability_read = app
+        .clone()
+        .oneshot(
+            Request::get(&capabilities_path)
+                .header("authorization", format!("Bearer {token}"))
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(capability_read.status(), StatusCode::OK);
+    assert_eq!(capability_read.headers()["etag"], "\"1\"");
+    let mut invalid_capabilities = capability_document(site_id).1["capabilities"].clone();
+    invalid_capabilities["browser_context"]["enabled"] = serde_json::json!(false);
+    let invalid_capability_write = app
+        .clone()
+        .oneshot(
+            Request::put(&capabilities_path)
+                .header("authorization", format!("Bearer {token}"))
+                .header("if-match", "\"1\"")
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::json!({"capabilities":invalid_capabilities}).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        invalid_capability_write.status(),
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    let mut updated_capabilities = capability_document(site_id).1["capabilities"].clone();
+    updated_capabilities["web_vitals"]["enabled"] = serde_json::json!(false);
+    let capability_write = app
+        .clone()
+        .oneshot(
+            Request::put(&capabilities_path)
+                .header("authorization", format!("Bearer {token}"))
+                .header("if-match", "\"1\"")
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::json!({"capabilities":updated_capabilities}).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(capability_write.status(), StatusCode::OK);
+    assert_eq!(capability_write.headers()["etag"], "\"2\"");
+    let stale_capability_write = app
+        .clone()
+        .oneshot(
+            Request::put(&capabilities_path)
+                .header("authorization", format!("Bearer {token}"))
+                .header("if-match", "\"1\"")
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::json!({"capabilities":updated_capabilities}).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(stale_capability_write.status(), StatusCode::CONFLICT);
+    let policy_path = format!("/v1/admin/sites/{site_id}/environments/{environment}/ingest-policy");
+    let policy_body = serde_json::json!({
+        "enabled":true,
+        "allowed_origins":["https://config-api.example.test"],
+        "rate_limit_per_minute":600
+    });
+    let missing_precondition = app
+        .clone()
+        .oneshot(
+            Request::post(&policy_path)
+                .header("authorization", format!("Bearer {token}"))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(policy_body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        missing_precondition.status(),
+        StatusCode::PRECONDITION_REQUIRED
+    );
+
+    let created = app
+        .clone()
+        .oneshot(
+            Request::post(&policy_path)
+                .header("authorization", format!("Bearer {token}"))
+                .header("if-none-match", "*")
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(policy_body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(created.status(), StatusCode::CREATED);
+    assert_eq!(created.headers()["etag"], "\"1\"");
+    let created = body(created).await;
+    assert_eq!(created["policy"]["keys"], serde_json::json!([]));
+    assert_eq!(created["effective_state"]["status"], "pending");
+    assert_eq!(
+        created["effective_state"]["applied_versions"]["collector"],
+        serde_json::Value::Null
+    );
+
+    let key_path = format!("/v1/admin/sites/{site_id}/environments/{environment}/ingest-keys");
+    let issued = app
+        .clone()
+        .oneshot(
+            Request::post(&key_path)
+                .header("authorization", format!("Bearer {token}"))
+                .header("if-match", "\"1\"")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(issued.status(), StatusCode::CREATED);
+    assert_eq!(issued.headers()["etag"], "\"2\"");
+    assert_eq!(issued.headers()["cache-control"], "no-store");
+    let issued_body = body(issued).await;
+    let plaintext = issued_body["key"].as_str().unwrap();
+    assert_eq!(plaintext.len(), 43);
+    assert_eq!(URL_SAFE_NO_PAD.decode(plaintext).unwrap().len(), 32);
+    let key_id = issued_body["metadata"]["key_id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let digest: String = sqlx::query_scalar(
+        "SELECT document->'ingest_keys'->0->>'sha256_digest' FROM site_environment_policies WHERE site_id = $1 AND environment = $2",
+    )
+    .bind(site_id)
+    .bind(environment)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(digest.len(), 64);
+    assert!(
+        !serde_json::to_string(&issued_body)
+            .unwrap()
+            .contains(&digest)
+    );
+
+    let read = app
+        .clone()
+        .oneshot(
+            Request::get(&policy_path)
+                .header("authorization", format!("Bearer {token}"))
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(read.status(), StatusCode::OK);
+    assert_eq!(read.headers()["etag"], "\"2\"");
+    let read_body = body(read).await;
+    assert_eq!(read_body["policy"]["keys"][0]["key_id"], key_id);
+    assert!(!serde_json::to_string(&read_body).unwrap().contains(&digest));
+
+    let policy_update = serde_json::json!({
+        "enabled":true,
+        "allowed_origins":["https://config-api.example.test"],
+        "rate_limit_per_minute":500
+    });
+    let updated = app
+        .clone()
+        .oneshot(
+            Request::put(&policy_path)
+                .header("authorization", format!("Bearer {token}"))
+                .header("if-match", "\"2\"")
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(policy_update.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(updated.status(), StatusCode::OK);
+    assert_eq!(updated.headers()["etag"], "\"3\"");
+    let updated_body = body(updated).await;
+    assert_eq!(updated_body["policy"]["keys"].as_array().unwrap().len(), 1);
+    assert_eq!(updated_body["policy"]["rate_limit_per_minute"], 500);
+
+    let concurrent_update_a = serde_json::json!({
+        "enabled":true, "allowed_origins":["https://config-api.example.test"],
+        "rate_limit_per_minute":550
+    });
+    let concurrent_update_b = serde_json::json!({
+        "enabled":true, "allowed_origins":["https://config-api.example.test"],
+        "rate_limit_per_minute":525
+    });
+    let request_a = app.clone().oneshot(
+        Request::put(&policy_path)
+            .header("authorization", format!("Bearer {token}"))
+            .header("if-match", "\"3\"")
+            .header("content-type", "application/json")
+            .body(axum::body::Body::from(concurrent_update_a.to_string()))
+            .unwrap(),
+    );
+    let request_b = app.clone().oneshot(
+        Request::put(&policy_path)
+            .header("authorization", format!("Bearer {token}"))
+            .header("if-match", "\"3\"")
+            .header("content-type", "application/json")
+            .body(axum::body::Body::from(concurrent_update_b.to_string()))
+            .unwrap(),
+    );
+    let (response_a, response_b) = tokio::join!(request_a, request_b);
+    let response_a = response_a.unwrap();
+    let response_b = response_b.unwrap();
+    let statuses = [response_a.status(), response_b.status()];
+    assert_eq!(
+        statuses
+            .iter()
+            .filter(|status| **status == StatusCode::OK)
+            .count(),
+        1
+    );
+    assert_eq!(
+        statuses
+            .iter()
+            .filter(|status| **status == StatusCode::CONFLICT)
+            .count(),
+        1
+    );
+    let successful = if response_a.status() == StatusCode::OK {
+        response_a
+    } else {
+        response_b
+    };
+    assert_eq!(successful.headers()["etag"], "\"4\"");
+    let concurrent_body = body(successful).await;
+    assert!(
+        [525, 550].contains(
+            &concurrent_body["policy"]["rate_limit_per_minute"]
+                .as_i64()
+                .unwrap()
+        )
+    );
+
+    let stale = app
+        .clone()
+        .oneshot(
+            Request::post(&key_path)
+                .header("authorization", format!("Bearer {token}"))
+                .header("if-match", "\"1\"")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(stale.status(), StatusCode::CONFLICT);
+
+    let key_item_path = format!("{key_path}/{key_id}");
+    let revoked = app
+        .clone()
+        .oneshot(
+            Request::delete(&key_item_path)
+                .header("authorization", format!("Bearer {token}"))
+                .header("if-match", "\"4\"")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(revoked.status(), StatusCode::OK);
+    assert_eq!(revoked.headers()["etag"], "\"5\"");
+    let revoked_body = body(revoked).await;
+    assert_eq!(revoked_body["policy"]["keys"], serde_json::json!([]));
+
+    let duplicate = app
+        .clone()
+        .oneshot(
+            Request::post(&policy_path)
+                .header("authorization", format!("Bearer {token}"))
+                .header("if-none-match", "*")
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(policy_body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(duplicate.status(), StatusCode::CONFLICT);
+
+    let conflict_origin = serde_json::json!({
+        "enabled":true,
+        "allowed_origins":["https://CONFIG-API.example.test:443/"],
+        "rate_limit_per_minute":600
+    });
+    let rejected = app
+        .oneshot(
+            Request::post(format!(
+                "/v1/admin/sites/{site_id}/environments/staging/ingest-policy"
+            ))
+            .header("authorization", format!("Bearer {token}"))
+            .header("if-none-match", "*")
+            .header("content-type", "application/json")
+            .body(axum::body::Body::from(conflict_origin.to_string()))
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(rejected.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(
+        body(rejected).await["error"]["code"],
+        "configuration_validation_failed"
+    );
+
+    let audit_count: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM configuration_audit WHERE resource->>'site_id' = $1",
+    )
+    .bind(site_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(audit_count, 6);
+    let audit_text: String = sqlx::query_scalar(
+        "SELECT COALESCE(string_agg(resource::text || changed_fields::text, ' '), '') FROM configuration_audit WHERE resource->>'site_id' = $1",
+    )
+    .bind(site_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(!audit_text.contains(plaintext));
+    assert!(!audit_text.contains(&digest));
+    clear_configuration_site(&pool, site_id).await;
 }

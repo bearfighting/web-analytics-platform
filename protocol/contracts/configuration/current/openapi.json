@@ -199,6 +199,60 @@
             "$ref": "#/components/responses/PreconditionRequired"
           }
         }
+      },
+      "post": {
+        "operationId": "createEnvironmentIngestPolicy",
+        "summary": "Create an environment policy before its first ingest key exists",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "environment-policy-update.schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Policy created at version 1 with no active ingest keys; ingestion remains closed until a key is issued.",
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/VersionETag"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestPolicyResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/VersionConflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "428": {
+            "$ref": "#/components/responses/PreconditionRequired"
+          }
+        }
       }
     },
     "/v1/admin/sites/{site_id}/environments/{environment}/ingest-keys": {
@@ -223,6 +277,13 @@
             "headers": {
               "ETag": {
                 "$ref": "#/components/headers/VersionETag"
+              },
+              "Cache-Control": {
+                "description": "Prevents storage of the one-time plaintext key response.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
               }
             },
             "content": {
@@ -348,6 +409,15 @@
         "schema": {
           "type": "string",
           "pattern": "^\"[1-9][0-9]*\"$"
+        }
+      },
+      "IfNoneMatch": {
+        "name": "If-None-Match",
+        "in": "header",
+        "required": true,
+        "description": "Must be * to create a policy only when no environment resource exists.",
+        "schema": {
+          "const": "*"
         }
       }
     },

@@ -1,6 +1,8 @@
 use std::net::SocketAddr;
 
-use analytics_api::{connect_with_definition_version, router};
+use analytics_api::{
+    AdminTokens, connect_with_definition_version, router, state_with_admin_tokens,
+};
 use anyhow::Context;
 use clap::Parser;
 use tracing::info;
@@ -51,8 +53,12 @@ async fn main() -> anyhow::Result<()> {
         .filter(|version| !version.trim().is_empty())
         .context("analytics definitions require a non-empty version")?
         .to_owned();
-    let state = connect_with_definition_version(&database_url, definition_version)
-        .context("failed to configure PostgreSQL pool")?;
+    let admin_tokens = AdminTokens::from_environment()?;
+    let state = state_with_admin_tokens(
+        connect_with_definition_version(&database_url, definition_version)
+            .context("failed to configure PostgreSQL pool")?,
+        admin_tokens,
+    );
     let listener =
         tokio::net::TcpListener::bind(SocketAddr::new(cli.host.parse()?, cli.port)).await?;
     info!(service = "analytics-api", host = %cli.host, port = cli.port, "analytics API started");

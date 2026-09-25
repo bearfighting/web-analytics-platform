@@ -205,7 +205,7 @@ for (const testCase of migrationCases.cases) {
 
 const requiredPaths = {
   "/v1/admin/sites/{site_id}/capabilities": ["get", "put"],
-  "/v1/admin/sites/{site_id}/environments/{environment}/ingest-policy": ["get", "put"],
+  "/v1/admin/sites/{site_id}/environments/{environment}/ingest-policy": ["get", "post", "put"],
   "/v1/admin/sites/{site_id}/environments/{environment}/ingest-keys": ["post"],
   "/v1/admin/sites/{site_id}/environments/{environment}/ingest-keys/{key_id}": ["delete"],
 };
@@ -244,8 +244,12 @@ for (const [route, methods] of Object.entries(openapi.paths)) {
           ? openapi.components.parameters[parameter.$ref.split("/").at(-1)]
           : parameter,
     );
-    if (!parameters.some((parameter) => parameter?.name === "If-Match" && parameter.required)) {
-      fail(`${method.toUpperCase()} ${route} must require If-Match`);
+    const creatingEnvironmentPolicy =
+      method === "post" &&
+      route === "/v1/admin/sites/{site_id}/environments/{environment}/ingest-policy";
+    const requiredHeader = creatingEnvironmentPolicy ? "If-None-Match" : "If-Match";
+    if (!parameters.some((parameter) => parameter?.name === requiredHeader && parameter.required)) {
+      fail(`${method.toUpperCase()} ${route} must require ${requiredHeader}`);
     }
   }
 }
@@ -282,6 +286,12 @@ if (
   fail("If-Match and ETag must use quoted positive configuration versions");
 }
 if (
+  openapi.components.parameters.IfNoneMatch.name !== "If-None-Match" ||
+  openapi.components.parameters.IfNoneMatch.schema.const !== "*"
+) {
+  fail("initial environment policy creation must require If-None-Match: *");
+}
+if (
   !openapiText.includes("configuration_version_conflict") ||
   !openapiText.includes("CreatedIngestKey") ||
   !openapiText.includes("only time the plaintext key is returned")
@@ -293,6 +303,9 @@ if (
   openapi.paths["/v1/admin/sites/{site_id}/environments/{environment}/ingest-keys"].post.responses[
     "201"
   ].content["application/json"].schema.$ref !== "#/components/schemas/CreatedIngestKey" ||
+  openapi.paths["/v1/admin/sites/{site_id}/environments/{environment}/ingest-keys"].post.responses[
+    "201"
+  ].headers["Cache-Control"].schema.const !== "no-store" ||
   keyResponseRefs.length !== 2
 ) {
   fail("only key creation may return the one-time plaintext key");
@@ -301,6 +314,9 @@ const mutationResponses = {
   put: openapi.paths["/v1/admin/sites/{site_id}/capabilities"].put.responses,
   policyPut:
     openapi.paths["/v1/admin/sites/{site_id}/environments/{environment}/ingest-policy"].put
+      .responses,
+  policyCreate:
+    openapi.paths["/v1/admin/sites/{site_id}/environments/{environment}/ingest-policy"].post
       .responses,
   keyPost:
     openapi.paths["/v1/admin/sites/{site_id}/environments/{environment}/ingest-keys"].post
@@ -322,9 +338,10 @@ for (const [operation, responses] of Object.entries(mutationResponses)) {
 }
 if (
   mutationResponses.put["422"]?.$ref !== "#/components/responses/ValidationError" ||
-  mutationResponses.policyPut["422"]?.$ref !== "#/components/responses/ValidationError"
+  mutationResponses.policyPut["422"]?.$ref !== "#/components/responses/ValidationError" ||
+  mutationResponses.policyCreate["422"]?.$ref !== "#/components/responses/ValidationError"
 ) {
-  fail("configuration PUT operations must define 422 validation errors");
+  fail("configuration mutations must define 422 validation errors");
 }
 const mutationCases = await readJson(path.join(contractRoot, "fixtures/api-mutation-cases.json"));
 for (const testCase of mutationCases.cases) {

@@ -20,6 +20,15 @@
       "path": "/v1/admin/sites/{site_id}/capabilities"
     },
     {
+      "id": "create-environment-policy",
+      "method": "POST",
+      "if_none_match": "*",
+      "expected_status": 201,
+      "initial_key_set_empty": true,
+      "fail_closed_until_key_created": true,
+      "path": "/v1/admin/sites/{site_id}/environments/{environment}/ingest-policy"
+    },
+    {
       "id": "configuration-invalid",
       "method": "PUT",
       "if_match": "\"5\"",

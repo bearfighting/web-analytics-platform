@@ -150,6 +150,13 @@ PR1 的静态 schemas、OpenAPI 和 fixtures 位于 `protocol/contracts/configur
 - 迁移回归覆盖 clean install、重复运行、完整 true/false capability 映射、拒绝非法 JSONB 文档、时间戳一致性、Origin 规范化冲突、长 environment 标识、审计唯一字段与到期清理、失败时 DDL 原子回滚后重试，以及旧列保留。`pnpm test:migrations` 已通过。
 - 站点若没有 `analytics_feature_flags` 行，不会由本迁移创建 capability 文档；本阶段不扫描 `raw_events` 推断站点。
 
+#### PR3 执行记录（2026-09-25）
+
+- Analytics API 增加独立 Bearer 认证的 admin router；`CONFIG_ADMIN_TOKENS` 缺失或为空时仅管理路由返回 401，配置格式错误时拒绝启动。token 不写日志；校验采用 constant-time 比较。
+- Capability 与 environment policy 支持读取/更新；policy 新建使用 `POST` 和 `If-None-Match: *`，版本更新、Key 创建与撤销使用 `If-Match`。空 Key policy 可先创建且维持 fail-closed，后续首个 Key 在事务中写入。
+- 配置、版本和脱敏审计通过同一 PostgreSQL 事务提交；Ingest Key 使用 OS CSPRNG 生成，仅存储 SHA-256 digest，明文仅在创建响应返回。运行时应用状态暂报 `pending`，各服务 applied version 为 null，待 PR4/PR5 接入上报。
+- 新增 additive migration `20260925001400_allow_empty_ingest_key_policies.sql`，未修改 PR2 migration。Protocol contract、token 单测、API/PostgreSQL 集成及 migration 回归通过；公开查询 API 无需 Admin token。
+
 ## 3. 配置模型
 
 建议的逻辑模型：

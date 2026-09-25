@@ -67,6 +67,11 @@ const EXPECTED_MIGRATIONS: &[(i64, &str, &str)] = &[
         "create configuration storage",
         "cb04240faaa360d8b2d7f6f937d5e7aab4a0ca6e42fd4542332c169dae33a4325d82059b8efc02ec448846256eec8d19",
     ),
+    (
+        20260925001400,
+        "allow empty ingest key policies",
+        "0fdb8a6099cc738d2805b29846904edb18d95a95682edde1320eaf552d094112fd6c532c530685e593d9d095bed27cd5",
+    ),
 ];
 
 #[tokio::test]

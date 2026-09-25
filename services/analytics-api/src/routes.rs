@@ -1,10 +1,31 @@
-use axum::{Router, routing::get};
+use axum::{
+    Router,
+    routing::{delete, get, post},
+};
 
 use crate::{handlers, state::AppState};
 
 pub(crate) fn router(state: AppState) -> Router {
     Router::new()
         .route("/health", get(handlers::health::health))
+        .route(
+            "/v1/admin/sites/{site_id}/capabilities",
+            get(crate::configuration::get_capabilities).put(crate::configuration::put_capabilities),
+        )
+        .route(
+            "/v1/admin/sites/{site_id}/environments/{environment}/ingest-policy",
+            get(crate::configuration::get_ingest_policy)
+                .post(crate::configuration::create_ingest_policy)
+                .put(crate::configuration::put_ingest_policy),
+        )
+        .route(
+            "/v1/admin/sites/{site_id}/environments/{environment}/ingest-keys",
+            post(crate::configuration::create_ingest_key),
+        )
+        .route(
+            "/v1/admin/sites/{site_id}/environments/{environment}/ingest-keys/{key_id}",
+            delete(crate::configuration::revoke_ingest_key),
+        )
         .route(
             "/v1/sites/{site_id}/overview",
             get(handlers::overview::overview),
