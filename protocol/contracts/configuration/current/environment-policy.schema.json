@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://web-analytics-platform.dev/contracts/configuration/current/environment-policy.schema.json",
+  "title": "Site Environment Ingest Policy",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "site_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "environment": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "allowed_origins": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^https?://[^/]+/?$"
+      }
+    },
+    "ingest_keys": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/storedKey"
+      }
+    },
+    "rate_limit_per_minute": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 600
+    }
+  },
+  "required": [
+    "schema_version",
+    "site_id",
+    "environment",
+    "version",
+    "updated_at",
+    "enabled",
+    "allowed_origins",
+    "ingest_keys",
+    "rate_limit_per_minute"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "storedKey": {
+      "type": "object",
+      "properties": {
+        "key_id": {
+          "type": "string",
+          "pattern": "^ik_[A-Za-z0-9_-]{8,64}$"
+        },
+        "sha256_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["key_id", "sha256_digest", "created_at"],
+      "additionalProperties": false
+    }
+  }
+}

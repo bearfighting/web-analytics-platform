@@ -1,0 +1,68 @@
+{
+  "cases": [
+    {
+      "id": "different-environments-cannot-share-origin",
+      "expected_valid": false,
+      "policies": [
+        {
+          "site_id": "site_demo",
+          "environment": "staging",
+          "allowed_origins": ["https://demo.example.com"]
+        },
+        {
+          "site_id": "site_demo",
+          "environment": "production",
+          "allowed_origins": ["https://demo.example.com"]
+        }
+      ]
+    },
+    {
+      "id": "different-sites-may-share-origin",
+      "expected_valid": true,
+      "policies": [
+        {
+          "site_id": "site_one",
+          "environment": "production",
+          "allowed_origins": ["https://shared.example.com"]
+        },
+        {
+          "site_id": "site_two",
+          "environment": "production",
+          "allowed_origins": ["https://shared.example.com"]
+        }
+      ]
+    },
+    {
+      "id": "duplicate-site-environment-rejected",
+      "expected_valid": false,
+      "policies": [
+        {
+          "site_id": "site_demo",
+          "environment": "production",
+          "allowed_origins": ["https://one.example.com"]
+        },
+        {
+          "site_id": "site_demo",
+          "environment": "production",
+          "allowed_origins": ["https://two.example.com"]
+        }
+      ]
+    },
+    {
+      "id": "normalized-origin-cannot-be-shared-across-environments",
+      "expected_valid": false,
+      "policies": [
+        {
+          "site_id": "site_demo",
+          "environment": "staging",
+          "allowed_origins": ["https://demo.example.com"]
+        },
+        {
+          "site_id": "site_demo",
+          "environment": "production",
+          "allowed_origins": ["https://demo.example.com/"]
+        }
+      ]
+    }
+  ]
+}

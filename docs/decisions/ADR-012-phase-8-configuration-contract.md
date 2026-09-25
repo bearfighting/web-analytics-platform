@@ -1,0 +1,28 @@
+# ADR-012：Phase 8 Configuration Contract
+
+- Status: Accepted
+- Date: 2026-09-24
+
+## Context
+
+Phase 8 adds user-managed capability and site-ingest configuration. Existing analytics facts are keyed by `site_id`; the Collector already resolves ingress policy by `site_id + environment`. Configuration must preserve those data boundaries, the canonical capability manifest, existing consent semantics, and the public Event Protocol.
+
+## Decisions
+
+1. Capability state, mandatory consent policy, and privacy constraints are site-scoped. Ingest policy is scoped to `site_id + environment`; environment is a non-empty identifier with no implicit default. An environment is resolved by the Collector and is not added to Event Protocol or analytics facts.
+2. Site capability configuration contains all ten currently implemented manifest capabilities. Each capability contains only `enabled` and an empty `settings` object. Unknown or unimplemented IDs, unknown fields, violated dependencies, and disabling Page Views are rejected. Conversion and Funnel definitions remain separate versioned resources managed in PR7.
+3. Page Views and all other capabilities preserve current enabled behavior by default, except `browser_context`, `anonymous_visitors`, `sessions`, and `dimensions`, which map from `analytics_enabled`. A true flag enables all four; a false flag or missing row disables all four. PR2 performs this deterministic mapping. The legacy column remains until PR5 runtime cutover and rollback verification pass.
+4. Consent is mandatory and cannot be disabled by site configuration. Browser collection requires explicit caller consent, defaults to denied, sends no events while denied, and stops future sends when consent is withdrawn. The privacy contract prohibits persisted IP and fingerprinting.
+5. When an independent event capability is disabled, Collector rejects its corresponding event without storing it. When a Page View-derived capability is disabled, Page Views continue to be accepted while that capability's payload fields are removed and no new corresponding facts are produced. Historical data is not deleted. Re-enabling affects future events only and does not trigger automatic backfill.
+6. Capability state and each environment policy have independent, monotonically increasing integer versions. Every mutation requires the current quoted ETag in `If-Match`. A stale version returns HTTP 409 with `configuration_version_conflict`; no partial update is applied. Invalid configuration returns 422, missing/invalid admin credentials return 401, missing or malformed If-Match returns 428, and unavailable persistence returns 503. Error details contain field paths and stable error codes, never submitted values.
+7. Collector, Processor, and Analytics API refresh managed configuration every five seconds. A running process keeps its last valid snapshot during storage outages and reports `stale`. A process with no initial valid snapshot fails closed except for health checks. Effective-state status has deterministic precedence: `stale` if any affected service is operating from a last-known snapshot because configuration storage is unavailable; otherwise `pending` until every affected service reports the stored version as applied; otherwise `current`. Thus storage staleness takes precedence over rollout progress.
+8. The configuration administration API uses a separate Bearer-authenticated namespace and deployment-managed `CONFIG_ADMIN_TOKENS`. The variable contains a JSON array of one or two unique, cryptographically random 32-byte Base64URL tokens. Two tokens may overlap during rotation; removing a token and reloading the secret revokes it. Tokens are compared in constant time and never logged or returned by an API.
+9. Dashboard calls the admin API only from its server-side BFF. Admin credentials are not sent to browsers or included in browser bundles. A deployment reverse proxy must protect both the Dashboard management entry point and admin API.
+10. Ingest Keys are 32-byte CSPRNG Base64URL values. Persistence stores only their SHA-256 digest and an opaque key ID. The plaintext is returned only by the successful create operation; active keys may overlap until explicitly revoked. Revocation removes the key from stored policy immediately and reaches running Collectors on their next successful refresh (nominally within five seconds). API reads return key IDs and creation times, never plaintext or digests.
+11. Every mutation writes an audit record containing the deployment-admin actor category, resource, resulting version, timestamp, and redacted change summary. It excludes all credentials, key plaintext, and key digests. Audit records are retained for one year.
+12. Conversion/Funnel definition revisions are separate from capability configuration. A revised definition applies to events after its effective time; existing facts remain associated with their original definition. Historical recomputation is explicit and names the definition revision; edits do not trigger automatic backfill.
+13. Geo provider, dataset, and parser versions are internal metadata, not user configuration. Dataset changes do not alter capability configuration versions. Historical Geo rebuilding can use stored enrichment only; raw IP is not retained or used for re-resolution.
+
+## Contract Artifacts
+
+The current JSON Schemas define persisted capability/policy documents, PUT request bodies, and redacted audit events. The OpenAPI document defines the protected routes, ETag preconditions, error envelopes, effective-state response, and one-time Ingest Key response. Fixtures and the validator are the machine-checkable contract; they do not change runtime behavior or add a database migration.

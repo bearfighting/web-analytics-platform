@@ -1,0 +1,48 @@
+{
+  "cases": [
+    {
+      "id": "missing-if-match",
+      "method": "PUT",
+      "if_match": null,
+      "expected_status": 428,
+      "expected_error": "configuration_precondition_required",
+      "partial_update": false,
+      "path": "/v1/admin/sites/{site_id}/capabilities"
+    },
+    {
+      "id": "stale-version",
+      "method": "PUT",
+      "if_match": "\"4\"",
+      "current_version": 5,
+      "expected_status": 409,
+      "expected_error": "configuration_version_conflict",
+      "partial_update": false,
+      "path": "/v1/admin/sites/{site_id}/capabilities"
+    },
+    {
+      "id": "configuration-invalid",
+      "method": "PUT",
+      "if_match": "\"5\"",
+      "expected_status": 422,
+      "expected_error": "configuration_validation_failed",
+      "partial_update": false,
+      "path": "/v1/admin/sites/{site_id}/environments/{environment}/ingest-policy"
+    },
+    {
+      "id": "create-ingest-key",
+      "method": "POST",
+      "expected_status": 201,
+      "plaintext_returned_once": true,
+      "stored_digest_exposed": false,
+      "path": "/v1/admin/sites/{site_id}/environments/{environment}/ingest-keys"
+    },
+    {
+      "id": "revoke-ingest-key",
+      "method": "DELETE",
+      "expected_status": 200,
+      "plaintext_returned_once": false,
+      "stored_digest_exposed": false,
+      "path": "/v1/admin/sites/{site_id}/environments/{environment}/ingest-keys/{key_id}"
+    }
+  ]
+}

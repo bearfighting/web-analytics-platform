@@ -1,0 +1,5 @@
+{
+  "enabled": true,
+  "allowed_origins": ["https://www.example.com"],
+  "rate_limit_per_minute": 600
+}

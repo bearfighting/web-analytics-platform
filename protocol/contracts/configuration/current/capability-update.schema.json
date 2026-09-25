@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://web-analytics-platform.dev/contracts/configuration/current/capability-update.schema.json",
+  "title": "Site Capability Update",
+  "type": "object",
+  "properties": {
+    "capabilities": {
+      "type": "object",
+      "properties": {
+        "page_views": {
+          "$ref": "#/$defs/capability"
+        },
+        "browser_context": {
+          "$ref": "#/$defs/capability"
+        },
+        "anonymous_visitors": {
+          "$ref": "#/$defs/capability"
+        },
+        "sessions": {
+          "$ref": "#/$defs/capability"
+        },
+        "dimensions": {
+          "$ref": "#/$defs/capability"
+        },
+        "custom_events": {
+          "$ref": "#/$defs/capability"
+        },
+        "web_vitals": {
+          "$ref": "#/$defs/capability"
+        },
+        "conversions": {
+          "$ref": "#/$defs/capability"
+        },
+        "funnels": {
+          "$ref": "#/$defs/capability"
+        },
+        "geo": {
+          "$ref": "#/$defs/capability"
+        }
+      },
+      "required": [
+        "page_views",
+        "browser_context",
+        "anonymous_visitors",
+        "sessions",
+        "dimensions",
+        "custom_events",
+        "web_vitals",
+        "conversions",
+        "funnels",
+        "geo"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": ["capabilities"],
+  "additionalProperties": false,
+  "$defs": {
+    "capability": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "settings": {
+          "type": "object",
+          "maxProperties": 0,
+          "additionalProperties": false
+        }
+      },
+      "required": ["enabled", "settings"],
+      "additionalProperties": false
+    }
+  }
+}

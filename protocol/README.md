@@ -10,6 +10,7 @@ events/fixtures/        Valid and invalid protocol fixtures
 contexts/               Unified Browser Context schema
 capabilities/            Internal Analytics capability contracts and dependencies
 contracts/<service>/    HTTP and Analytics API service contracts
+contracts/configuration/current/  Configuration schemas, admin API and audit contracts
 scenarios/<domain>/      Cross-service semantic scenarios
 ```
 

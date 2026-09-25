@@ -111,7 +111,7 @@ PR0 本轮审查的登记项如下；后续发现的问题追加到本表。`ser
 
 | 顺序 | PR                                                       | 范围与出口条件                                                                                                                                                                                                                                                                                                                                                                                   |
 | ---- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 0    | **PR0 — Pre-configuration Hardening**                    | 对照 §2.2 bug register 完成前序问题审查。本轮已登记的 PR0-001（P2）已修复并验证；closure record 见 §2.4。后续候选项按 §2.2 登记，并确认 P0/P1 关闭或明确阻塞。不得顺手加入配置功能。                                                                                                                                                                                                          |
+| 0    | **PR0 — Pre-configuration Hardening**                    | 对照 §2.2 bug register 完成前序问题审查。本轮已登记的 PR0-001（P2）已修复并验证；closure record 见 §2.4。后续候选项按 §2.2 登记，并确认 P0/P1 关闭或明确阻塞。不得顺手加入配置功能。                                                                                                                                                                                                             |
 | 0.5  | **PR0.5a–e — Dependencies and Build Tool Refresh**       | 实施和干净 checkout 出口验收已完成，版本与结果见 §2.5。TypeScript 7 与 ESLint 10 延期不阻止进入配置工作，按记录的重试条件跟进。                                                                                                                                                                                                                                                                  |
 | 1    | **PR1 — Configuration Semantics and Contracts**          | 新增 ADR 与可校验的配置/API contract。冻结配置主体及 site/environment 关系、旧 `analytics_enabled` 到 capability 默认值的映射、依赖与默认值、关闭后历史查询/重新开启/backfill、并发版本、服务不可用行为、Origin/identity 约束、consent 语义、部署级 admin credential 的 bootstrap 与 Dashboard 调用边界、Ingest Key 轮换/撤销/返回语义，以及配置审计和敏感字段规则。没有数据库 migration 或 UI。 |
 | 2    | **PR2 — Configuration Persistence and Migration**        | 按 PR1 冻结的 contract 实现配置表、约束、版本与 additive migration；为已有站点建立确定性默认配置并映射 `analytics_enabled`。旧字段在兼容窗口内保留，迁移重复执行、失败恢复和回滚路径均有测试；本 PR 不切换 Collector/Processor 的运行时读取。                                                                                                                                                    |
@@ -122,7 +122,26 @@ PR0 本轮审查的登记项如下；后续发现的问题追加到本表。`ser
 | 7    | **PR7 — Conversion/Funnel Definition Management**        | 独立实现定义的创建/编辑/停用、版本化、校验与 Dashboard 管理。冻结定义变化对已生成 facts、历史查询和 backfill 的影响；避免将业务定义 CRUD 与基础 capability 开关耦合。                                                                                                                                                                                                                            |
 | 8    | **PR8 — Configuration End-to-end Acceptance**            | 完成配置变更后的端到端 workflow：受保护写入 → 存储/版本递增 → Collector 与 Processor/API 生效 → Dashboard 展示；覆盖刷新、服务故障、回滚、历史边界和站点隔离。同步更新 Getting Started、运维/备份/恢复说明和 Phase 8 验收记录。MVP 最终浏览器矩阵、retention、发布与 clean Release Candidate 仍由 Release Readiness 负责。                                                                       |
 
-PR1 是模型与 migration 的硬性前置。PR2 先保留兼容路径，直到 PR4/PR5 的运行时切换和回滚验证完成；PR6 依赖 PR3–PR5 已提供且已验证的生效语义；PR7 可在 PR6 后独立实现，但必须先完成 PR1 对定义版本与历史重算的决策。PR8 只做跨层验收与部署文档，不承接未拆分的产品功能。
+PR1 是模型与 migration 的硬性前置，语义见 ADR-012 和 configuration contract。PR2 先保留兼容路径，直到 PR4/PR5 的运行时切换和回滚验证完成；PR6 依赖 PR3–PR5 已提供且已验证的生效语义；PR7 可在 PR6 后独立实现，并按 PR1 冻结的定义版本与历史重算规则执行。PR8 只做跨层验收与部署文档，不承接未拆分的产品功能。
+
+### 2.7 PR1：冻结的配置 Contract
+
+PR1 的静态 schemas、OpenAPI 和 fixtures 位于 `protocol/contracts/configuration/current/`；此处仅定义接口和语义，不实现持久化或运行时切换。
+
+- Site capability configuration 包含 manifest 中全部十项 implemented capability；每项只能有 `enabled` 和空 `settings`。未知字段/ID、关闭 Page Views、未满足依赖均拒绝。Consent 固定为 `required`，隐私约束固定包含不持久化 IP、不使用 fingerprinting 和必须取得 consent。
+- 新配置默认保留当前行为：Page Views 和其余 capability 默认开启。旧 `analytics_enabled=true` 将 Browser Context、Anonymous Visitors、Sessions、Dimensions 迁移为开启；false 或无旧记录则迁移为关闭；其余 capability 开启。PR2 执行映射，旧列在 PR5 运行时切换和回滚验证后再退役。
+- Environment policy 独立版本化，包含 enabled、Origin allowlist、active key metadata 和每分钟限流（默认 600）。Environment 是非空标识，不设默认值；同一 site + environment 唯一，同一 site 的不同 environment 不得共用 Origin。
+- 所有变更使用带引号的当前版本 ETag（`If-Match`）；版本冲突返回 409 `configuration_version_conflict`，不应用部分变更。校验失败返回 422，缺少 Admin 凭据返回 401，配置存储不可用返回 503。
+- Admin API 使用独立 `Authorization: Bearer`。部署通过 `CONFIG_ADMIN_TOKENS` 的 JSON array 提供一至两把唯一的 32-byte CSPRNG Base64URL 凭据以支持重叠轮换；移除旧值并 reload secret 即撤销，凭据以 constant-time 比较。Dashboard 只由服务端 BFF 调用 Admin API，浏览器 bundle 不含该 credential。
+- Ingest Key 使用 32-byte CSPRNG Base64URL key，服务端只保存 SHA-256 digest；创建响应是唯一一次返回明文的时机。轮换通过创建新 key 并在确认客户端切换后撤销旧 key；Collector 在下一次成功刷新后（正常不超过 5 秒）执行撤销。digest、明文和 Admin token 不进入日志或审计。
+- 每次配置变更记录 deployment-admin、对象、时间、版本及变更字段名；审计 schema 不接收变更值、凭据、Ingest Key 或其 digest，保留一年。
+- capability 和 environment policy 刷新间隔为 5 秒。运行中的服务在存储故障期间保留最后有效配置并标 stale；无启动快照时除健康检查外 fail closed。生效状态列出各相关服务的 applied version，全部追上 stored version 后才为 current。
+
+#### 2026-09-24 PR1 contract completion record
+
+- ADR-012、Site capability/Environment policy/Audit JSON Schemas、PUT request schemas、Admin API OpenAPI 和 valid/invalid fixtures 已冻结；Protocol validator 已纳入 contract 校验。
+- Legacy flag true/false/missing、依赖、consent、Page View baseline、Origin/environment 隔离、版本冲突、密钥一次性返回和审计脱敏均有自动校验。
+- 本 PR 未新增 SQL migration，也未修改服务运行时或 Event Protocol。PR1 contract 出口完成，可以开始 PR2。
 
 ## 3. 配置模型
 
@@ -132,39 +151,46 @@ PR1 是模型与 migration 的硬性前置。PR2 先保留兼容路径，直到 
 site
   id
   name
-  environment
-  enabled
 
 site_capabilities
   site_id
-  capability
-  enabled
-  settings
+  capabilities
+  consent_policy
+  privacy_constraints
   updated_at
   version
 
-site_ingest_policies
+site_environment_ingest_policies
   site_id
+  environment
+  enabled
   allowed_origins
-  public_ingest_keys
-  rate_limit_policy
+  ingest_key_digests
+  rate_limit_per_minute
   updated_at
   version
+
+configuration_audit
+  actor_kind
+  resource
+  version
+  redacted_change_summary
+  created_at
+  expires_at
 ```
 
-正式字段、索引和约束必须在实现前通过 migration design 和 ADR 冻结。
+上述字段是 PR1 的逻辑 contract；PR2 再设计具体 PostgreSQL 字段、索引、约束和 additive migration。审计保留期为一年。
 
 ## 4. 配置边界
 
 ### 用户可以配置
 
-- Page Views、Browser Context、Visitors、Sessions、Dimensions；
-- Custom Events 和 Web Vitals 的启用状态及必要设置；
+- Page Views、Browser Context、Visitors、Sessions、Dimensions、Custom Events、Web Vitals、Conversions、Funnels 和 Geo country 的启用状态；当前配置 contract 暂不接受 capability-specific settings；
 - Conversion 和 Funnel 定义；这些定义依赖 Phase 7 已冻结的事件 contract，但由 Phase 8 提供用户管理入口；
 - Geo country 的启用状态；region/city 只有在 Geo PR2 纳入本次 MVP release 后才允许配置精度级别；
 - Origin allowlist；
 - Ingest Key 的创建、轮换和撤销；
-- consent 和隐私选项。
+- consent 与隐私策略说明。Consent 是强制边界，站点不能关闭或绕过。
 
 ### 用户不能配置
 
@@ -199,7 +225,7 @@ funnels        → conversions / custom_events
 
 ## 6. 配置 API
 
-Analytics API 或独立受保护的 configuration namespace 必须提供：
+受保护的 configuration namespace 必须提供下列 contract；API 使用独立 deployment-admin Bearer credential，与公开 Ingest API 隔离：
 
 - 查询站点和 capability 状态；
 - 更新 capability；
@@ -209,24 +235,11 @@ Analytics API 或独立受保护的 configuration namespace 必须提供：
 - 返回校验错误、版本冲突和生效状态；
 - 配置审计记录。
 
-Dashboard 只调用配置 API，不直接访问 PostgreSQL。
+Dashboard 只通过服务端 BFF 调用配置 API，不直接访问 PostgreSQL，也不接触 Admin credential。部署反向代理必须保护 Dashboard 管理入口和配置 API。
 
 ## 7. 生效语义
 
-实现前必须通过 ADR 冻结以下规则：
-
-- 配置是 site 级还是 environment 级；
-- `version` 如何递增和检测并发更新；
-- Collector、Processor 和 API 的读取缓存及刷新间隔；
-- 配置服务暂时不可用时使用最后已知配置还是拒绝请求；
-- 已发送事件和新配置之间的边界；
-- capability 关闭后历史数据是否仍可查询；
-- capability 重新开启是否需要 backfill；
-- 配置回滚如何影响已经生成的事实；
-- Conversion/Funnel 定义变化是否触发历史重算；
-- Geo parser 或 dataset 变化是否生成新版本。
-
-默认行为是保留最后一次有效配置，并让配置变更只影响生效时间之后的新采集和处理行为；任何例外必须在 ADR 中说明。
+生效边界、版本冲突、刷新间隔、配置源故障、历史查询/backfill、定义 revision 和 Geo dataset 版本均由 PR1 的 [ADR-012](decisions/ADR-012-phase-8-configuration-contract.md) 冻结。后续实现必须遵循该决策；例外需先更新 ADR 和相应 contract fixtures。
 
 ## 8. Dashboard
 
@@ -244,7 +257,7 @@ Dashboard 不展示 Protocol 版本、schema、generation 或 parser rollout 信
 
 ## 9. 测试计划
 
-- 配置 schema 和 migration；
+- 配置 JSON Schema、OpenAPI contract 和 fixtures；migration 在 PR2 验收；
 - admin credential 和未授权请求；
 - 未知 capability、非法 settings 和依赖错误；
 - capability enable/disable；

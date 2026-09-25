@@ -1,0 +1,28 @@
+{
+  "cases": [
+    {
+      "id": "all-services-current",
+      "storage_available": true,
+      "all_affected_services_applied": true,
+      "expected_status": "current"
+    },
+    {
+      "id": "healthy-storage-rollout-pending",
+      "storage_available": true,
+      "all_affected_services_applied": false,
+      "expected_status": "pending"
+    },
+    {
+      "id": "stale-storage-after-rollout-current",
+      "storage_available": false,
+      "all_affected_services_applied": true,
+      "expected_status": "stale"
+    },
+    {
+      "id": "stale-storage-takes-precedence-over-pending",
+      "storage_available": false,
+      "all_affected_services_applied": false,
+      "expected_status": "stale"
+    }
+  ]
+}

@@ -1,0 +1,726 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Configuration Administration API",
+    "version": "1.0.0",
+    "description": "Deployment-admin contract. Dashboard calls this API from its server-side BFF; deployments must protect the Dashboard management entry point and this namespace with a trusted reverse proxy. Admin bearer credentials are never returned to browser clients."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "security": [
+    {
+      "configAdminBearer": []
+    }
+  ],
+  "paths": {
+    "/v1/admin/sites/{site_id}/capabilities": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/SiteId"
+        }
+      ],
+      "get": {
+        "operationId": "getSiteCapabilities",
+        "summary": "Read site-scoped capability state",
+        "responses": {
+          "200": {
+            "description": "Current stored configuration and runtime application state",
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/VersionETag"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilityConfigurationResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "put": {
+        "operationId": "putSiteCapabilities",
+        "summary": "Replace site-scoped capability state",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "capability-update.schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved; runtime application may still be pending",
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/VersionETag"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilityConfigurationResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/VersionConflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "428": {
+            "$ref": "#/components/responses/PreconditionRequired"
+          }
+        }
+      }
+    },
+    "/v1/admin/sites/{site_id}/environments/{environment}/ingest-policy": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/SiteId"
+        },
+        {
+          "$ref": "#/components/parameters/Environment"
+        }
+      ],
+      "get": {
+        "operationId": "getEnvironmentIngestPolicy",
+        "summary": "Read environment-scoped ingest policy",
+        "responses": {
+          "200": {
+            "description": "Current stored policy and Collector application state",
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/VersionETag"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestPolicyResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "put": {
+        "operationId": "putEnvironmentIngestPolicy",
+        "summary": "Replace environment-scoped ingest policy",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "environment-policy-update.schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved; Collector application may still be pending",
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/VersionETag"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestPolicyResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/VersionConflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "428": {
+            "$ref": "#/components/responses/PreconditionRequired"
+          }
+        }
+      }
+    },
+    "/v1/admin/sites/{site_id}/environments/{environment}/ingest-keys": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/SiteId"
+        },
+        {
+          "$ref": "#/components/parameters/Environment"
+        },
+        {
+          "$ref": "#/components/parameters/IfMatch"
+        }
+      ],
+      "post": {
+        "operationId": "createIngestKey",
+        "summary": "Create an ingest key; plaintext is returned once",
+        "description": "Creates a new high-entropy public ingest key. The response is the only time the plaintext key is returned. Existing keys remain active until explicitly revoked.",
+        "responses": {
+          "201": {
+            "description": "Key created; save the returned plaintext now",
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/VersionETag"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedIngestKey"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/VersionConflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "428": {
+            "$ref": "#/components/responses/PreconditionRequired"
+          }
+        }
+      }
+    },
+    "/v1/admin/sites/{site_id}/environments/{environment}/ingest-keys/{key_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/SiteId"
+        },
+        {
+          "$ref": "#/components/parameters/Environment"
+        },
+        {
+          "$ref": "#/components/parameters/KeyId"
+        },
+        {
+          "$ref": "#/components/parameters/IfMatch"
+        }
+      ],
+      "delete": {
+        "operationId": "revokeIngestKey",
+        "summary": "Revoke an ingest key immediately",
+        "responses": {
+          "200": {
+            "description": "Key removed from the active set; Collector application state is returned",
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/VersionETag"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestPolicyResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/VersionConflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "428": {
+            "$ref": "#/components/responses/PreconditionRequired"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "configAdminBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Deployment-managed secret. Bootstrap from CONFIG_ADMIN_TOKENS with one or two overlapping tokens. Never expose through a browser bundle."
+      }
+    },
+    "parameters": {
+      "SiteId": {
+        "name": "site_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "Environment": {
+        "name": "environment",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "KeyId": {
+        "name": "key_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^ik_[A-Za-z0-9_-]{8,64}$"
+        }
+      },
+      "IfMatch": {
+        "name": "If-Match",
+        "in": "header",
+        "required": true,
+        "description": "Current quoted configuration version; mutations with a stale version return 409 without partial changes.",
+        "schema": {
+          "type": "string",
+          "pattern": "^\"[1-9][0-9]*\"$"
+        }
+      }
+    },
+    "headers": {
+      "VersionETag": {
+        "description": "Quoted current configuration version.",
+        "schema": {
+          "type": "string",
+          "pattern": "^\"[1-9][0-9]*\"$"
+        }
+      }
+    },
+    "schemas": {
+      "EffectiveState": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "enum": ["pending", "current", "stale"],
+            "description": "Overall status precedence is stale > pending > current. Report stale if any affected service is using a last-known snapshot because configuration storage is unavailable. Otherwise report pending until all affected services have applied stored_version; report current when all have applied it."
+          },
+          "stored_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "applied_versions": {
+            "type": "object",
+            "properties": {
+              "collector": {
+                "type": ["integer", "null"],
+                "minimum": 1
+              },
+              "processor": {
+                "type": ["integer", "null"],
+                "minimum": 1
+              },
+              "analytics_api": {
+                "type": ["integer", "null"],
+                "minimum": 1
+              }
+            },
+            "required": ["collector", "processor", "analytics_api"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["status", "stored_version", "applied_versions"],
+        "additionalProperties": false
+      },
+      "CapabilityConfigurationResponse": {
+        "type": "object",
+        "properties": {
+          "configuration": {
+            "$ref": "capabilities.schema.json"
+          },
+          "effective_state": {
+            "$ref": "#/components/schemas/EffectiveState"
+          }
+        },
+        "required": ["configuration", "effective_state"],
+        "additionalProperties": false
+      },
+      "KeyMetadata": {
+        "type": "object",
+        "properties": {
+          "key_id": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["key_id", "created_at"],
+        "additionalProperties": false
+      },
+      "CreatedIngestKey": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/KeyMetadata"
+          },
+          "effective_state": {
+            "$ref": "#/components/schemas/EffectiveState"
+          }
+        },
+        "required": ["key", "metadata", "effective_state"],
+        "additionalProperties": false
+      },
+      "IngestPolicyResponse": {
+        "type": "object",
+        "properties": {
+          "policy": {
+            "type": "object",
+            "properties": {
+              "site_id": {
+                "type": "string"
+              },
+              "environment": {
+                "type": "string"
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "allowed_origins": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "keys": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/KeyMetadata"
+                }
+              },
+              "rate_limit_per_minute": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "site_id",
+              "environment",
+              "version",
+              "enabled",
+              "allowed_origins",
+              "keys",
+              "rate_limit_per_minute"
+            ],
+            "additionalProperties": false
+          },
+          "effective_state": {
+            "$ref": "#/components/schemas/EffectiveState"
+          }
+        },
+        "required": ["policy", "effective_state"],
+        "additionalProperties": false
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "enum": [
+                  "unauthorized",
+                  "not_found",
+                  "configuration_version_conflict",
+                  "configuration_validation_failed",
+                  "configuration_unavailable",
+                  "configuration_precondition_required"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "details": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["path", "code", "message"],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": ["code", "message"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["error"],
+        "additionalProperties": false
+      },
+      "UnauthorizedError": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Error"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "const": "unauthorized"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "NotFoundError": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Error"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "const": "not_found"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "VersionConflictError": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Error"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "const": "configuration_version_conflict"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ValidationErrorResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Error"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "const": "configuration_validation_failed"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "UnavailableError": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Error"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "const": "configuration_unavailable"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "PreconditionRequiredError": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Error"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "const": "configuration_precondition_required"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Missing or invalid configuration administrator credential.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/UnauthorizedError"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Site, environment, or key was not found.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/NotFoundError"
+            }
+          }
+        }
+      },
+      "VersionConflict": {
+        "description": "If-Match version is stale. No part of the mutation was applied.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/VersionConflictError"
+            }
+          }
+        }
+      },
+      "ValidationError": {
+        "description": "Configuration failed schema or semantic validation.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ValidationErrorResponse"
+            }
+          }
+        }
+      },
+      "Unavailable": {
+        "description": "Configuration persistence is unavailable. No mutation was applied.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/UnavailableError"
+            }
+          }
+        }
+      },
+      "PreconditionRequired": {
+        "description": "If-Match is missing or is not a quoted positive version.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PreconditionRequiredError"
+            }
+          }
+        }
+      }
+    }
+  }
+}

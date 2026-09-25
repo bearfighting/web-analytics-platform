@@ -28,7 +28,7 @@
     "docker:processing": "./scripts/docker-processing.sh",
     "db:migrate": "./scripts/db-migrate.sh",
     "test:migrations": "bash ./scripts/test-migrations.sh",
-    "protocol:validate": "node ./scripts/validate-protocol.mjs && node ./scripts/validate-contract-layout.mjs",
+    "protocol:validate": "node ./scripts/validate-protocol.mjs && node ./scripts/validate-contract-layout.mjs && node ./scripts/validate-configuration-contract.mjs",
     "capabilities:validate": "node ./scripts/validate-capabilities.mjs",
     "http:validate": "node ./scripts/validate-http-fixtures.mjs",
     "analytics:contract:validate": "node ./scripts/validate-analytics-api-contract.mjs",

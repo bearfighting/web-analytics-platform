@@ -1,0 +1,52 @@
+{
+  "cases": [
+    {
+      "id": "legacy-true",
+      "legacy_analytics_enabled": true,
+      "expected": {
+        "page_views": true,
+        "browser_context": true,
+        "anonymous_visitors": true,
+        "sessions": true,
+        "dimensions": true,
+        "custom_events": true,
+        "web_vitals": true,
+        "conversions": true,
+        "funnels": true,
+        "geo": true
+      }
+    },
+    {
+      "id": "legacy-false",
+      "legacy_analytics_enabled": false,
+      "expected": {
+        "page_views": true,
+        "browser_context": false,
+        "anonymous_visitors": false,
+        "sessions": false,
+        "dimensions": false,
+        "custom_events": true,
+        "web_vitals": true,
+        "conversions": true,
+        "funnels": true,
+        "geo": true
+      }
+    },
+    {
+      "id": "legacy-row-missing",
+      "legacy_analytics_enabled": null,
+      "expected": {
+        "page_views": true,
+        "browser_context": false,
+        "anonymous_visitors": false,
+        "sessions": false,
+        "dimensions": false,
+        "custom_events": true,
+        "web_vitals": true,
+        "conversions": true,
+        "funnels": true,
+        "geo": true
+      }
+    }
+  ]
+}

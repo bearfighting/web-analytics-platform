@@ -1,0 +1,46 @@
+{
+  "capabilities": {
+    "page_views": {
+      "enabled": true,
+      "settings": {}
+    },
+    "browser_context": {
+      "enabled": true,
+      "settings": {}
+    },
+    "anonymous_visitors": {
+      "enabled": true,
+      "settings": {}
+    },
+    "sessions": {
+      "enabled": true,
+      "settings": {}
+    },
+    "dimensions": {
+      "enabled": true,
+      "settings": {}
+    },
+    "custom_events": {
+      "enabled": true,
+      "settings": {
+        "max_depth": 4
+      }
+    },
+    "web_vitals": {
+      "enabled": true,
+      "settings": {}
+    },
+    "conversions": {
+      "enabled": true,
+      "settings": {}
+    },
+    "funnels": {
+      "enabled": true,
+      "settings": {}
+    },
+    "geo": {
+      "enabled": true,
+      "settings": {}
+    }
+  }
+}

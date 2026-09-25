@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://web-analytics-platform.dev/contracts/configuration/current/audit-event.schema.json",
+  "title": "Configuration Audit Event",
+  "type": "object",
+  "properties": {
+    "schema_version": { "const": 1 },
+    "actor_kind": { "const": "deployment_admin" },
+    "resource": {
+      "type": "object",
+      "properties": {
+        "kind": { "enum": ["site_capabilities", "environment_policy", "ingest_key"] },
+        "site_id": { "type": "string", "minLength": 1 },
+        "environment": { "type": "string", "minLength": 1 },
+        "key_id": { "type": "string", "pattern": "^ik_[A-Za-z0-9_-]{8,64}$" }
+      },
+      "required": ["kind", "site_id"],
+      "additionalProperties": false
+    },
+    "version": { "type": "integer", "minimum": 1 },
+    "operation": { "enum": ["created", "updated", "revoked"] },
+    "changed_fields": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "capabilities",
+          "environment.enabled",
+          "environment.allowed_origins",
+          "environment.rate_limit_per_minute",
+          "environment.ingest_keys"
+        ]
+      }
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "expires_at": { "type": "string", "format": "date-time" }
+  },
+  "required": [
+    "schema_version",
+    "actor_kind",
+    "resource",
+    "version",
+    "operation",
+    "changed_fields",
+    "created_at",
+    "expires_at"
+  ],
+  "additionalProperties": false
+}
