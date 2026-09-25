@@ -72,17 +72,21 @@ async fn serve(args: ServeArgs) -> Result<(), CollectorError> {
         .map_err(|error| {
             CollectorError::GeoConfiguration(format!("invalid GEOIP_TRUSTED_PROXIES: {error}"))
         })?;
-    let app = collector::http::router_with_geo(
+    let capabilities = configuration_runtime::CapabilityRuntime::new(sink.pool(), "collector")
+        .map_err(CollectorError::RuntimeConfiguration)?;
+    let app = collector::http::router_with_capabilities(
         validator,
         sink.clone(),
         policy,
         RateLimiter::new(),
         Some(geo),
         trusted_proxies,
+        Some(capabilities.clone()),
     );
 
     let listener = tokio::net::TcpListener::bind(address).await?;
     runtime.spawn();
+    capabilities.spawn();
 
     info!(
         service = "collector",

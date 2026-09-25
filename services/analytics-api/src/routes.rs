@@ -1,11 +1,12 @@
 use axum::{
-    Router,
+    Router, middleware,
     routing::{delete, get, post},
 };
 
 use crate::{handlers, state::AppState};
 
 pub(crate) fn router(state: AppState) -> Router {
+    state.capabilities.spawn();
     Router::new()
         .route("/health", get(handlers::health::health))
         .route(
@@ -74,5 +75,9 @@ pub(crate) fn router(state: AppState) -> Router {
             "/v1/sites/{site_id}/reports/{from}/{to}/dimensions/{dimension}",
             get(handlers::phase6::dimensions),
         )
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            crate::capability_runtime::gate,
+        ))
         .with_state(state)
 }

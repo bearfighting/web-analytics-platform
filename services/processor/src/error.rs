@@ -4,6 +4,10 @@ use thiserror::Error;
 pub enum ProcessorError {
     #[error("processor database operation failed: {0}")]
     Database(#[from] sqlx::Error),
+    #[error("capability configuration unavailable for site {0}")]
+    CapabilityConfigurationUnavailable(String),
+    #[error("capability is disabled for site {0}")]
+    CapabilityDisabled(String),
     #[error("analytics definitions are invalid: {0}")]
     InvalidDefinitions(String),
     #[error("raw event {0} has an invalid custom event payload")]

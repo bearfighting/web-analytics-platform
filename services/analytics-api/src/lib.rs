@@ -1,4 +1,5 @@
 mod auth;
+mod capability_runtime;
 mod config_store;
 mod configuration;
 mod errors;

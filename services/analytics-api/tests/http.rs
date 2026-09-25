@@ -24,7 +24,56 @@ async fn body(response: axum::response::Response) -> serde_json::Value {
     serde_json::from_slice(&bytes).expect("response should be JSON")
 }
 
+async fn seed_capabilities(pool: &PgPool, site_id: &str) {
+    let updated_at = Utc::now();
+    let timestamp = updated_at.to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
+    let capabilities = [
+        "page_views",
+        "browser_context",
+        "anonymous_visitors",
+        "sessions",
+        "dimensions",
+        "custom_events",
+        "web_vitals",
+        "conversions",
+        "funnels",
+        "geo",
+    ]
+    .into_iter()
+    .map(|name| {
+        (
+            name.to_owned(),
+            serde_json::json!({"enabled":true,"settings":{}}),
+        )
+    })
+    .collect::<serde_json::Map<_, _>>();
+    let document = serde_json::json!({
+        "schema_version": 1, "site_id": site_id, "version": 1, "updated_at": timestamp,
+        "capabilities": capabilities, "consent_policy": "required",
+        "privacy_constraints": ["no_ip_persistence","no_fingerprinting","consent_required"]
+    });
+    sqlx::query("INSERT INTO site_capability_configurations (site_id, version, updated_at, document) VALUES ($1, 1, $2, $3) ON CONFLICT (site_id) DO UPDATE SET version=1, updated_at=EXCLUDED.updated_at, document=EXCLUDED.document")
+        .bind(site_id).bind(updated_at).bind(document).execute(pool).await.unwrap();
+    sqlx::query("DELETE FROM site_capability_activation_windows WHERE site_id=$1")
+        .bind(site_id)
+        .execute(pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO site_capability_activation_windows(site_id,capability_id,enabled_since) SELECT $1, capability_id, '0001-01-01T00:00:00Z' FROM unnest(ARRAY['page_views','browser_context','anonymous_visitors','sessions','dimensions','custom_events','web_vitals','conversions','funnels','geo']::text[]) AS capability_id")
+        .bind(site_id).execute(pool).await.unwrap();
+}
+
 async fn reset(pool: &PgPool, site_id: &str) {
+    sqlx::query("DELETE FROM configuration_capability_runtime_state WHERE site_id=$1")
+        .bind(site_id)
+        .execute(pool)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM site_capability_configurations WHERE site_id=$1")
+        .bind(site_id)
+        .execute(pool)
+        .await
+        .unwrap();
     for table in ["page_view_routes", "page_view_daily", "page_view_totals"] {
         sqlx::query(sqlx::AssertSqlSafe(format!(
             "DELETE FROM {table} WHERE site_id = $1"
@@ -34,9 +83,15 @@ async fn reset(pool: &PgPool, site_id: &str) {
         .await
         .unwrap();
     }
+    seed_capabilities(pool, site_id).await;
 }
 
 async fn reset_phase6(pool: &PgPool, site_id: &str) {
+    sqlx::query("DELETE FROM configuration_capability_runtime_state WHERE site_id=$1")
+        .bind(site_id)
+        .execute(pool)
+        .await
+        .unwrap();
     for table in [
         "geo_country_facts",
         "geo_event_metadata",
@@ -51,6 +106,7 @@ async fn reset_phase6(pool: &PgPool, site_id: &str) {
         "analytics_rebuild_queue",
         "analytics_generations",
         "analytics_feature_flags",
+        "site_capability_configurations",
         "raw_events",
         "page_view_daily",
         "page_view_routes",
@@ -64,6 +120,7 @@ async fn reset_phase6(pool: &PgPool, site_id: &str) {
         .await
         .unwrap();
     }
+    seed_capabilities(pool, site_id).await;
 }
 
 fn app(pool: PgPool) -> axum::Router {
@@ -274,8 +331,7 @@ async fn analytics_http_contract_returns_aggregates_and_validates_queries() {
         )
         .await
         .unwrap();
-    assert_eq!(response.status(), 200);
-    assert_eq!(body(response).await["items"], serde_json::json!([]));
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
     let response = app(pool.clone())
         .oneshot(
             Request::get("/v1/sites/site_missing/overview")
@@ -284,8 +340,7 @@ async fn analytics_http_contract_returns_aggregates_and_validates_queries() {
         )
         .await
         .unwrap();
-    assert_eq!(response.status(), 200);
-    assert_eq!(body(response).await["page_views"], 0);
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
     reset(&pool, site).await;
 }
 
@@ -594,10 +649,15 @@ async fn phase6_reports_expose_rebuild_state_without_active_generation() {
 
 #[tokio::test]
 #[ignore = "requires DATABASE_URL and PostgreSQL"]
-async fn phase6_reports_return_not_enabled_without_flag() {
+async fn phase6_reports_fail_closed_without_capability_configuration() {
     let pool = pool().await;
     let site = "analytics_api_phase6_disabled";
     reset_phase6(&pool, site).await;
+    sqlx::query("DELETE FROM site_capability_configurations WHERE site_id=$1")
+        .bind(site)
+        .execute(&pool)
+        .await
+        .unwrap();
     let response = app(pool)
         .oneshot(
             Request::get(format!(
@@ -608,10 +668,10 @@ async fn phase6_reports_return_not_enabled_without_flag() {
         )
         .await
         .unwrap();
-    assert_eq!(response.status(), 404);
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(
         body(response).await["error"]["code"],
-        "analytics_not_enabled"
+        "configuration_unavailable"
     );
 }
 
@@ -668,12 +728,12 @@ async fn analytics_errors_are_generic() {
         )
         .await
         .unwrap();
-    assert_eq!(response.status(), 500);
+    assert_eq!(response.status(), 503);
     let value = body(response).await;
-    assert_eq!(value["error"]["code"], "analytics_api_error");
+    assert_eq!(value["error"]["code"], "configuration_unavailable");
     assert_eq!(
         value["error"]["message"],
-        "Analytics API failed to complete the request"
+        "Capability configuration is unavailable"
     );
 }
 
@@ -762,6 +822,7 @@ async fn geo_country_report_includes_unknown_and_is_site_scoped() {
         .unwrap();
     assert_eq!(body(pending).await["freshness_status"], "stale");
 
+    seed_capabilities(&pool, "another_geo_api_test").await;
     let other = app(pool)
         .oneshot(
             Request::get("/v1/sites/another_geo_api_test/reports/2026-09-18/2026-09-18/geo")
@@ -990,6 +1051,8 @@ async fn configuration_api_creates_empty_policy_then_issues_and_revokes_key_atom
     .execute(&pool)
     .await
     .unwrap();
+    sqlx::query("INSERT INTO site_capability_activation_windows(site_id,capability_id,enabled_since) SELECT $1, capability_id, '0001-01-01T00:00:00Z' FROM unnest(ARRAY['page_views','browser_context','anonymous_visitors','sessions','dimensions','custom_events','web_vitals','conversions','funnels','geo']::text[]) AS capability_id")
+        .bind(site_id).execute(&pool).await.unwrap();
 
     let token = URL_SAFE_NO_PAD.encode([27_u8; 32]);
     let app = admin_app(pool.clone(), &token);
@@ -1445,4 +1508,84 @@ async fn configuration_api_creates_empty_policy_then_issues_and_revokes_key_atom
     assert!(!audit_text.contains(plaintext));
     assert!(!audit_text.contains(&digest));
     clear_configuration_site(&pool, site_id).await;
+}
+
+#[tokio::test]
+#[ignore = "requires DATABASE_URL and PostgreSQL"]
+async fn capability_effective_state_aggregates_services_and_versions() {
+    let pool = pool().await;
+    let site = "capability_runtime_aggregate_test";
+    reset(&pool, site).await;
+    sqlx::query("DELETE FROM configuration_capability_runtime_instances")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let token = URL_SAFE_NO_PAD.encode([61_u8; 32]);
+    let app = admin_app(pool.clone(), &token);
+    let path = format!("/v1/admin/sites/{site}/capabilities");
+
+    let request = || {
+        Request::get(&path)
+            .header("authorization", format!("Bearer {token}"))
+            .body(axum::body::Body::empty())
+            .unwrap()
+    };
+    let no_history = app.clone().oneshot(request()).await.unwrap();
+    assert_eq!(no_history.status(), StatusCode::OK);
+    let no_history = body(no_history).await;
+    assert_eq!(no_history["effective_state"]["status"], "pending");
+    assert_eq!(
+        no_history["effective_state"]["applied_versions"]["collector"],
+        serde_json::Value::Null
+    );
+    assert_eq!(
+        no_history["effective_state"]["applied_versions"]["processor"],
+        serde_json::Value::Null
+    );
+
+    sqlx::query("INSERT INTO configuration_capability_runtime_instances (service,instance_id,refresh_status,last_seen_at) VALUES ('collector','pr5-collector','current',NOW()),('processor','pr5-processor','current',NOW()),('analytics_api','pr5-api01','current',NOW())")
+        .execute(&pool).await.unwrap();
+    sqlx::query("INSERT INTO configuration_capability_runtime_state (service,instance_id,site_id,applied_version,refresh_status,last_seen_at) VALUES ('collector','pr5-collector',$1,1,'current',NOW()),('processor','pr5-processor',$1,1,'current',NOW()),('analytics_api','pr5-api01',$1,1,'current',NOW())")
+        .bind(site).execute(&pool).await.unwrap();
+    sqlx::query("UPDATE configuration_capability_runtime_state SET applied_version=1,refresh_status='current',last_seen_at=NOW() WHERE site_id=$1 AND service='analytics_api'")
+        .bind(site).execute(&pool).await.unwrap();
+    let version_one = app.clone().oneshot(request()).await.unwrap();
+    assert_eq!(
+        body(version_one).await["effective_state"]["status"],
+        "current"
+    );
+
+    let mut capabilities = capability_document(site).1["capabilities"].clone();
+    capabilities["geo"]["enabled"] = serde_json::json!(false);
+    let changed = app
+        .clone()
+        .oneshot(
+            Request::put(&path)
+                .header("authorization", format!("Bearer {token}"))
+                .header("if-match", "\"1\"")
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::json!({"capabilities":capabilities}).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(changed.status(), StatusCode::OK);
+    assert_eq!(body(changed).await["effective_state"]["status"], "pending");
+
+    sqlx::query("UPDATE configuration_capability_runtime_state SET applied_version=2,last_seen_at=NOW() WHERE site_id=$1")
+        .bind(site).execute(&pool).await.unwrap();
+    let caught_up = app.clone().oneshot(request()).await.unwrap();
+    assert_eq!(
+        body(caught_up).await["effective_state"]["status"],
+        "current"
+    );
+
+    sqlx::query("UPDATE configuration_capability_runtime_state SET refresh_status='stale' WHERE site_id=$1 AND service='processor'")
+        .bind(site).execute(&pool).await.unwrap();
+    let stale = app.clone().oneshot(request()).await.unwrap();
+    let stale = body(stale).await;
+    assert_eq!(stale["effective_state"]["status"], "stale");
+    assert_eq!(stale["effective_state"]["applied_versions"]["collector"], 2);
 }

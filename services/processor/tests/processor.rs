@@ -8,12 +8,71 @@ fn database_url() -> String {
         .expect("DATABASE_URL must point to the integration PostgreSQL database")
 }
 
+async fn seed_capabilities(pool: &PgPool, site_id: &str, phase6_dimensions_enabled: bool) {
+    let updated_at = Utc::now();
+    let timestamp = updated_at.to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
+    let enabled = phase6_dimensions_enabled;
+    let capabilities = serde_json::json!({
+        "page_views":{"enabled":true,"settings":{}},
+        "browser_context":{"enabled":enabled,"settings":{}},
+        "anonymous_visitors":{"enabled":enabled,"settings":{}},
+        "sessions":{"enabled":enabled,"settings":{}},
+        "dimensions":{"enabled":enabled,"settings":{}},
+        "custom_events":{"enabled":true,"settings":{}},
+        "web_vitals":{"enabled":true,"settings":{}},
+        "conversions":{"enabled":true,"settings":{}},
+        "funnels":{"enabled":true,"settings":{}},
+        "geo":{"enabled":true,"settings":{}}
+    });
+    let document = serde_json::json!({
+        "schema_version":1,"site_id":site_id,"version":1,"updated_at":timestamp,
+        "capabilities":capabilities,"consent_policy":"required",
+        "privacy_constraints":["no_ip_persistence","no_fingerprinting","consent_required"]
+    });
+    sqlx::query("INSERT INTO site_capability_configurations(site_id,version,updated_at,document) VALUES($1,1,$2,$3) ON CONFLICT(site_id) DO UPDATE SET version=1,updated_at=EXCLUDED.updated_at,document=EXCLUDED.document")
+        .bind(site_id).bind(updated_at).bind(document).execute(pool).await.unwrap();
+    sqlx::query("DELETE FROM site_capability_activation_windows WHERE site_id=$1")
+        .bind(site_id)
+        .execute(pool)
+        .await
+        .unwrap();
+    let enabled_ids: &[&str] = if phase6_dimensions_enabled {
+        &[
+            "page_views",
+            "browser_context",
+            "anonymous_visitors",
+            "sessions",
+            "dimensions",
+            "custom_events",
+            "web_vitals",
+            "conversions",
+            "funnels",
+            "geo",
+        ]
+    } else {
+        &[
+            "page_views",
+            "custom_events",
+            "web_vitals",
+            "conversions",
+            "funnels",
+            "geo",
+        ]
+    };
+    for capability_id in enabled_ids {
+        sqlx::query("INSERT INTO site_capability_activation_windows(site_id,capability_id,enabled_since) VALUES($1,$2,'0001-01-01T00:00:00Z')")
+            .bind(site_id).bind(capability_id).execute(pool).await.unwrap();
+    }
+}
+
 async fn setup() -> (Processor, PgPool) {
     let pool = PgPoolOptions::new()
         .max_connections(4)
         .connect(&database_url())
         .await
         .expect("integration database should be reachable");
+    sqlx::query("TRUNCATE configuration_capability_runtime_state, configuration_capability_runtime_instances, site_capability_configurations CASCADE")
+        .execute(&pool).await.expect("capability runtime state should be writable");
     sqlx::query(
         "TRUNCATE analytics_rebuild_queue, dimension_event_facts, dimension_daily,
             normalized_event_context,
@@ -38,6 +97,7 @@ async fn insert_raw_event(
     occurred_at: DateTime<Utc>,
     path: &str,
 ) {
+    seed_capabilities(pool, site_id, true).await;
     sqlx::query(
         "INSERT INTO raw_events
             (site_id, event_id, schema_version, event_type, occurred_at,
@@ -69,6 +129,7 @@ async fn insert_identified_event(
     occurred_at: DateTime<Utc>,
     path: &str,
 ) {
+    seed_capabilities(pool, site_id, true).await;
     sqlx::query(
         "INSERT INTO raw_events
             (site_id, event_id, schema_version, event_type, occurred_at,
@@ -371,7 +432,7 @@ async fn rebuild_writes_generation_facts_without_mutating_raw_payload() {
 
 #[tokio::test]
 #[ignore = "requires PostgreSQL; run pnpm test:integration"]
-async fn analytics_disabled_keeps_page_view_workflow_without_rebuild_queue() {
+async fn disabled_phase6_capabilities_keep_page_view_workflow_without_rebuild_queue() {
     let (processor, pool) = setup().await;
     insert_raw_event(
         &pool,
@@ -405,6 +466,7 @@ async fn analytics_disabled_keeps_page_view_workflow_without_rebuild_queue() {
 async fn no_visitor_event_contributes_dimensions_only_after_site_rebuild() {
     let (processor, pool) = setup().await;
     let site_id = "site_phase6_no_visitor";
+    seed_capabilities(&pool, site_id, true).await;
     let occurred_at: DateTime<Utc> = "2026-09-18T12:00:00Z".parse().unwrap();
     sqlx::query(
         "INSERT INTO analytics_feature_flags (site_id, analytics_enabled)
@@ -513,7 +575,7 @@ async fn no_visitor_event_contributes_dimensions_only_after_site_rebuild() {
 
 #[tokio::test]
 #[ignore = "requires PostgreSQL; run pnpm test:integration"]
-async fn disabled_analytics_pauses_pending_rebuild_without_activation() {
+async fn disabled_phase6_capabilities_pause_pending_rebuild_without_activation() {
     let (processor, pool) = setup().await;
     let site_id = "site_paused_queue";
     let day = NaiveDate::from_ymd_opt(2026, 9, 18).unwrap();
@@ -526,6 +588,7 @@ async fn disabled_analytics_pauses_pending_rebuild_without_activation() {
     .execute(&pool)
     .await
     .unwrap();
+    seed_capabilities(&pool, site_id, false).await;
     processor
         .enqueue_rebuild(site_id, day, day, "incremental", "woothee-0.13.0")
         .await
@@ -919,6 +982,7 @@ async fn once_cli_processes_the_backlog() {
 #[ignore = "requires PostgreSQL; run pnpm test:integration"]
 async fn rebuilds_geo_country_facts_from_saved_enrichment() {
     let (processor, pool) = setup().await;
+    seed_capabilities(&pool, "site_geo", true).await;
     let raw_id = sqlx::query_scalar::<_, i64>(
         "INSERT INTO raw_events(site_id,event_id,schema_version,event_type,occurred_at,received_at,path,payload,processed_at)
          VALUES('site_geo','01J00000000000000000000201',1,'page_view','2026-09-18T12:00:00Z','2026-09-18T12:00:01Z','/','{}',NOW()) RETURNING id",
@@ -947,4 +1011,59 @@ async fn rebuilds_geo_country_facts_from_saved_enrichment() {
         .await
         .unwrap();
     assert_eq!(row.get::<String, _>("country_code"), "unknown");
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL; run pnpm test:integration"]
+async fn disabled_custom_event_capability_marks_input_processed_without_creating_facts() {
+    let (processor, pool) = setup().await;
+    let site_id = "site_custom_capability_disabled";
+    seed_capabilities(&pool, site_id, true).await;
+    let now = Utc::now();
+    let mut document: serde_json::Value =
+        sqlx::query_scalar("SELECT document FROM site_capability_configurations WHERE site_id=$1")
+            .bind(site_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    document["version"] = json!(2);
+    document["updated_at"] = json!(now.to_rfc3339_opts(chrono::SecondsFormat::Micros, true));
+    for capability in ["custom_events", "conversions", "funnels"] {
+        document["capabilities"][capability]["enabled"] = json!(false);
+        sqlx::query(
+            "DELETE FROM site_capability_activation_windows WHERE site_id=$1 AND capability_id=$2",
+        )
+        .bind(site_id)
+        .bind(capability)
+        .execute(&pool)
+        .await
+        .unwrap();
+    }
+    sqlx::query("UPDATE site_capability_configurations SET version=2,updated_at=$2,document=$3 WHERE site_id=$1")
+        .bind(site_id)
+        .bind(now)
+        .bind(document)
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query(
+        "INSERT INTO raw_events(site_id,event_id,schema_version,event_type,occurred_at,received_at,payload)
+         VALUES($1,'01J00000000000000000000202',1,'custom_event',NOW(),NOW(),
+         '{\"schema_version\":1,\"event_id\":\"01J00000000000000000000202\",\"type\":\"custom_event\",\"site_id\":\"site_custom_capability_disabled\",\"occurred_at\":1760000000000,\"event_name\":\"signup\",\"properties\":{}}'::jsonb)",
+    )
+    .bind(site_id)
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(processor.process_all_once().await.unwrap(), 1);
+    let (processed, facts): (Option<DateTime<Utc>>, i64) = sqlx::query_as(
+        "SELECT raw.processed_at,(SELECT COUNT(*) FROM custom_event_facts facts WHERE facts.site_id=raw.site_id) FROM raw_events raw WHERE raw.site_id=$1",
+    )
+    .bind(site_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(processed.is_some());
+    assert_eq!(facts, 0);
 }

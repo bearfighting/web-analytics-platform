@@ -1,19 +1,23 @@
 use sqlx::PgPool;
 
 use crate::auth::AdminTokens;
+use configuration_runtime::CapabilityRuntime;
 
 #[derive(Clone)]
 pub struct AppState {
     pub(crate) pool: PgPool,
     pub(crate) definition_version: String,
     pub(crate) admin_tokens: Option<AdminTokens>,
+    pub(crate) capabilities: CapabilityRuntime,
 }
 
 pub fn state_with_definition_version(pool: PgPool, definition_version: String) -> AppState {
     AppState {
-        pool,
+        pool: pool.clone(),
         definition_version,
         admin_tokens: None,
+        capabilities: CapabilityRuntime::new(pool.clone(), "analytics_api")
+            .expect("embedded capability schema must compile"),
     }
 }
 
@@ -24,8 +28,10 @@ pub fn state_with_admin_tokens(mut state: AppState, admin_tokens: Option<AdminTo
 
 pub fn state(pool: PgPool) -> AppState {
     AppState {
-        pool,
+        pool: pool.clone(),
         definition_version: "1".to_owned(),
         admin_tokens: None,
+        capabilities: CapabilityRuntime::new(pool.clone(), "analytics_api")
+            .expect("embedded capability schema must compile"),
     }
 }

@@ -515,7 +515,8 @@ DECLARE
     20260924001200,
     20260925001300,
     20260925001400,
-    20260925001500
+    20260925001500,
+    20260925001600
   ];
   actual_migrations bigint[];
 BEGIN
@@ -557,7 +558,10 @@ DECLARE
     'site_environment_policies',
     'configuration_audit',
     'configuration_runtime_state',
-    'configuration_runtime_instances'
+    'configuration_runtime_instances',
+    'configuration_capability_runtime_instances',
+    'configuration_capability_runtime_state',
+    'site_capability_activation_windows'
   ];
   missing_table text;
 BEGIN
@@ -622,6 +626,26 @@ BEGIN
        AND conrelid = 'public.configuration_runtime_instances'::regclass
   ) THEN
     RAISE EXCEPTION 'Collector instance heartbeat constraints are missing';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conname = 'configuration_capability_runtime_instances_pkey'
+       AND conrelid = 'public.configuration_capability_runtime_instances'::regclass
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conname = 'configuration_capability_runtime_state_pkey'
+       AND conrelid = 'public.configuration_capability_runtime_state'::regclass
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conname = 'configuration_capability_runtime_state_check'
+       AND conrelid = 'public.configuration_capability_runtime_state'::regclass
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conname = 'site_capability_activation_windows_pkey'
+       AND conrelid = 'public.site_capability_activation_windows'::regclass
+  ) THEN
+    RAISE EXCEPTION 'Capability runtime status constraints are missing';
   END IF;
 END
 $$;

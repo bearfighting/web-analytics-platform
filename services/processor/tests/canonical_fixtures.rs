@@ -8,12 +8,56 @@ fn database_url() -> String {
         .expect("DATABASE_URL must point to the integration PostgreSQL database")
 }
 
+async fn seed_capabilities(pool: &PgPool, site_id: &str) {
+    let updated_at = Utc::now();
+    let timestamp = updated_at.to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
+    let capabilities = serde_json::json!({
+        "page_views":{"enabled":true,"settings":{}},
+        "browser_context":{"enabled":true,"settings":{}},
+        "anonymous_visitors":{"enabled":true,"settings":{}},
+        "sessions":{"enabled":true,"settings":{}},
+        "dimensions":{"enabled":true,"settings":{}},
+        "custom_events":{"enabled":true,"settings":{}},
+        "web_vitals":{"enabled":true,"settings":{}},
+        "conversions":{"enabled":true,"settings":{}},
+        "funnels":{"enabled":true,"settings":{}},
+        "geo":{"enabled":true,"settings":{}}
+    });
+    let document = serde_json::json!({"schema_version":1,"site_id":site_id,"version":1,"updated_at":timestamp,
+        "capabilities":capabilities,"consent_policy":"required",
+        "privacy_constraints":["no_ip_persistence","no_fingerprinting","consent_required"]});
+    sqlx::query("INSERT INTO site_capability_configurations(site_id,version,updated_at,document) VALUES($1,1,$2,$3) ON CONFLICT(site_id) DO UPDATE SET version=1,updated_at=EXCLUDED.updated_at,document=EXCLUDED.document")
+        .bind(site_id).bind(updated_at).bind(document).execute(pool).await.unwrap();
+    sqlx::query("DELETE FROM site_capability_activation_windows WHERE site_id=$1")
+        .bind(site_id)
+        .execute(pool)
+        .await
+        .unwrap();
+    for capability_id in [
+        "page_views",
+        "browser_context",
+        "anonymous_visitors",
+        "sessions",
+        "dimensions",
+        "custom_events",
+        "web_vitals",
+        "conversions",
+        "funnels",
+        "geo",
+    ] {
+        sqlx::query("INSERT INTO site_capability_activation_windows(site_id,capability_id,enabled_since) VALUES($1,$2,'0001-01-01T00:00:00Z')")
+            .bind(site_id).bind(capability_id).execute(pool).await.unwrap();
+    }
+}
+
 async fn setup() -> (Processor, PgPool) {
     let pool = PgPoolOptions::new()
         .max_connections(4)
         .connect(&database_url())
         .await
         .expect("integration database should be reachable");
+    sqlx::query("TRUNCATE configuration_capability_runtime_state, configuration_capability_runtime_instances, site_capability_configurations CASCADE")
+        .execute(&pool).await.expect("capability runtime state should be writable");
     sqlx::query(
         "TRUNCATE analytics_rebuild_queue, dimension_event_facts, dimension_daily,
             normalized_event_context,
@@ -69,6 +113,7 @@ async fn canonical_fixtures_match_processor_aggregates() {
 }
 
 async fn insert_fixture_event(pool: &PgPool, event: &Value, received_at: DateTime<Utc>) {
+    seed_capabilities(pool, event["site_id"].as_str().unwrap()).await;
     let occurred_at =
         DateTime::<Utc>::from_timestamp_millis(event["occurred_at"].as_i64().unwrap()).unwrap();
     sqlx::query(

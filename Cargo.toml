@@ -1,5 +1,6 @@
 [workspace]
 members = [
+	"crates/configuration-runtime",
     "services/analytics-api",
     "services/collector",
     "services/processor",
@@ -12,6 +13,7 @@ version = "0.1.0"
 edition = "2024"
 
 [workspace.dependencies]
+configuration-runtime = { path = "crates/configuration-runtime" }
 anyhow = "1"
 async-trait = "0.1"
 axum = "0.8"

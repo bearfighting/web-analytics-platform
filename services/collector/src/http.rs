@@ -14,6 +14,8 @@ use ipnet::IpNet;
 use serde::Serialize;
 use serde_json::Value;
 
+use configuration_runtime::{CapabilityRuntime, CapabilitySnapshot};
+
 use crate::{
     geo::{GeoEnrichment, GeoLookup, client_ip},
     rate_limit::RateLimiter,
@@ -32,6 +34,7 @@ pub struct AppState {
     rate_limiter: Arc<RateLimiter>,
     geo: Option<Arc<GeoLookup>>,
     trusted_proxies: Arc<Vec<IpNet>>,
+    capabilities: Option<CapabilityRuntime>,
 }
 
 pub fn router<S>(
@@ -57,6 +60,29 @@ pub fn router_with_geo<S>(
 where
     S: EventSink + 'static,
 {
+    router_with_capabilities(
+        validator,
+        sink,
+        policy,
+        rate_limiter,
+        geo,
+        trusted_proxies,
+        None,
+    )
+}
+
+pub fn router_with_capabilities<S>(
+    validator: Validator,
+    sink: S,
+    policy: KeyPolicy,
+    rate_limiter: RateLimiter,
+    geo: Option<GeoLookup>,
+    trusted_proxies: Vec<IpNet>,
+    capabilities: Option<CapabilityRuntime>,
+) -> Router
+where
+    S: EventSink + 'static,
+{
     Router::new()
         .route("/health", get(health))
         .route("/v1/events", post(events).options(preflight))
@@ -67,6 +93,7 @@ where
             rate_limiter: Arc::new(rate_limiter),
             geo: geo.map(Arc::new),
             trusted_proxies: Arc::new(trusted_proxies),
+            capabilities,
         })
 }
 
@@ -141,6 +168,7 @@ async fn events(State(state): State<AppState>, request: Request<Body>) -> Respon
                 has_origin,
                 global_cors_origin.as_deref(),
                 None,
+                None,
             )
             .await;
         }
@@ -194,22 +222,38 @@ async fn events(State(state): State<AppState>, request: Request<Body>) -> Respon
         );
     }
 
-    let geo = state.geo.as_ref().map(|lookup| {
-        let client_ip = client_ip(
-            peer_ip,
-            headers
-                .get("x-forwarded-for")
-                .and_then(|value| value.to_str().ok()),
-            &state.trusted_proxies,
-        );
-        lookup.lookup(client_ip)
-    });
+    let capabilities = state
+        .capabilities
+        .as_ref()
+        .and_then(|runtime| runtime.snapshot(&site_id));
+    let geo = state
+        .geo
+        .as_ref()
+        .filter(|_| match &state.capabilities {
+            // Legacy/test router constructors have no capability source.
+            None => true,
+            // In production, no snapshot is fail-closed and must not trigger enrichment.
+            Some(_) => capabilities
+                .as_ref()
+                .is_some_and(|capabilities| capabilities.enabled("geo")),
+        })
+        .map(|lookup| {
+            let client_ip = client_ip(
+                peer_ip,
+                headers
+                    .get("x-forwarded-for")
+                    .and_then(|value| value.to_str().ok()),
+                &state.trusted_proxies,
+            );
+            lookup.lookup(client_ip)
+        });
     validate_batch(
         &state,
         value,
         has_origin,
         Some(authorized.origin.as_str()),
         geo,
+        capabilities,
     )
     .await
 }
@@ -220,6 +264,7 @@ async fn validate_batch(
     has_origin: bool,
     cors_origin: Option<&str>,
     geo: Option<GeoEnrichment>,
+    capabilities: Option<CapabilitySnapshot>,
 ) -> Response {
     let batch = match state.validator.validate(&value) {
         Ok(batch) => batch,
@@ -232,6 +277,28 @@ async fn validate_batch(
         }
     };
 
+    if let Some(runtime) = &state.capabilities {
+        if capabilities.is_none() {
+            return with_cors(
+                ApiError::configuration_unavailable().into_response(),
+                has_origin,
+                cors_origin,
+            );
+        }
+        let capabilities = capabilities.as_ref().expect("checked above");
+        if batch.events.iter().any(|event| match &event.event {
+            crate::protocol::AnalyticsEvent::Custom(_) => !capabilities.enabled("custom_events"),
+            crate::protocol::AnalyticsEvent::WebVital(_) => !capabilities.enabled("web_vitals"),
+            crate::protocol::AnalyticsEvent::PageView(_) => !capabilities.enabled("page_views"),
+        }) {
+            return with_cors(
+                ApiError::capability_disabled().into_response(),
+                has_origin,
+                cors_origin,
+            );
+        }
+        let _runtime_is_installed = runtime;
+    }
     let accepted = batch.events.len();
     let received_at = Utc::now();
     let latest_allowed = received_at + chrono::Duration::minutes(5);
@@ -248,11 +315,39 @@ async fn validate_batch(
     let events = batch
         .events
         .into_iter()
-        .map(|event| {
+        .map(|mut event| {
+            let capability = capabilities.as_ref();
+            match &mut event.event {
+                crate::protocol::AnalyticsEvent::PageView(page_view) => {
+                    if capability.is_some_and(|caps| !caps.enabled("browser_context")) {
+                        page_view.context = None;
+                        page_view.context_schema_version = None;
+                    }
+                    if capability.is_some_and(|caps| !caps.enabled("anonymous_visitors")) {
+                        page_view.visitor_id = None;
+                    }
+                }
+                crate::protocol::AnalyticsEvent::Custom(custom) => {
+                    if capability.is_some_and(|caps| !caps.enabled("anonymous_visitors")) {
+                        custom.visitor_id = None;
+                    }
+                }
+                crate::protocol::AnalyticsEvent::WebVital(_) => {}
+            }
             let is_page_view = matches!(event.event, crate::protocol::AnalyticsEvent::PageView(_));
+            let mut payload = event.payload;
+            if let Some(object) = payload.as_object_mut() {
+                if capability.is_some_and(|caps| !caps.enabled("browser_context")) {
+                    object.remove("context");
+                    object.remove("context_schema_version");
+                }
+                if capability.is_some_and(|caps| !caps.enabled("anonymous_visitors")) {
+                    object.remove("visitor_id");
+                }
+            }
             StoredEvent {
                 event: event.event,
-                payload: event.payload,
+                payload,
                 received_at,
                 geo: if is_page_view { geo.clone() } else { None },
             }
@@ -447,6 +542,22 @@ impl ApiError {
         )
     }
 
+    fn capability_disabled() -> Self {
+        Self::new(
+            "capability_disabled",
+            "This event capability is disabled",
+            StatusCode::FORBIDDEN,
+        )
+    }
+
+    fn configuration_unavailable() -> Self {
+        Self::new(
+            "configuration_unavailable",
+            "Capability configuration is unavailable",
+            StatusCode::SERVICE_UNAVAILABLE,
+        )
+    }
+
     fn invalid_occurred_at() -> Self {
         Self::new(
             "invalid_occurred_at",
@@ -526,12 +637,22 @@ impl IntoResponse for ApiError {
 #[cfg(test)]
 mod tests {
     use async_trait::async_trait;
-    use axum::{body::Body, body::to_bytes, http::Request};
+    use axum::{
+        body::Body,
+        body::to_bytes,
+        http::{Request, StatusCode},
+    };
+    use chrono::Utc;
+    use configuration_runtime::{CapabilityRuntime, CapabilitySnapshot};
+    use serde_json::json;
+    use sqlx::postgres::PgPoolOptions;
+    use std::sync::{Arc, Mutex};
     use tower::ServiceExt;
 
     use super::router;
     use crate::{
         config::{SiteConfig, SiteRegistry},
+        http::{AppState, validate_batch},
         rate_limit::RateLimiter,
         security::KeyPolicy,
         sink::{EventSink, InMemorySink, SinkError, StoredEvent},
@@ -832,6 +953,112 @@ mod tests {
             response_json(response).await["error"]["code"],
             "collector_error"
         );
+    }
+
+    #[tokio::test]
+    async fn capability_runtime_rejects_disabled_events_and_redacts_page_view_fields() {
+        let document = json!({
+            "schema_version": 1, "site_id": "site_example", "version": 1,
+            "updated_at": "2026-09-25T00:00:00Z",
+            "capabilities": {
+                "page_views": {"enabled": true, "settings": {}},
+                "browser_context": {"enabled": false, "settings": {}},
+                "anonymous_visitors": {"enabled": false, "settings": {}},
+                "sessions": {"enabled": false, "settings": {}},
+                "dimensions": {"enabled": false, "settings": {}},
+                "custom_events": {"enabled": false, "settings": {}},
+                "web_vitals": {"enabled": false, "settings": {}},
+                "conversions": {"enabled": false, "settings": {}},
+                "funnels": {"enabled": false, "settings": {}},
+                "geo": {"enabled": false, "settings": {}}
+            },
+            "consent_policy": "required",
+            "privacy_constraints": ["no_ip_persistence", "no_fingerprinting", "consent_required"]
+        });
+        let capabilities = CapabilitySnapshot::from_document("site_example", 1, &document).unwrap();
+        let database = PgPoolOptions::new()
+            .connect_lazy("postgres://analytics:analytics@127.0.0.1:5432/unused")
+            .unwrap();
+        let runtime = CapabilityRuntime::new(database, "collector").unwrap();
+        let registry = SiteRegistry::from_sites(vec![{
+            let mut site = SiteConfig::new("site_example", "production", true, "production-key");
+            site.allowed_origins = vec!["https://example.com".into()];
+            site
+        }])
+        .unwrap();
+        let captured = Arc::new(Mutex::new(Vec::<StoredEvent>::new()));
+        let state = AppState {
+            validator: Arc::new(Validator::new().unwrap()),
+            sink: Arc::new(CaptureSink(captured.clone())),
+            policy: Arc::new(KeyPolicy::new(registry)),
+            rate_limiter: Arc::new(RateLimiter::new()),
+            geo: None,
+            trusted_proxies: Arc::new(Vec::new()),
+            capabilities: Some(runtime),
+        };
+        let event = json!({
+            "schema_version": 1, "event_id": "01J00000000000000000000001",
+            "type": "page_view", "site_id": "site_example", "occurred_at": Utc::now().timestamp_millis(),
+            "path": "/about", "visitor_id": "550e8400-e29b-41d4-a716-446655440000",
+            "context_schema_version": 1,
+            "context": {
+                "language":"en-CA", "timezone":"America/Toronto",
+                "viewport_width":1440, "viewport_height":900,
+                "screen_width":2560, "screen_height":1440, "user_agent":"Mozilla/5.0"
+            }
+        });
+        let response = validate_batch(
+            &state,
+            json!({"schema_version":1,"events":[event]}),
+            true,
+            Some("https://example.com"),
+            None,
+            Some(capabilities.clone()),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+        {
+            let stored = captured.lock().unwrap();
+            let event = &stored[0];
+            assert!(event.payload.get("context").is_none());
+            assert!(event.payload.get("visitor_id").is_none());
+            match &event.event {
+                crate::protocol::AnalyticsEvent::PageView(page_view) => {
+                    assert!(page_view.context.is_none());
+                    assert!(page_view.visitor_id.is_none());
+                }
+                _ => panic!("expected page view"),
+            }
+        }
+
+        let disabled_custom_event = json!({
+            "schema_version":1,
+            "events":[{"schema_version":1,"event_id":"01J00000000000000000000002","type":"custom_event","site_id":"site_example","occurred_at":Utc::now().timestamp_millis(),"event_name":"signup","properties":{}}]
+        });
+        let response = validate_batch(
+            &state,
+            disabled_custom_event,
+            true,
+            Some("https://example.com"),
+            None,
+            Some(capabilities),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        assert_eq!(
+            response_json(response).await["error"]["code"],
+            "capability_disabled"
+        );
+    }
+
+    struct CaptureSink(Arc<Mutex<Vec<StoredEvent>>>);
+
+    #[async_trait]
+    impl EventSink for CaptureSink {
+        async fn accept(&self, events: Vec<StoredEvent>) -> Result<(), SinkError> {
+            self.0.lock().unwrap().extend(events);
+            Ok(())
+        }
     }
 
     struct FailingSink;

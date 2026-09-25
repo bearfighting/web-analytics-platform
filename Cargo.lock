@@ -40,6 +40,7 @@ dependencies = [
  "base64 0.23.1",
  "chrono",
  "clap",
+ "configuration-runtime",
  "getrandom 0.4.3",
  "http-body-util",
  "jsonschema",
@@ -419,6 +420,7 @@ dependencies = [
  "base64 0.23.1",
  "chrono",
  "clap",
+ "configuration-runtime",
  "getrandom 0.4.3",
  "http-body-util",
  "ipnet",
@@ -452,6 +454,19 @@ checksum = "cfc320937d09e6de266b31b9afb480f197d7a861be86be7cb2ea7e5d1bfffc5e"
 dependencies = [
  "bytes",
  "memchr",
+]
+
+[[package]]
+name = "configuration-runtime"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "jsonschema",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -1634,6 +1649,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "clap",
+ "configuration-runtime",
  "jsonschema",
  "serde",
  "serde_json",

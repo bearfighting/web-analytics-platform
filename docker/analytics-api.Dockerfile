@@ -8,11 +8,13 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+COPY crates/configuration-runtime/Cargo.toml crates/configuration-runtime/Cargo.toml
 COPY services/analytics-api/Cargo.toml services/analytics-api/Cargo.toml
 COPY services/collector/Cargo.toml services/collector/Cargo.toml
 COPY services/processor/Cargo.toml services/processor/Cargo.toml
 COPY tools/db-migrator/Cargo.toml tools/db-migrator/Cargo.toml
-RUN mkdir -p services/analytics-api/src services/collector/src services/processor/src tools/db-migrator/src \
+RUN mkdir -p crates/configuration-runtime/src services/analytics-api/src services/collector/src services/processor/src tools/db-migrator/src \
+  && printf '#![allow(dead_code)]\n' > crates/configuration-runtime/src/lib.rs \
   && printf 'fn main() {}\n' > services/analytics-api/src/main.rs \
   && printf 'fn main() {}\n' > services/collector/src/main.rs \
   && printf 'fn main() {}\n' > services/processor/src/main.rs \

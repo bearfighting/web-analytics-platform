@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use sqlx::Postgres;
 
 use crate::{
-    errors::{AnalyticsNotEnabled, ApiError, HandlerError},
+    errors::{ApiError, HandlerError},
     models::{
         DimensionItem, DimensionReportResponse, VisitorSessionItem, VisitorSessionReportResponse,
     },
@@ -18,20 +18,13 @@ use crate::{
 
 async fn phase6_transaction<'a>(
     state: &'a AppState,
-    site_id: &str,
+    _site_id: &str,
 ) -> Result<sqlx::Transaction<'a, Postgres>, HandlerError> {
     let mut transaction = state.pool.begin().await.map_err(ApiError::database)?;
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
         .execute(&mut *transaction)
         .await
         .map_err(ApiError::database)?;
-    if !queries::analytics_enabled(&mut transaction, site_id)
-        .await
-        .map_err(ApiError::database)?
-    {
-        transaction.rollback().await.map_err(ApiError::database)?;
-        return Err(AnalyticsNotEnabled.into());
-    }
     Ok(transaction)
 }
 

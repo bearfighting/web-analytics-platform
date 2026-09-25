@@ -217,21 +217,6 @@ pub(crate) async fn advance_web_vital_watermark(
     Ok(())
 }
 
-pub(crate) async fn phase6_enabled(
-    connection: &mut PgConnection,
-    site_id: &str,
-) -> Result<bool, sqlx::Error> {
-    Ok(sqlx::query_scalar::<_, bool>(
-        "SELECT analytics_enabled
-         FROM analytics_feature_flags
-         WHERE site_id = $1",
-    )
-    .bind(site_id)
-    .fetch_optional(&mut *connection)
-    .await?
-    .unwrap_or(false))
-}
-
 pub(crate) async fn enqueue_rebuild(
     connection: &mut PgConnection,
     site_id: &str,

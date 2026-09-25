@@ -59,18 +59,6 @@ struct KeyDocument {
     created_at: String,
 }
 
-fn effective_state(version: i64) -> Value {
-    json!({
-        "status": "pending",
-        "stored_version": version,
-        "applied_versions": {
-            "collector": null,
-            "processor": null,
-            "analytics_api": null,
-        }
-    })
-}
-
 fn response_with_etag(status: StatusCode, version: i64, body: Value) -> Response {
     let mut response = (status, Json(body)).into_response();
     let etag = HeaderValue::from_str(&format!("\"{version}\""))
@@ -268,10 +256,52 @@ async fn policy_response(pool: &sqlx::PgPool, row: &ConfigurationRow) -> Value {
     })
 }
 
-fn capability_response(row: &ConfigurationRow) -> Value {
+async fn capability_response(pool: &sqlx::PgPool, row: &ConfigurationRow) -> Value {
+    let site_id = row.document["site_id"].as_str().unwrap_or_default();
+    let collector =
+        config_store::capability_applied_state(pool, "collector", site_id, row.version).await;
+    let processor =
+        config_store::capability_applied_state(pool, "processor", site_id, row.version).await;
+    let analytics_api =
+        config_store::capability_applied_state(pool, "analytics_api", site_id, row.version).await;
+    let (collector, processor, analytics_api) = match (collector, processor, analytics_api) {
+        (Ok(c), Ok(p), Ok(a)) => (c, p, a),
+        _ => {
+            tracing::warn!("capability application state unavailable");
+            (
+                config_store::AppliedCapabilityState {
+                    status: "pending",
+                    applied_version: None,
+                },
+                config_store::AppliedCapabilityState {
+                    status: "pending",
+                    applied_version: None,
+                },
+                config_store::AppliedCapabilityState {
+                    status: "pending",
+                    applied_version: None,
+                },
+            )
+        }
+    };
+    let status = if [collector.status, processor.status, analytics_api.status].contains(&"stale") {
+        "stale"
+    } else if [collector.status, processor.status, analytics_api.status].contains(&"pending") {
+        "pending"
+    } else {
+        "current"
+    };
     json!({
         "configuration": row.document,
-        "effective_state": effective_state(row.version),
+        "effective_state": {
+            "status": status,
+            "stored_version": row.version,
+            "applied_versions": {
+                "collector": collector.applied_version,
+                "processor": processor.applied_version,
+                "analytics_api": analytics_api.applied_version,
+            }
+        }
     })
 }
 
@@ -309,7 +339,7 @@ pub(crate) async fn get_capabilities(
     Ok(response_with_etag(
         StatusCode::OK,
         row.version,
-        capability_response(&row),
+        capability_response(&state.pool, &row).await,
     ))
 }
 
@@ -335,7 +365,7 @@ pub(crate) async fn put_capabilities(
     Ok(response_with_etag(
         StatusCode::OK,
         row.version,
-        capability_response(&row),
+        capability_response(&state.pool, &row).await,
     ))
 }
 

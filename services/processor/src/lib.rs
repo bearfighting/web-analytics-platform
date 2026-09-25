@@ -9,6 +9,7 @@ mod queries;
 mod sessionizer;
 
 pub use capabilities::{CapabilityContract, CapabilityId, CapabilityRegistry, CapabilityStatus};
+pub use configuration_runtime::{CapabilityRuntime, CapabilitySnapshot};
 pub use error::ProcessorError;
 pub use normalizer::{NormalizedContext, normalize_context};
 pub use parser::{ParsedUserAgent, UserAgentParser, WOOTHEE_VERSION, WootheeParser};

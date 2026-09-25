@@ -191,21 +191,6 @@ pub(crate) async fn custom_event_freshness(
     Ok(if pending { "stale" } else { "current" }.to_owned())
 }
 
-pub(crate) async fn analytics_enabled(
-    transaction: &mut Transaction<'_, Postgres>,
-    site_id: &str,
-) -> Result<bool, sqlx::Error> {
-    Ok(sqlx::query_scalar::<_, bool>(
-        "SELECT analytics_enabled
-         FROM analytics_feature_flags
-         WHERE site_id = $1",
-    )
-    .bind(site_id)
-    .fetch_optional(&mut **transaction)
-    .await?
-    .unwrap_or(false))
-}
-
 pub(crate) async fn active_generation(
     transaction: &mut Transaction<'_, Postgres>,
     site_id: &str,

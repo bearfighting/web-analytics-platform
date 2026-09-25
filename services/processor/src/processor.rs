@@ -22,6 +22,7 @@ type DimensionDailyCounts = (i64, HashSet<String>, HashSet<String>);
 pub struct Processor {
     pool: PgPool,
     definitions: crate::definitions::AnalyticsDefinitions,
+    capabilities: crate::CapabilityRuntime,
 }
 
 #[derive(Debug, Clone)]
@@ -65,10 +66,26 @@ impl Processor {
             .max_connections(5)
             .connect(database_url)
             .await?;
-        Ok(Self { pool, definitions })
+        let capabilities =
+            crate::CapabilityRuntime::new(pool.clone(), "processor").map_err(|_| {
+                ProcessorError::CapabilityConfigurationUnavailable("runtime".to_owned())
+            })?;
+        capabilities.spawn();
+        Ok(Self {
+            pool,
+            definitions,
+            capabilities,
+        })
     }
 
     pub async fn rebuild_custom_event_facts(&self, site_id: &str) -> Result<u64, ProcessorError> {
+        if !self
+            .current_capabilities(site_id)
+            .await?
+            .enabled("custom_events")
+        {
+            return Err(ProcessorError::CapabilityDisabled(site_id.to_owned()));
+        }
         let mut transaction = self.pool.begin().await?;
         lock_site(&mut transaction, site_id).await?;
         sqlx::query("DELETE FROM custom_event_facts WHERE site_id = $1")
@@ -103,31 +120,70 @@ impl Processor {
         &self,
         site_id: &str,
     ) -> Result<u64, ProcessorError> {
+        self.rebuild_conversion_funnel_facts_with_mode(site_id, true)
+            .await
+    }
+
+    async fn rebuild_conversion_funnel_facts_with_mode(
+        &self,
+        site_id: &str,
+        explicit_backfill: bool,
+    ) -> Result<u64, ProcessorError> {
+        let capabilities = self.current_capabilities(site_id).await?;
+        if !capabilities.enabled("conversions") && !capabilities.enabled("funnels") {
+            return Ok(0);
+        }
         let mut tx = self.pool.begin().await?;
         lock_site(&mut tx, site_id).await?;
-        sqlx::query("DELETE FROM conversion_facts WHERE site_id=$1 AND definition_version=$2")
-            .bind(site_id)
-            .bind(&self.definitions.version)
-            .execute(&mut *tx)
-            .await?;
-        sqlx::query("DELETE FROM funnel_step_facts WHERE site_id=$1 AND definition_version=$2")
-            .bind(site_id)
-            .bind(&self.definitions.version)
-            .execute(&mut *tx)
-            .await?;
+        if capabilities.enabled("conversions") {
+            if explicit_backfill {
+                sqlx::query(
+                    "DELETE FROM conversion_facts WHERE site_id=$1 AND definition_version=$2",
+                )
+                .bind(site_id)
+                .bind(&self.definitions.version)
+                .execute(&mut *tx)
+                .await?;
+            } else if let Some(enabled_since) = capabilities.enabled_since("conversions") {
+                sqlx::query("DELETE FROM conversion_facts f USING raw_events r WHERE f.site_id=$1 AND f.definition_version=$2 AND r.site_id=f.site_id AND r.event_id=f.event_id AND r.received_at >= $3")
+                    .bind(site_id).bind(&self.definitions.version).bind(enabled_since)
+                    .execute(&mut *tx).await?;
+            }
+        }
+        if capabilities.enabled("funnels") {
+            if explicit_backfill {
+                sqlx::query(
+                    "DELETE FROM funnel_step_facts WHERE site_id=$1 AND definition_version=$2",
+                )
+                .bind(site_id)
+                .bind(&self.definitions.version)
+                .execute(&mut *tx)
+                .await?;
+            } else if let Some(enabled_since) = capabilities.enabled_since("funnels") {
+                sqlx::query("DELETE FROM funnel_step_facts f USING raw_events r WHERE f.site_id=$1 AND f.definition_version=$2 AND r.site_id=f.site_id AND r.event_id=f.event_id AND r.received_at >= $3")
+                    .bind(site_id).bind(&self.definitions.version).bind(enabled_since)
+                    .execute(&mut *tx).await?;
+            }
+        }
         let events = sqlx::query_as::<_, (i64, String, DateTime<Utc>, DateTime<Utc>, Option<String>, serde_json::Value)>(
             "SELECT id,event_id,occurred_at,received_at,visitor_id::text,payload FROM raw_events WHERE site_id=$1 AND event_type='custom_event' AND processed_at IS NOT NULL ORDER BY occurred_at,event_id")
             .bind(site_id).fetch_all(&mut *tx).await?;
         let mut count = 0_u64;
         for (id, event_id, occurred_at, received_at, visitor_id, payload) in events {
-            let session_id = if let Some(visitor_id) = visitor_id.as_deref() {
-                sqlx::query_scalar::<_, String>("SELECT se.session_id::text FROM session_events se JOIN analytics_generations g ON g.generation_id=se.generation_id AND g.site_id=se.site_id AND g.status='active' WHERE se.site_id=$1 AND se.visitor_id=$2::uuid AND se.occurred_at <= $3 AND se.occurred_at > $3 - INTERVAL '30 minutes' AND (se.occurred_at AT TIME ZONE 'UTC')::date=($3 AT TIME ZONE 'UTC')::date ORDER BY se.occurred_at DESC LIMIT 1")
+            let session_id = if capabilities.enabled("sessions") {
+                if let Some(visitor_id) = visitor_id.as_deref() {
+                    sqlx::query_scalar::<_, String>("SELECT se.session_id::text FROM session_events se JOIN analytics_generations g ON g.generation_id=se.generation_id AND g.site_id=se.site_id AND g.status='active' WHERE se.site_id=$1 AND se.visitor_id=$2::uuid AND se.occurred_at <= $3 AND se.occurred_at > $3 - INTERVAL '30 minutes' AND (se.occurred_at AT TIME ZONE 'UTC')::date=($3 AT TIME ZONE 'UTC')::date ORDER BY se.occurred_at DESC LIMIT 1")
                     .bind(site_id).bind(visitor_id).bind(occurred_at).fetch_optional(&mut *tx).await?
+                } else {
+                    None
+                }
             } else {
                 None
             };
-            sqlx::query("UPDATE custom_event_facts SET session_id=$3::uuid WHERE site_id=$1 AND event_id=$2")
-                .bind(site_id).bind(&event_id).bind(session_id.as_deref()).execute(&mut *tx).await?;
+            if capabilities.enabled("sessions") {
+                sqlx::query("UPDATE custom_event_facts SET session_id=$3::uuid WHERE site_id=$1 AND event_id=$2")
+                    .bind(site_id).bind(&event_id).bind(session_id.as_deref()).execute(&mut *tx).await?;
+            }
             let event = RawEvent {
                 id,
                 event_id,
@@ -150,6 +206,8 @@ impl Processor {
                 &self.definitions,
                 event_name,
                 session_id,
+                &capabilities,
+                explicit_backfill,
             )
             .await?;
             count += 1;
@@ -160,6 +218,9 @@ impl Processor {
     }
 
     pub async fn rebuild_geo_country_facts(&self, site_id: &str) -> Result<u64, ProcessorError> {
+        if !self.current_capabilities(site_id).await?.enabled("geo") {
+            return Err(ProcessorError::CapabilityDisabled(site_id.to_owned()));
+        }
         let mut tx = self.pool.begin().await?;
         lock_site(&mut tx, site_id).await?;
         sqlx::query("DELETE FROM geo_country_facts WHERE site_id=$1")
@@ -181,6 +242,13 @@ impl Processor {
     }
 
     pub async fn rebuild_web_vital_facts(&self, site_id: &str) -> Result<u64, ProcessorError> {
+        if !self
+            .current_capabilities(site_id)
+            .await?
+            .enabled("web_vitals")
+        {
+            return Err(ProcessorError::CapabilityDisabled(site_id.to_owned()));
+        }
         let mut tx = self.pool.begin().await?;
         lock_site(&mut tx, site_id).await?;
         sqlx::query("DELETE FROM web_vital_facts WHERE site_id=$1")
@@ -200,9 +268,29 @@ impl Processor {
             return Ok(false);
         };
 
-        process_event(&mut transaction, &event, &self.definitions).await?;
+        let capabilities = match self.current_capabilities(&event.site_id).await {
+            Ok(capabilities) => capabilities,
+            Err(error) => {
+                transaction.rollback().await?;
+                return Err(error);
+            }
+        };
+        process_event(&mut transaction, &event, &self.definitions, &capabilities).await?;
         transaction.commit().await?;
         Ok(true)
+    }
+
+    async fn current_capabilities(
+        &self,
+        site_id: &str,
+    ) -> Result<crate::CapabilitySnapshot, ProcessorError> {
+        if let Some(snapshot) = self.capabilities.snapshot(site_id) {
+            return Ok(snapshot);
+        }
+        let _ = self.capabilities.refresh_once().await;
+        self.capabilities
+            .snapshot(site_id)
+            .ok_or_else(|| ProcessorError::CapabilityConfigurationUnavailable(site_id.to_owned()))
     }
 
     pub async fn process_all_once(&self) -> Result<u64, ProcessorError> {
@@ -239,10 +327,14 @@ impl Processor {
             return Ok(false);
         };
 
-        // Do not claim work while the site-level Phase 6 switch is disabled.
-        // Keeping the row pending makes disabling the feature a safe pause,
-        // rather than turning queued work into a failed rebuild.
-        if !queries::phase6_enabled(&mut transaction, &site_id).await? {
+        // Do not claim work while every capability that feeds this generation is disabled.
+        // Keeping the row pending makes this a safe pause instead of a failed rebuild.
+        let capabilities = self.current_capabilities(&site_id).await?;
+        if !(capabilities.enabled("anonymous_visitors")
+            || capabilities.enabled("sessions")
+            || capabilities.enabled("browser_context")
+            || capabilities.enabled("dimensions"))
+        {
             transaction.rollback().await?;
             return Ok(false);
         }
@@ -268,7 +360,7 @@ impl Processor {
         let rebuilt_site_id = request.site_id.clone();
         match self.rebuild(request).await {
             Ok(()) => {
-                self.rebuild_conversion_funnel_facts(&rebuilt_site_id)
+                self.rebuild_conversion_funnel_facts_with_mode(&rebuilt_site_id, false)
                     .await?;
                 Ok(true)
             }
@@ -359,17 +451,13 @@ impl Processor {
         if dry_run {
             return Ok(summary);
         }
-        let enabled = sqlx::query_scalar::<_, bool>(
-            "SELECT analytics_enabled FROM analytics_feature_flags WHERE site_id = $1",
-        )
-        .bind(site_id)
-        .fetch_optional(&self.pool)
-        .await?
-        .unwrap_or(false);
-        if !enabled {
-            return Err(ProcessorError::AnalyticsDisabled {
-                site_id: site_id.to_owned(),
-            });
+        let capabilities = self.current_capabilities(site_id).await?;
+        if !capabilities.enabled("anonymous_visitors")
+            && !capabilities.enabled("sessions")
+            && !capabilities.enabled("browser_context")
+            && !capabilities.enabled("dimensions")
+        {
+            return Err(ProcessorError::CapabilityDisabled(site_id.to_owned()));
         }
 
         self.rebuild(RebuildRequest {
@@ -534,16 +622,15 @@ impl Processor {
             // Re-check after taking the site lock. The initial check happens
             // before claiming the queue; this one protects the generation
             // transaction if the flag is disabled between those operations.
-            let enabled = sqlx::query_scalar::<_, bool>(
-                "SELECT analytics_enabled
-                 FROM analytics_feature_flags
-                 WHERE site_id = $1
-                 FOR SHARE",
-            )
-            .bind(&request.site_id)
-            .fetch_optional(&mut *transaction)
-            .await?
-            .unwrap_or(false);
+            let enabled = self
+                .capabilities
+                .snapshot(&request.site_id)
+                .is_some_and(|caps| {
+                    caps.enabled("anonymous_visitors")
+                        || caps.enabled("sessions")
+                        || caps.enabled("browser_context")
+                        || caps.enabled("dimensions")
+                });
             if !enabled {
                 sqlx::query(
                     "UPDATE analytics_rebuild_queue
@@ -590,7 +677,32 @@ impl Processor {
         .execute(&mut *transaction)
         .await?;
 
-        write_derived_results(&mut transaction, generation_id, &events, &parser).await?;
+        let active_generation = sqlx::query_scalar::<_, String>(
+            "SELECT generation_id::text
+             FROM analytics_generations WHERE site_id = $1 AND status = 'active' FOR UPDATE",
+        )
+        .bind(&request.site_id)
+        .fetch_optional(&mut *transaction)
+        .await?;
+        let capabilities = self.current_capabilities(&request.site_id).await?;
+        write_derived_results(
+            &mut transaction,
+            generation_id,
+            &events,
+            &parser,
+            &capabilities,
+            request.queue_id.is_none(),
+        )
+        .await?;
+        copy_disabled_generation_facts(
+            &mut transaction,
+            generation_id,
+            active_generation.as_deref(),
+            &capabilities,
+            request.queue_id.is_none(),
+        )
+        .await?;
+        refresh_generation_rollups(&mut transaction, generation_id).await?;
 
         if let Some(watermark) = watermark {
             sqlx::query(
@@ -621,15 +733,6 @@ impl Processor {
             .await?;
         }
 
-        let active_generation = sqlx::query_scalar::<_, String>(
-            "SELECT generation_id::text
-             FROM analytics_generations
-             WHERE site_id = $1 AND status = 'active'
-             FOR UPDATE",
-        )
-        .bind(&request.site_id)
-        .fetch_optional(&mut *transaction)
-        .await?;
         if let Some(active_generation) = active_generation {
             sqlx::query(
                 "UPDATE analytics_generations
@@ -705,11 +808,80 @@ async fn continuous_watermark(
     })
 }
 
+async fn refresh_generation_rollups(
+    transaction: &mut Transaction<'_, Postgres>,
+    generation_id: &str,
+) -> Result<(), ProcessorError> {
+    for table in ["visitor_daily", "session_daily", "dimension_daily"] {
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "DELETE FROM {table} WHERE generation_id=$1::uuid"
+        )))
+        .bind(generation_id)
+        .execute(&mut **transaction)
+        .await?;
+    }
+    sqlx::query(
+        "INSERT INTO visitor_daily(generation_id,site_id,day,unique_visitors,page_views)
+        SELECT generation_id,site_id,day,COUNT(DISTINCT visitor_id),COUNT(*)
+        FROM visitor_event_facts WHERE generation_id=$1::uuid GROUP BY generation_id,site_id,day",
+    )
+    .bind(generation_id)
+    .execute(&mut **transaction)
+    .await?;
+    sqlx::query(
+        "INSERT INTO session_daily(generation_id,site_id,day,sessions,page_views)
+        SELECT generation_id,site_id,started_at::date,COUNT(*),SUM(page_views)
+        FROM sessions WHERE generation_id=$1::uuid GROUP BY generation_id,site_id,started_at::date",
+    )
+    .bind(generation_id)
+    .execute(&mut **transaction)
+    .await?;
+    sqlx::query("INSERT INTO dimension_daily(generation_id,site_id,day,dimension,value,page_views,unique_visitors,sessions)
+        SELECT generation_id,site_id,day,dimension,value,COUNT(*),COUNT(DISTINCT visitor_id),COUNT(DISTINCT session_id)
+        FROM dimension_event_facts WHERE generation_id=$1::uuid GROUP BY generation_id,site_id,day,dimension,value")
+        .bind(generation_id).execute(&mut **transaction).await?;
+    Ok(())
+}
+
+fn event_is_before_activation(
+    event: &RawEvent,
+    capabilities: &crate::CapabilitySnapshot,
+    capability: &str,
+) -> bool {
+    capabilities
+        .enabled_since(capability)
+        .is_some_and(|enabled_since| {
+            enabled_since.timestamp() > 0 && event.received_at < enabled_since
+        })
+}
+
 async fn process_event(
     transaction: &mut Transaction<'_, Postgres>,
     event: &RawEvent,
     definitions: &crate::definitions::AnalyticsDefinitions,
+    capabilities: &crate::CapabilitySnapshot,
 ) -> Result<(), ProcessorError> {
+    let event_type = event
+        .payload
+        .get("type")
+        .and_then(serde_json::Value::as_str);
+    if (event_type == Some("custom_event")
+        && (!capabilities.enabled("custom_events")
+            || event_is_before_activation(event, capabilities, "custom_events")))
+        || (event_type == Some("web_vital")
+            && (!capabilities.enabled("web_vitals")
+                || event_is_before_activation(event, capabilities, "web_vitals")))
+    {
+        if !queries::mark_processed(transaction, event.id).await? {
+            return Err(ProcessorError::RawEventNotUpdated(event.id));
+        }
+        if event_type == Some("custom_event") {
+            queries::advance_custom_event_watermark(transaction, &event.site_id).await?;
+        } else {
+            queries::advance_web_vital_watermark(transaction, &event.site_id).await?;
+        }
+        return Ok(());
+    }
     match event
         .payload
         .get("type")
@@ -722,9 +894,13 @@ async fn process_event(
                 .and_then(serde_json::Value::as_str)
                 .ok_or_else(|| ProcessorError::InvalidCustomEvent(event.event_id.clone()))?;
             lock_site(transaction, &event.site_id).await?;
-            let session_id = if let Some(visitor_id) = event.visitor_id.as_deref() {
-                sqlx::query_scalar::<_, String>("SELECT se.session_id::text FROM session_events se JOIN analytics_generations g ON g.generation_id=se.generation_id AND g.site_id=se.site_id AND g.status='active' WHERE se.site_id=$1 AND se.visitor_id=$2::uuid AND se.occurred_at <= $3 AND se.occurred_at > $3 - INTERVAL '30 minutes' AND (se.occurred_at AT TIME ZONE 'UTC')::date=($3 AT TIME ZONE 'UTC')::date ORDER BY se.occurred_at DESC LIMIT 1")
+            let session_id = if capabilities.enabled("sessions") {
+                if let Some(visitor_id) = event.visitor_id.as_deref() {
+                    sqlx::query_scalar::<_, String>("SELECT se.session_id::text FROM session_events se JOIN analytics_generations g ON g.generation_id=se.generation_id AND g.site_id=se.site_id AND g.status='active' WHERE se.site_id=$1 AND se.visitor_id=$2::uuid AND se.occurred_at <= $3 AND se.occurred_at > $3 - INTERVAL '30 minutes' AND (se.occurred_at AT TIME ZONE 'UTC')::date=($3 AT TIME ZONE 'UTC')::date ORDER BY se.occurred_at DESC LIMIT 1")
                     .bind(&event.site_id).bind(visitor_id).bind(event.occurred_at).fetch_optional(&mut **transaction).await?
+                } else {
+                    None
+                }
             } else {
                 None
             };
@@ -742,6 +918,8 @@ async fn process_event(
                 definitions,
                 event_name,
                 session_id,
+                capabilities,
+                false,
             )
             .await?;
             if !queries::mark_processed(transaction, event.id).await? {
@@ -806,7 +984,11 @@ async fn process_event(
     queries::upsert_route(transaction, &event.site_id, day, &event.path).await?;
     queries::upsert_total(transaction, &event.site_id).await?;
 
-    if queries::phase6_enabled(transaction, &event.site_id).await? {
+    if capabilities.enabled("anonymous_visitors")
+        || capabilities.enabled("sessions")
+        || capabilities.enabled("browser_context")
+        || capabilities.enabled("dimensions")
+    {
         lock_site(transaction, &event.site_id).await?;
         if let Some(visitor_id) = event.visitor_id.as_deref() {
             let delay = event.received_at.signed_duration_since(event.occurred_at);
@@ -827,7 +1009,8 @@ async fn process_event(
         }
     }
 
-    sqlx::query(
+    if capabilities.enabled("geo") && !event_is_before_activation(event, capabilities, "geo") {
+        sqlx::query(
         "INSERT INTO geo_country_facts(raw_event_id,site_id,country_code,occurred_at)
          SELECT m.raw_event_id,m.site_id,m.country_code,r.occurred_at
          FROM geo_event_metadata m JOIN raw_events r ON r.id=m.raw_event_id
@@ -837,6 +1020,7 @@ async fn process_event(
     .bind(event.id)
     .execute(&mut **transaction)
     .await?;
+    }
     if !queries::mark_processed(transaction, event.id).await? {
         return Err(ProcessorError::RawEventNotUpdated(event.id));
     }
@@ -851,30 +1035,48 @@ async fn record_conversion_and_funnel_facts(
     definitions: &crate::definitions::AnalyticsDefinitions,
     event_name: &str,
     session_id: Option<String>,
+    capabilities: &crate::CapabilitySnapshot,
+    explicit_backfill: bool,
 ) -> Result<(), ProcessorError> {
     let Some(site) = definitions.for_site(&event.site_id) else {
         return Ok(());
     };
     let properties = event.payload.get("properties").cloned().unwrap_or_default();
-    for conversion in &site.conversions {
-        if crate::definitions::matches(
-            event_name,
-            &properties,
-            &conversion.event_name,
-            &conversion.properties,
-        ) {
-            sqlx::query("INSERT INTO conversion_facts(site_id,definition_id,definition_version,event_id,occurred_at,session_id) VALUES($1,$2,$3,$4,$5,$6::uuid) ON CONFLICT DO NOTHING")
+    if capabilities.enabled("conversions")
+        && (explicit_backfill || !event_is_before_activation(event, capabilities, "conversions"))
+    {
+        for conversion in &site.conversions {
+            if crate::definitions::matches(
+                event_name,
+                &properties,
+                &conversion.event_name,
+                &conversion.properties,
+            ) {
+                sqlx::query("INSERT INTO conversion_facts(site_id,definition_id,definition_version,event_id,occurred_at,session_id) VALUES($1,$2,$3,$4,$5,$6::uuid) ON CONFLICT DO NOTHING")
                 .bind(&event.site_id).bind(&conversion.id).bind(&definitions.version).bind(&event.event_id).bind(event.occurred_at).bind(session_id.as_deref()).execute(&mut **transaction).await?;
+            }
         }
+    }
+    if !capabilities.enabled("funnels")
+        || (!explicit_backfill && event_is_before_activation(event, capabilities, "funnels"))
+    {
+        return Ok(());
     }
     let Some(session_id) = session_id else {
         return Ok(());
     };
     for funnel in &site.funnels {
-        sqlx::query("DELETE FROM funnel_step_facts WHERE site_id=$1 AND definition_id=$2 AND definition_version=$3 AND session_id=$4::uuid")
-            .bind(&event.site_id).bind(&funnel.id).bind(&definitions.version).bind(&session_id).execute(&mut **transaction).await?;
-        let session_events = sqlx::query_as::<_, (String, DateTime<Utc>, String, serde_json::Value)>("SELECT f.event_id,f.occurred_at,f.event_name,COALESCE(r.payload->'properties','{}'::jsonb) FROM custom_event_facts f JOIN raw_events r ON r.id=f.raw_event_id WHERE f.site_id=$1 AND f.session_id=$2::uuid ORDER BY f.occurred_at,f.event_id")
-            .bind(&event.site_id).bind(&session_id).fetch_all(&mut **transaction).await?;
+        if explicit_backfill {
+            sqlx::query("DELETE FROM funnel_step_facts WHERE site_id=$1 AND definition_id=$2 AND definition_version=$3 AND session_id=$4::uuid")
+                .bind(&event.site_id).bind(&funnel.id).bind(&definitions.version).bind(&session_id).execute(&mut **transaction).await?;
+        }
+        let funnel_enabled_since = if explicit_backfill {
+            None
+        } else {
+            capabilities.enabled_since("funnels")
+        };
+        let session_events = sqlx::query_as::<_, (String, DateTime<Utc>, String, serde_json::Value)>("SELECT f.event_id,f.occurred_at,f.event_name,COALESCE(r.payload->'properties','{}'::jsonb) FROM custom_event_facts f JOIN raw_events r ON r.id=f.raw_event_id WHERE f.site_id=$1 AND f.session_id=$2::uuid AND ($3::timestamptz IS NULL OR r.received_at >= $3) ORDER BY f.occurred_at,f.event_id")
+            .bind(&event.site_id).bind(&session_id).bind(funnel_enabled_since).fetch_all(&mut **transaction).await?;
         let mut next_index = 0_usize;
         let mut previous_at = None;
         let mut cohort_day = None;
@@ -1028,17 +1230,75 @@ async fn load_site_events(pool: &PgPool, site_id: &str) -> Result<Vec<RawEvent>,
     .collect())
 }
 
+async fn copy_disabled_generation_facts(
+    transaction: &mut Transaction<'_, Postgres>,
+    new_generation: &str,
+    previous_generation: Option<&str>,
+    capabilities: &crate::CapabilitySnapshot,
+    explicit_backfill: bool,
+) -> Result<(), ProcessorError> {
+    let Some(previous_generation) = previous_generation else {
+        return Ok(());
+    };
+    let groups: &[(&str, &str)] = &[
+        ("browser_context", "normalized_event_context"),
+        ("anonymous_visitors", "visitor_event_facts"),
+        ("sessions", "sessions"),
+        ("sessions", "session_events"),
+        ("dimensions", "dimension_event_facts"),
+    ];
+    for (capability, table) in groups {
+        let activation_cutoff = capabilities
+            .enabled_since(capability)
+            .filter(|since| since.timestamp() > 0);
+        if capabilities.enabled(capability) && (explicit_backfill || activation_cutoff.is_none()) {
+            continue;
+        }
+        let sql = match *table {
+            "normalized_event_context" => {
+                "INSERT INTO normalized_event_context (generation_id,raw_event_id,site_id,context_schema_version,parser_version,language,timezone,viewport_width,viewport_height,screen_width,screen_height,utm_source,utm_medium,utm_campaign,utm_term,utm_content,referrer_host,device,browser,os) SELECT $1::uuid,c.raw_event_id,c.site_id,c.context_schema_version,c.parser_version,c.language,c.timezone,c.viewport_width,c.viewport_height,c.screen_width,c.screen_height,c.utm_source,c.utm_medium,c.utm_campaign,c.utm_term,c.utm_content,c.referrer_host,c.device,c.browser,c.os FROM normalized_event_context c JOIN raw_events r ON r.id=c.raw_event_id WHERE c.generation_id=$2::uuid AND ($3::timestamptz IS NULL OR r.received_at < $3)"
+            }
+            "visitor_event_facts" => {
+                "INSERT INTO visitor_event_facts (generation_id,raw_event_id,site_id,visitor_id,occurred_at,day) SELECT $1::uuid,v.raw_event_id,v.site_id,v.visitor_id,v.occurred_at,v.day FROM visitor_event_facts v JOIN raw_events r ON r.id=v.raw_event_id WHERE v.generation_id=$2::uuid AND ($3::timestamptz IS NULL OR r.received_at < $3)"
+            }
+            "sessions" => {
+                "INSERT INTO sessions (generation_id,session_id,site_id,visitor_id,started_at,ended_at,page_views) SELECT $1::uuid,s.session_id,s.site_id,s.visitor_id,s.started_at,s.ended_at,s.page_views FROM sessions s WHERE s.generation_id=$2::uuid AND ($3::timestamptz IS NULL OR EXISTS (SELECT 1 FROM session_events se JOIN raw_events r ON r.id=se.raw_event_id WHERE se.generation_id=s.generation_id AND se.session_id=s.session_id AND r.received_at < $3))"
+            }
+            "session_events" => {
+                "INSERT INTO session_events (generation_id,raw_event_id,site_id,visitor_id,session_id,occurred_at,day) SELECT $1::uuid,se.raw_event_id,se.site_id,se.visitor_id,se.session_id,se.occurred_at,se.day FROM session_events se JOIN raw_events r ON r.id=se.raw_event_id WHERE se.generation_id=$2::uuid AND ($3::timestamptz IS NULL OR r.received_at < $3)"
+            }
+            "dimension_event_facts" => {
+                "INSERT INTO dimension_event_facts (generation_id,raw_event_id,site_id,visitor_id,session_id,dimension,value,occurred_at,day) SELECT $1::uuid,d.raw_event_id,d.site_id,d.visitor_id,d.session_id,d.dimension,d.value,d.occurred_at,d.day FROM dimension_event_facts d JOIN raw_events r ON r.id=d.raw_event_id WHERE d.generation_id=$2::uuid AND ($3::timestamptz IS NULL OR r.received_at < $3)"
+            }
+            _ => unreachable!(),
+        };
+        sqlx::query(sql)
+            .bind(new_generation)
+            .bind(previous_generation)
+            .bind(activation_cutoff)
+            .execute(&mut **transaction)
+            .await?;
+    }
+    Ok(())
+}
+
 async fn write_derived_results(
     transaction: &mut Transaction<'_, Postgres>,
     generation_id: &str,
     events: &[RawEvent],
     parser: &impl UserAgentParser,
+    capabilities: &crate::CapabilitySnapshot,
+    explicit_backfill: bool,
 ) -> Result<(), ProcessorError> {
+    let include = |event: &RawEvent, capability: &str| {
+        explicit_backfill || !event_is_before_activation(event, capabilities, capability)
+    };
     let mut normalized_by_event_id: HashMap<i64, NormalizedContext> = HashMap::new();
-    for event in events
-        .iter()
-        .filter(|event| event.context_schema_version == Some(1))
-    {
+    for event in events.iter().filter(|event| {
+        capabilities.enabled("browser_context")
+            && include(event, "browser_context")
+            && event.context_schema_version == Some(1)
+    }) {
         let context = event.payload.get("context");
         let user_agent = context
             .and_then(|value| value.get("user_agent"))
@@ -1051,7 +1311,11 @@ async fn write_derived_results(
 
     let visitor_events: Vec<&RawEvent> = events
         .iter()
-        .filter(|event| event.visitor_id.is_some())
+        .filter(|event| {
+            capabilities.enabled("anonymous_visitors")
+                && include(event, "anonymous_visitors")
+                && event.visitor_id.is_some()
+        })
         .collect();
     for event in &visitor_events {
         let visitor_id = event.visitor_id.as_deref().expect("filtered above");
@@ -1071,7 +1335,10 @@ async fn write_derived_results(
     }
 
     let mut grouped: HashMap<(String, String), Vec<SessionInput>> = HashMap::new();
-    for event in &visitor_events {
+    for event in visitor_events
+        .iter()
+        .filter(|event| capabilities.enabled("sessions") && include(event, "sessions"))
+    {
         let visitor_id = event.visitor_id.as_deref().expect("filtered above");
         grouped
             .entry((event.site_id.clone(), visitor_id.to_owned()))
@@ -1085,8 +1352,10 @@ async fn write_derived_results(
     }
 
     let mut sessions: Vec<SessionOutput> = Vec::new();
-    for group in grouped.values() {
-        sessions.extend(sessionize(group, generation_id));
+    if capabilities.enabled("sessions") {
+        for group in grouped.values() {
+            sessions.extend(sessionize(group, generation_id));
+        }
     }
     let event_lookup: HashMap<&str, &RawEvent> = visitor_events
         .iter()
@@ -1132,14 +1401,21 @@ async fn write_derived_results(
         }
     }
 
-    write_dimension_results(
-        transaction,
-        generation_id,
-        events,
-        &normalized_by_event_id,
-        &session_by_event_id,
-    )
-    .await?;
+    if capabilities.enabled("dimensions") {
+        let dimension_events = events
+            .iter()
+            .filter(|event| include(event, "dimensions"))
+            .cloned()
+            .collect::<Vec<_>>();
+        write_dimension_results(
+            transaction,
+            generation_id,
+            &dimension_events,
+            &normalized_by_event_id,
+            &session_by_event_id,
+        )
+        .await?;
+    }
 
     let mut visitor_daily: BTreeMap<(String, NaiveDate), (HashSet<String>, i64)> = BTreeMap::new();
     for event in &visitor_events {
