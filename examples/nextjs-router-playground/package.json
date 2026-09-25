@@ -9,8 +9,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "node -e \"console.log('No tests defined yet')\"",
-    "format": "prettier --write app next.config.ts eslint.config.mjs next-env.d.ts tsconfig.json package.json",
-    "format:check": "prettier --check app next.config.ts eslint.config.mjs next-env.d.ts tsconfig.json package.json"
+    "format": "prettier --write app next.config.ts eslint.config.mjs tsconfig.json package.json",
+    "format:check": "prettier --check app next.config.ts eslint.config.mjs tsconfig.json package.json"
   },
   "dependencies": {
     "@web-analytics/analytics-browser": "workspace:*",

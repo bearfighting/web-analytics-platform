@@ -14,3 +14,4 @@ target/
 /data/
 .env.*
 !.env.example
+**/next-env.d.ts

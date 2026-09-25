@@ -38,7 +38,11 @@ PR0 只收录有证据的问题：
 
 所有候选问题必须在实现前登记，并包含 ID、Area、Severity、Evidence、Impact、Fix scope、Regression test 和 Status。Severity 使用 P0、P1、P2；Status 使用 `Open`、`Fixed`、`Verified` 或 `Deferred`。Phase 7 PR2.1 已登记的 protocol namespace、canonical path 和 fixture path 问题不再复制到本表。
 
-当前没有已登记的 Phase 8 专属问题。后续发现的问题追加到本表；`services/processor/src/capabilities.rs` 中的 canonical capability manifest 继续使用 `include_str!` 编译期嵌入，不属于运行时路径 bug。Phase 8 的用户 capability 配置也不能替换这份静态 contract；用户配置和静态 contract 必须保持分离。
+PR0 本轮审查的登记项如下；后续发现的问题追加到本表。`services/processor/src/capabilities.rs` 中的 canonical capability manifest 继续使用 `include_str!` 编译期嵌入，不属于运行时路径 bug。Phase 8 的用户 capability 配置也不能替换这份静态 contract；用户配置和静态 contract 必须保持分离。
+
+| ID      | Area                    | Severity | Evidence                                                                                                                                                                                                                                                                                         | Impact                                                                                            | Fix scope                                                                                                                                                                | Regression test                                                                                                              | Status   |
+| ------- | ----------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- | -------- |
+| PR0-001 | Next.js generated files | P2       | Clean checkout with Node.js 26.10.0 and pnpm 12.6.0: build rewrote Dashboard next-env.d.ts; after removing the generated files, Next Playground format check failed because it explicitly named the absent file. Next.js 16.3.6 documentation says this file is generated and should be ignored. | Normal builds polluted the Git diff; clean checkouts could not pass formatting before generation. | Ignore and untrack Dashboard and Next.js Playground next-env.d.ts; ignore it in Prettier and remove the explicit Playground format argument; keep the tsconfig includes. | Run check/build without generated files; verify Next regenerates them and Git reports no generated-file changes after build. | Verified |
 
 后续检查发现的问题追加到同一张表，不在实现过程中隐式扩大 PR0 范围。无法在本 PR 处理的问题必须记录延期原因和后续归属。
 
@@ -66,6 +70,13 @@ PR0 只收录有证据的问题：
 - 不把临时修复变成新的用户配置或内部 rollout flag；
 - 架构边界发生变化时新增 ADR。
 
+#### 2026-09-24 PR0 closure record
+
+- 已审查 CI 与 workspace 命令、Docker/Compose 构建及服务边界、文档和静态 capability manifest；除 PR0-001 外，未发现有证据的 P0/P1/P2 问题。
+- 在 commit 2341a2f 的隔离 checkout 中，使用 Node.js 26.10.0 和 pnpm 12.6.0 验证 frozen install、pnpm check 和 pnpm build。初次 build 复现 PR0-001；修复后在生成文件缺席时 check 和 build 均通过，Next.js 成功重建文件，Git 未报告生成文件变化。frozen install 未修改 package.json 或 pnpm-lock.yaml。
+- 当前代码基线此前已通过 PostgreSQL migration/integration 及 Analytics、Dashboard、Router Adapter E2E。PR0 只调整生成文件跟踪和格式检查输入，不影响运行时路径，因此复用这些验证结果。
+- P0/P1：无；P2：PR0-001 已验证修复。PR0 关闭，可以开始 PR1。
+
 ### 2.5 PR0.5 — Dependencies and Build Tool Refresh
 
 在配置模型和 migration 开始前，升级项目依赖与构建工具。项目以自身构建、测试和部署兼容为目标，不需要为外部消费者维持库的 semver 范围；允许 major 更新，但不得把升级和 capability 配置功能混在同一个 PR。执行日基线见仓库升级记录；具体执行分组如下：
@@ -92,7 +103,7 @@ PR0 只收录有证据的问题：
 - **Deferred：ESLint 10.11.0。** 当前 Next.js/React lint 依赖在 ESLint 10 Rule API 上失败（`eslint-plugin-react@7.37.5` 调用已移除的 `context.getFilename`；后续 scope manager API 也不兼容）。workspace 暂用 ESLint/@eslint/js 9.39.5，配合 Next.js flat config；待 Next/React 插件兼容 ESLint 10 后升级，并运行完整 lint/check。
 - `pnpm outdated -r` 仅列出上述 TypeScript、ESLint 和 `@eslint/js` 三项；其余 workspace 声明依赖无更新项。`pnpm install --frozen-lockfile`、`pnpm check`、`pnpm test` 和 `pnpm build` 已通过。PostgreSQL 18 migration 与 integration tests 已通过；Analytics E2E 10 个 fixture、Dashboard E2E 全部场景、Router Adapter E2E 三种路由器均通过。所有 Compose profiles 配置校验通过；Dashboard E2E 已从空的容器依赖卷完成 frozen install、镜像构建和完整浏览器流程。首次 Dashboard E2E 重跑因并行集成测试数据库占用默认端口 `15432` 未启动；清理临时数据库后重跑通过。检查期间格式校验发现 Next.js 自动生成的两个 `tsconfig.json` 排版变化，已格式化并由最终 `pnpm check` 复核。
 
-依赖升级实现和主要验证已完成。配置实现开始前仍须通过一次干净 checkout 的 frozen install 与基础构建验收；这项验收只验证当前锁定工具链，不重复完整 E2E。升级中发现的具体 bug 按 PR0 bug register 规则登记，但不因此把用户配置功能混入升级 PR。
+依赖升级实现和主要验证已完成。干净 checkout 的 frozen install、check 和 build 已使用固定的 Node.js 26.10.0 / pnpm 12.6.0 验证通过；该项只验证锁定工具链，不替代 Release Readiness 的完整 E2E。升级中发现的具体 bug 按 PR0 bug register 规则登记，但不因此把用户配置功能混入升级 PR。
 
 ### 2.6 Phase 8 顺序执行计划
 
@@ -100,8 +111,8 @@ PR0 只收录有证据的问题：
 
 | 顺序 | PR                                                       | 范围与出口条件                                                                                                                                                                                                                                                                                                                                                                                   |
 | ---- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 0    | **PR0 — Pre-configuration Hardening**                    | 对照 §2.2 bug register 完成前序问题审查。当前没有已登记的 Phase 8 专属问题；PR0 关闭前须留下本轮审查结论、将候选项登记或说明无证据，并确认 P0/P1 关闭或明确阻塞。不得顺手加入配置功能。                                                                                                                                                                                                          |
-| 0.5  | **PR0.5a–e — Dependencies and Build Tool Refresh**       | 实施已完成，版本和验证记录见 §2.5。剩余出口条件是干净 checkout 下 frozen install 与基础构建成功；完成后锁定工具链基线。TypeScript 7 与 ESLint 10 延期不阻止进入配置工作，按记录的重试条件跟进。                                                                                                                                                                                                  |
+| 0    | **PR0 — Pre-configuration Hardening**                    | 对照 §2.2 bug register 完成前序问题审查。本轮已登记的 PR0-001（P2）已修复并验证；closure record 见 §2.4。后续候选项按 §2.2 登记，并确认 P0/P1 关闭或明确阻塞。不得顺手加入配置功能。                                                                                                                                                                                                          |
+| 0.5  | **PR0.5a–e — Dependencies and Build Tool Refresh**       | 实施和干净 checkout 出口验收已完成，版本与结果见 §2.5。TypeScript 7 与 ESLint 10 延期不阻止进入配置工作，按记录的重试条件跟进。                                                                                                                                                                                                                                                                  |
 | 1    | **PR1 — Configuration Semantics and Contracts**          | 新增 ADR 与可校验的配置/API contract。冻结配置主体及 site/environment 关系、旧 `analytics_enabled` 到 capability 默认值的映射、依赖与默认值、关闭后历史查询/重新开启/backfill、并发版本、服务不可用行为、Origin/identity 约束、consent 语义、部署级 admin credential 的 bootstrap 与 Dashboard 调用边界、Ingest Key 轮换/撤销/返回语义，以及配置审计和敏感字段规则。没有数据库 migration 或 UI。 |
 | 2    | **PR2 — Configuration Persistence and Migration**        | 按 PR1 冻结的 contract 实现配置表、约束、版本与 additive migration；为已有站点建立确定性默认配置并映射 `analytics_enabled`。旧字段在兼容窗口内保留，迁移重复执行、失败恢复和回滚路径均有测试；本 PR 不切换 Collector/Processor 的运行时读取。                                                                                                                                                    |
 | 3    | **PR3 — Protected Configuration API**                    | 实现部署级管理员授权、配置读取/更新、依赖与 settings 校验、版本冲突、审计。API 仅调用配置存储边界，不向浏览器暴露部署级 admin credential；测试覆盖未授权、无效输入、冲突、审计脱敏和持久化读回。                                                                                                                                                                                                 |
