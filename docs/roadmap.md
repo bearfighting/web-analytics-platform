@@ -213,19 +213,19 @@ Country / IP 不属于本阶段必须内容。
 
 目标：让用户通过 Dashboard 配置功能能力、Origin、Ingest Key、隐私和必要的业务设置，不暴露 Protocol、schema、generation 或 parser version。
 
-执行顺序：
+执行顺序（严格串行；PR0.5a–e 已实施，具体出口条件和剩余验收见 [Phase 8 Design](phase-8-design.md#26-phase-8-顺序执行计划)）：
 
 ```text
 PR0 Pre-configuration Hardening
-  → PR0.5a pnpm/Node.js baseline
-  → PR0.5b JavaScript development/test tools
-  → PR0.5c browser/application dependencies
-  → PR0.5d Rust toolchain and crates
-  → PR0.5e CI/infrastructure images
-  → capability configuration model and migration
-  → configuration API and dependency validation
-  → Dashboard configuration UI
-  → runtime refresh, rollback and E2E
+  → PR0.5a–e Dependencies and Build Tool Refresh
+  → PR1 Configuration Semantics and Contracts
+  → PR2 Configuration Persistence and Migration
+  → PR3 Protected Configuration API
+  → PR4 Collector Ingest Policy Runtime
+  → PR5 Processor and Analytics API Capability Runtime
+  → PR6 Dashboard Core Configuration
+  → PR7 Conversion/Funnel Definition Management
+  → PR8 Configuration End-to-end Acceptance
 ```
 
 交付：
