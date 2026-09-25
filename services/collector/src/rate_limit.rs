@@ -4,11 +4,11 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub const DEFAULT_LIMIT: u32 = 600;
+pub const DEFAULT_LIMIT: u64 = 600;
 
 #[derive(Clone)]
 pub struct RateLimiter {
-    limit: u32,
+    limit: u64,
     windows: Arc<Mutex<HashMap<(String, String), Window>>>,
     clock: Arc<dyn Fn() -> u64 + Send + Sync>,
 }
@@ -16,7 +16,7 @@ pub struct RateLimiter {
 #[derive(Clone, Copy)]
 struct Window {
     minute: u64,
-    requests: u32,
+    requests: u64,
 }
 
 impl RateLimiter {
@@ -24,7 +24,7 @@ impl RateLimiter {
         Self::with_limit(DEFAULT_LIMIT)
     }
 
-    pub fn with_limit(limit: u32) -> Self {
+    pub fn with_limit(limit: u64) -> Self {
         Self::with_clock(limit, || {
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -34,7 +34,7 @@ impl RateLimiter {
         })
     }
 
-    pub fn with_clock<F>(limit: u32, clock: F) -> Self
+    pub fn with_clock<F>(limit: u64, clock: F) -> Self
     where
         F: Fn() -> u64 + Send + Sync + 'static,
     {
@@ -47,6 +47,10 @@ impl RateLimiter {
     }
 
     pub fn try_acquire(&self, site_id: &str, origin: &str) -> bool {
+        self.try_acquire_with_limit(site_id, origin, self.limit)
+    }
+
+    pub fn try_acquire_with_limit(&self, site_id: &str, origin: &str, limit: u64) -> bool {
         let minute = (self.clock)();
         let mut windows = self.windows.lock().expect("rate limiter mutex poisoned");
         let window = windows
@@ -61,7 +65,7 @@ impl RateLimiter {
             window.requests = 0;
         }
 
-        if window.requests >= self.limit {
+        if window.requests >= limit {
             return false;
         }
 

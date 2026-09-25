@@ -7,6 +7,7 @@ pub mod key;
 pub mod logging;
 pub mod protocol;
 pub mod rate_limit;
+pub mod runtime_policy;
 pub mod security;
 pub mod sink;
 pub mod validation;

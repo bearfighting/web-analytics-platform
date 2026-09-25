@@ -223,6 +223,8 @@ async fn collector_http_writes_to_postgres_sink() {
         enabled: true,
         allowed_origins: vec!["https://example.com".to_owned()],
         ingest_keys: vec!["production-key".to_owned()],
+        rate_limit_per_minute: 600,
+        ingest_key_digests: Vec::new(),
     };
     let policy = KeyPolicy::new(
         SiteRegistry::from_sites(vec![site]).expect("test site config should be valid"),

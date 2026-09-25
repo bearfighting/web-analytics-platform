@@ -223,7 +223,30 @@ fn map_store_error(error: StoreError) -> ConfigurationApiError {
     }
 }
 
-fn policy_response(row: &ConfigurationRow) -> Value {
+async fn policy_effective_state(pool: &sqlx::PgPool, row: &ConfigurationRow) -> Value {
+    let site_id = row.document["site_id"].as_str().unwrap_or_default();
+    let environment = row.document["environment"].as_str().unwrap_or_default();
+    let collector = config_store::collector_applied_state(pool, site_id, environment, row.version)
+        .await
+        .unwrap_or_else(|_| {
+            tracing::warn!("Collector application state unavailable");
+            config_store::AppliedCollectorState {
+                status: "pending",
+                applied_version: None,
+            }
+        });
+    json!({
+        "status": collector.status,
+        "stored_version": row.version,
+        "applied_versions": {
+            "collector": collector.applied_version,
+            "processor": null,
+            "analytics_api": null,
+        }
+    })
+}
+
+async fn policy_response(pool: &sqlx::PgPool, row: &ConfigurationRow) -> Value {
     let keys = row.document["ingest_keys"]
         .as_array()
         .into_iter()
@@ -241,7 +264,7 @@ fn policy_response(row: &ConfigurationRow) -> Value {
             "keys": keys,
             "rate_limit_per_minute": row.document["rate_limit_per_minute"],
         },
-        "effective_state": effective_state(row.version),
+        "effective_state": policy_effective_state(pool, row).await,
     })
 }
 
@@ -329,7 +352,7 @@ pub(crate) async fn get_ingest_policy(
     Ok(response_with_etag(
         StatusCode::OK,
         row.version,
-        policy_response(&row),
+        policy_response(&state.pool, &row).await,
     ))
 }
 
@@ -361,7 +384,7 @@ pub(crate) async fn create_ingest_policy(
     Ok(response_with_etag(
         StatusCode::CREATED,
         row.version,
-        policy_response(&row),
+        policy_response(&state.pool, &row).await,
     ))
 }
 
@@ -394,7 +417,7 @@ pub(crate) async fn put_ingest_policy(
     Ok(response_with_etag(
         StatusCode::OK,
         row.version,
-        policy_response(&row),
+        policy_response(&state.pool, &row).await,
     ))
 }
 
@@ -446,7 +469,7 @@ pub(crate) async fn create_ingest_key(
     let body = json!({
         "key": key,
         "metadata": metadata,
-        "effective_state": effective_state(row.version),
+        "effective_state": policy_effective_state(&state.pool, &row).await,
     });
     let mut response = response_with_etag(StatusCode::CREATED, row.version, body);
     response.headers_mut().insert(
@@ -471,6 +494,6 @@ pub(crate) async fn revoke_ingest_key(
     Ok(response_with_etag(
         StatusCode::OK,
         row.version,
-        policy_response(&row),
+        policy_response(&state.pool, &row).await,
     ))
 }

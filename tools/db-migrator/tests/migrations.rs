@@ -72,6 +72,11 @@ const EXPECTED_MIGRATIONS: &[(i64, &str, &str)] = &[
         "allow empty ingest key policies",
         "0fdb8a6099cc738d2805b29846904edb18d95a95682edde1320eaf552d094112fd6c532c530685e593d9d095bed27cd5",
     ),
+    (
+        20260925001500,
+        "create configuration runtime state",
+        "3642b27ce139c182cd37e9a86db53189dce19ce2fdfaee2ac8811013c1aa7ea8ccb738a4ccf40c08d0af90685c2e5b4d",
+    ),
 ];
 
 #[tokio::test]

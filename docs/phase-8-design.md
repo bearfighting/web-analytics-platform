@@ -157,6 +157,13 @@ PR1 的静态 schemas、OpenAPI 和 fixtures 位于 `protocol/contracts/configur
 - 配置、版本和脱敏审计通过同一 PostgreSQL 事务提交；Ingest Key 使用 OS CSPRNG 生成，仅存储 SHA-256 digest，明文仅在创建响应返回。运行时应用状态暂报 `pending`，各服务 applied version 为 null，待 PR4/PR5 接入上报。
 - 新增 additive migration `20260925001400_allow_empty_ingest_key_policies.sql`，未修改 PR2 migration。Protocol contract、token 单测、API/PostgreSQL 集成及 migration 回归通过；公开查询 API 无需 Admin token。
 
+#### PR4 执行记录（2026-09-25）
+
+- Collector 每 5 秒从 PostgreSQL 加载并校验 environment policy，构建不可变快照后原子替换；DB policy 覆盖同身份 TOML 配置，成功查询确认缺失时才回退 TOML。冷启动无有效快照、无配置、禁用策略和空 Key policy 均 fail closed；数据库刷新失败保留最后有效策略。
+- Ingest Key 仅以 SHA-256 digest 比较，常量时间匹配；TOML 明文 Key 在建 registry 时转 digest，安全日志不再输出 Key 摘要/指纹。限流使用 policy 的 `rate_limit_per_minute`。
+- 新增 `20260925001500_create_configuration_runtime_state.sql`，分别存储 Collector 实例心跳和每实例的环境策略版本。API 汇总 15 秒内活跃实例；活跃实例尚无该 policy 的报告时保持 `pending`，所有实例达到存储版本才是 `current`，刷新失败或只有过期报告时为 `stale`；无策略历史时 applied version 为 null。Collector 每 5 秒启动首轮并轮询，旧状态按日清理。
+- 本 PR 未修改 PR2/PR3 migration，也未导入 TOML；Capability 运行时仍留给 PR5。Collector 单测和 API PostgreSQL 集成覆盖策略解析、空 Key、身份校验、多实例版本聚合、stale 和心跳过期。
+
 ## 3. 配置模型
 
 建议的逻辑模型：

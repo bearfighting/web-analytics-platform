@@ -8,8 +8,10 @@ use tracing::info;
 
 use collector::cli::{Cli, Commands, KeyCommands, ServeArgs};
 use collector::config::CollectorConfig;
+use collector::config::SiteRegistry;
 use collector::error::CollectorError;
 use collector::rate_limit::RateLimiter;
+use collector::runtime_policy::RuntimePolicyManager;
 use collector::sink::PostgresSink;
 use collector::validation::Validator;
 
@@ -43,14 +45,18 @@ async fn generate_key(_args: collector::cli::KeyGenerateArgs) -> Result<(), Coll
 
 async fn serve(args: ServeArgs) -> Result<(), CollectorError> {
     let config = CollectorConfig::load_from_path(&args.config)?;
-    let registry = config.registry()?;
+    let registry = config.registry()?; // Validate the legacy fallback before starting the service.
+    let site_count = config.sites.len();
+    drop(config); // Release TOML plaintext Ingest Keys after digesting them into the registry.
     let host: IpAddr = args.host.parse()?;
     let address = SocketAddr::from((host, args.port));
     let validator = Validator::new().map_err(CollectorError::ValidationSetup)?;
     let database_url =
         std::env::var("DATABASE_URL").map_err(|_| CollectorError::MissingDatabaseUrl)?;
     let sink = PostgresSink::connect(&database_url).await?;
-    let policy = collector::security::KeyPolicy::new(registry);
+    let policy = collector::security::KeyPolicy::new(SiteRegistry::from_runtime_sites(Vec::new())?);
+    let runtime = RuntimePolicyManager::new(sink.pool(), registry, policy.clone())
+        .map_err(|error| CollectorError::RuntimeConfiguration(error.to_string()))?;
     let geo_path = std::env::var("GEOIP_DATABASE_PATH").map_err(|_| {
         CollectorError::GeoConfiguration(
             "GEOIP_DATABASE_PATH must point to a supported local GeoLite2 Country or DB-IP City Lite MMDB".to_owned(),
@@ -76,6 +82,7 @@ async fn serve(args: ServeArgs) -> Result<(), CollectorError> {
     );
 
     let listener = tokio::net::TcpListener::bind(address).await?;
+    runtime.spawn();
 
     info!(
         service = "collector",
@@ -83,7 +90,7 @@ async fn serve(args: ServeArgs) -> Result<(), CollectorError> {
         host = %args.host,
         port = args.port,
         config_path = %args.config.display(),
-        site_count = config.sites.len(),
+        site_count,
         "collector started"
     );
 

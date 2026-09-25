@@ -182,7 +182,11 @@ async fn events(State(state): State<AppState>, request: Request<Body>) -> Respon
             }
         };
 
-    if !state.rate_limiter.try_acquire(&site_id, &authorized.origin) {
+    if !state.rate_limiter.try_acquire_with_limit(
+        &site_id,
+        &authorized.origin,
+        authorized.site.rate_limit_per_minute as u64,
+    ) {
         return with_cors(
             rate_limited_response(),
             has_origin,

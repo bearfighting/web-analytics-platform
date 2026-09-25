@@ -4,11 +4,13 @@ use std::{
 };
 
 use serde::Deserialize;
+use sha2::{Digest, Sha256};
 use thiserror::Error;
 use url::Url;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct CollectorConfig {
+    #[serde(default)]
     pub sites: Vec<SiteConfig>,
 }
 
@@ -22,6 +24,16 @@ pub struct SiteConfig {
     pub enabled: bool,
     pub allowed_origins: Vec<String>,
     pub ingest_keys: Vec<String>,
+    #[serde(default = "default_rate_limit")]
+    pub rate_limit_per_minute: i64,
+    #[serde(skip)]
+    pub ingest_key_digests: Vec<[u8; 32]>,
+}
+
+pub const DEFAULT_RATE_LIMIT_PER_MINUTE: i64 = 600;
+
+fn default_rate_limit() -> i64 {
+    DEFAULT_RATE_LIMIT_PER_MINUTE
 }
 
 impl SiteConfig {
@@ -33,6 +45,8 @@ impl SiteConfig {
             enabled,
             allowed_origins: Vec::new(),
             ingest_keys: vec![ingest_key.to_owned()],
+            rate_limit_per_minute: DEFAULT_RATE_LIMIT_PER_MINUTE,
+            ingest_key_digests: Vec::new(),
         }
     }
 }
@@ -54,8 +68,11 @@ pub enum ConfigError {
         path: PathBuf,
         source: toml::de::Error,
     },
-    #[error("config must contain at least one site")]
-    Empty,
+    #[error("site '{site_id}' environment '{environment}' has an invalid rate limit")]
+    InvalidRateLimit {
+        site_id: String,
+        environment: String,
+    },
     #[error("site_id and environment must not be empty")]
     EmptyIdentity,
     #[error("site '{site_id}' environment '{environment}' is duplicated")]
@@ -110,10 +127,6 @@ impl CollectorConfig {
     }
 
     fn validate(&self) -> Result<(), ConfigError> {
-        if self.sites.is_empty() {
-            return Err(ConfigError::Empty);
-        }
-
         if self
             .sites
             .iter()
@@ -133,6 +146,36 @@ impl CollectorConfig {
 
 impl SiteRegistry {
     pub fn from_sites(sites: Vec<SiteConfig>) -> Result<Self, ConfigError> {
+        let sites = sites
+            .into_iter()
+            .map(|mut site| {
+                if site.ingest_keys.is_empty()
+                    || site.ingest_keys.iter().any(|key| key.trim().is_empty())
+                {
+                    let index = site
+                        .ingest_keys
+                        .iter()
+                        .position(|key| key.trim().is_empty())
+                        .unwrap_or_default();
+                    return Err(ConfigError::EmptyIngestKey {
+                        site_id: site.site_id,
+                        environment: site.environment,
+                        index,
+                    });
+                }
+                site.ingest_key_digests = site
+                    .ingest_keys
+                    .iter()
+                    .map(|key| Sha256::digest(key.as_bytes()).into())
+                    .collect();
+                site.ingest_keys.clear();
+                Ok(site)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Self::from_runtime_sites(sites)
+    }
+
+    pub fn from_runtime_sites(sites: Vec<SiteConfig>) -> Result<Self, ConfigError> {
         let mut sites_by_id: HashMap<String, Vec<SiteConfig>> = HashMap::new();
         let mut identities = HashMap::new();
         let mut keys = HashMap::new();
@@ -171,18 +214,16 @@ impl SiteRegistry {
                 }
             }
 
-            for (index, key) in site.ingest_keys.iter().enumerate() {
-                if key.trim().is_empty() {
-                    return Err(ConfigError::EmptyIngestKey {
-                        site_id: site.site_id.clone(),
-                        environment: site.environment.clone(),
-                        index,
-                    });
-                }
-                if let Some((first_site_id, first_environment)) = keys.insert(
-                    key.clone(),
-                    (site.site_id.clone(), site.environment.clone()),
-                ) {
+            if site.rate_limit_per_minute < 1 {
+                return Err(ConfigError::InvalidRateLimit {
+                    site_id: site.site_id,
+                    environment: site.environment,
+                });
+            }
+            for digest in &site.ingest_key_digests {
+                if let Some((first_site_id, first_environment)) =
+                    keys.insert(*digest, (site.site_id.clone(), site.environment.clone()))
+                {
                     return Err(ConfigError::DuplicateIngestKey {
                         first_site_id,
                         first_environment,
@@ -190,14 +231,6 @@ impl SiteRegistry {
                         second_environment: site.environment.clone(),
                     });
                 }
-            }
-
-            if site.ingest_keys.is_empty() {
-                return Err(ConfigError::EmptyIngestKey {
-                    site_id: site.site_id.clone(),
-                    environment: site.environment.clone(),
-                    index: 0,
-                });
             }
 
             sites_by_id
@@ -211,6 +244,10 @@ impl SiteRegistry {
 
     pub fn sites(&self, site_id: &str) -> Option<&[SiteConfig]> {
         self.sites_by_id.get(site_id).map(Vec::as_slice)
+    }
+
+    pub fn all_sites(&self) -> Vec<SiteConfig> {
+        self.sites_by_id.values().flatten().cloned().collect()
     }
 
     pub fn site_allows_origin(&self, site: &SiteConfig, origin: &str) -> bool {
@@ -375,6 +412,8 @@ mod tests {
             enabled: true,
             allowed_origins: vec![],
             ingest_keys: vec![],
+            rate_limit_per_minute: super::DEFAULT_RATE_LIMIT_PER_MINUTE,
+            ingest_key_digests: Vec::new(),
         }]);
         assert!(matches!(empty, Err(ConfigError::EmptyIngestKey { .. })));
 

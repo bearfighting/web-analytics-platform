@@ -87,9 +87,12 @@ impl PostgresSink {
     pub async fn connect(database_url: &str) -> Result<Self, SinkError> {
         let pool = PgPoolOptions::new()
             .max_connections(10)
-            .connect(database_url)
-            .await?;
+            .connect_lazy(database_url)?;
         Ok(Self { pool })
+    }
+
+    pub fn pool(&self) -> PgPool {
+        self.pool.clone()
     }
 }
 

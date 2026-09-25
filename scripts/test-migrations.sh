@@ -514,7 +514,8 @@ DECLARE
     20260923001100,
     20260924001200,
     20260925001300,
-    20260925001400
+    20260925001400,
+    20260925001500
   ];
   actual_migrations bigint[];
 BEGIN
@@ -554,7 +555,9 @@ DECLARE
     'geo_country_facts',
     'site_capability_configurations',
     'site_environment_policies',
-    'configuration_audit'
+    'configuration_audit',
+    'configuration_runtime_state',
+    'configuration_runtime_instances'
   ];
   missing_table text;
 BEGIN
@@ -583,6 +586,42 @@ BEGIN
 
   IF to_regclass('public.analytics_generations_one_active_per_site_idx') IS NULL THEN
     RAISE EXCEPTION 'generation active-site uniqueness index is missing';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conname = 'configuration_runtime_state_pkey'
+       AND conrelid = 'public.configuration_runtime_state'::regclass
+  ) THEN
+    RAISE EXCEPTION 'Collector runtime state identity constraint is missing';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conname = 'configuration_runtime_state_applied_version_check'
+       AND conrelid = 'public.configuration_runtime_state'::regclass
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conname = 'configuration_runtime_state_refresh_status_check'
+       AND conrelid = 'public.configuration_runtime_state'::regclass
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conname = 'configuration_runtime_state_check'
+       AND conrelid = 'public.configuration_runtime_state'::regclass
+  ) THEN
+    RAISE EXCEPTION 'Collector runtime version and refresh constraints are missing';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conname = 'configuration_runtime_instances_pkey'
+       AND conrelid = 'public.configuration_runtime_instances'::regclass
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conname = 'configuration_runtime_instances_refresh_status_check'
+       AND conrelid = 'public.configuration_runtime_instances'::regclass
+  ) THEN
+    RAISE EXCEPTION 'Collector instance heartbeat constraints are missing';
   END IF;
 END
 $$;

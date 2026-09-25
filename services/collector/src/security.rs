@@ -1,3 +1,5 @@
+use std::sync::{Arc, RwLock};
+
 use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
 use thiserror::Error;
@@ -16,17 +18,30 @@ pub enum AccessError {
 
 #[derive(Clone)]
 pub struct SecurityPolicy {
-    registry: SiteRegistry,
+    registry: Arc<RwLock<Arc<SiteRegistry>>>,
 }
 
-pub struct AuthorizedSite<'a> {
-    pub site: &'a SiteConfig,
+pub struct AuthorizedSite {
+    pub site: SiteConfig,
     pub origin: String,
 }
 
 impl SecurityPolicy {
     pub fn new(registry: SiteRegistry) -> Self {
-        Self { registry }
+        Self {
+            registry: Arc::new(RwLock::new(Arc::new(registry))),
+        }
+    }
+
+    pub fn replace_registry(&self, registry: SiteRegistry) {
+        *self
+            .registry
+            .write()
+            .expect("policy snapshot lock poisoned") = Arc::new(registry);
+    }
+
+    pub fn snapshot(&self) -> Arc<SiteRegistry> {
+        Arc::clone(&self.registry.read().expect("policy snapshot lock poisoned"))
     }
 
     pub fn authorize(
@@ -34,68 +49,71 @@ impl SecurityPolicy {
         site_id: &str,
         request_origin: Option<&str>,
         ingest_key: Option<&str>,
-    ) -> Result<AuthorizedSite<'_>, AccessError> {
-        let sites = self
-            .registry
-            .sites(site_id)
-            .ok_or(AccessError::SiteNotAllowed)?;
+    ) -> Result<AuthorizedSite, AccessError> {
+        let registry = self.snapshot();
+        let sites = registry.sites(site_id).ok_or(AccessError::SiteNotAllowed)?;
 
         if !sites.iter().any(|site| site.enabled) {
-            log_rejected(site_id, ingest_key, "disabled site");
+            log_rejected(site_id, "disabled site");
             return Err(AccessError::SiteNotAllowed);
         }
 
         let Some(request_origin) = request_origin else {
-            log_rejected(site_id, ingest_key, "missing origin");
+            log_rejected(site_id, "missing origin");
             return Err(AccessError::OriginNotAllowed);
         };
         let origin = normalize_origin(request_origin).map_err(|_| {
-            log_rejected(site_id, ingest_key, "invalid origin");
+            log_rejected(site_id, "invalid origin");
             AccessError::OriginNotAllowed
         })?;
 
         let origin_sites: Vec<&SiteConfig> = sites
             .iter()
-            .filter(|site| site.enabled && self.registry.site_allows_origin(site, &origin))
+            .filter(|site| site.enabled && registry.site_allows_origin(site, &origin))
             .collect();
 
         if origin_sites.is_empty() {
-            log_rejected(site_id, ingest_key, "origin is not allowed");
+            log_rejected(site_id, "origin is not allowed");
             return Err(AccessError::OriginNotAllowed);
         }
 
         let Some(ingest_key) = ingest_key else {
-            log_rejected(site_id, None, "missing ingest key");
+            log_rejected(site_id, "missing ingest key");
             return Err(AccessError::InvalidIngestKey { origin });
         };
-
-        let matched = origin_sites.into_iter().find(|site| {
-            site.ingest_keys
+        let key_digest: [u8; 32] = Sha256::digest(ingest_key.as_bytes()).into();
+        let matched = origin_sites.iter().fold(0_u8, |matched_sites, site| {
+            let site_match = site
+                .ingest_key_digests
                 .iter()
-                .any(|configured| configured.as_bytes().ct_eq(ingest_key.as_bytes()).into())
+                .fold(0_u8, |matched_keys, digest| {
+                    matched_keys | digest.ct_eq(&key_digest).unwrap_u8()
+                });
+            matched_sites | site_match
         });
 
-        match matched {
-            Some(site) => {
-                tracing::info!(
-                    site_id = %site.site_id,
-                    environment = %site.environment,
-                    key_sha256 = %key_fingerprint(ingest_key),
-                    origin = %origin,
-                    "ingest key and origin accepted"
-                );
-                Ok(AuthorizedSite { site, origin })
-            }
-            None => {
-                log_rejected(site_id, Some(ingest_key), "invalid ingest key");
-                Err(AccessError::InvalidIngestKey { origin })
-            }
+        if matched == 1 {
+            let site = origin_sites
+                .into_iter()
+                .find(|site| {
+                    site.ingest_key_digests.iter().fold(0_u8, |found, digest| {
+                        found | digest.ct_eq(&key_digest).unwrap_u8()
+                    }) == 1
+                })
+                .expect("a matching origin site must have the matching digest");
+            Ok(AuthorizedSite {
+                site: site.clone(),
+                origin,
+            })
+        } else {
+            log_rejected(site_id, "invalid ingest key");
+            Err(AccessError::InvalidIngestKey { origin })
         }
     }
 
     pub fn preflight_origin_allowed(&self, request_origin: &str) -> Option<String> {
         let origin = normalize_origin(request_origin).ok()?;
-        self.registry
+        self.snapshot()
             .origin_allowed_anywhere(&origin)
             .then_some(origin)
     }
@@ -103,29 +121,13 @@ impl SecurityPolicy {
 
 pub use SecurityPolicy as KeyPolicy;
 
-pub fn key_fingerprint(key: &str) -> String {
-    let digest = Sha256::digest(key.as_bytes());
-    digest[..6]
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
-}
-
-fn log_rejected(site_id: &str, key: Option<&str>, reason: &str) {
-    match key {
-        Some(key) => tracing::warn!(
-            site_id,
-            key_sha256 = %key_fingerprint(key),
-            reason,
-            "security policy rejected request"
-        ),
-        None => tracing::warn!(site_id, reason, "security policy rejected request"),
-    }
+fn log_rejected(site_id: &str, reason: &str) {
+    tracing::warn!(site_id, reason, "security policy rejected request");
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{AccessError, KeyPolicy, key_fingerprint};
+    use super::{AccessError, KeyPolicy};
     use crate::config::{SiteConfig, SiteRegistry};
 
     fn policy() -> KeyPolicy {
@@ -229,12 +231,5 @@ mod tests {
             policy().preflight_origin_allowed("https://evil.example"),
             None
         );
-    }
-
-    #[test]
-    fn fingerprint_is_short_and_does_not_contain_key() {
-        let fingerprint = key_fingerprint("production-key");
-        assert_eq!(fingerprint.len(), 12);
-        assert!(!fingerprint.contains("production-key"));
     }
 }

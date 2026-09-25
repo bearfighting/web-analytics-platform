@@ -816,6 +816,11 @@ fn capability_document(site_id: &str) -> (DateTime<Utc>, serde_json::Value) {
 }
 
 async fn clear_configuration_site(pool: &PgPool, site_id: &str) {
+    sqlx::query("DELETE FROM configuration_runtime_state WHERE site_id = $1")
+        .bind(site_id)
+        .execute(pool)
+        .await
+        .unwrap();
     sqlx::query("DELETE FROM configuration_audit WHERE resource->>'site_id' = $1")
         .bind(site_id)
         .execute(pool)
@@ -1174,6 +1179,128 @@ async fn configuration_api_creates_empty_policy_then_issues_and_revokes_key_atom
     let updated_body = body(updated).await;
     assert_eq!(updated_body["policy"]["keys"].as_array().unwrap().len(), 1);
     assert_eq!(updated_body["policy"]["rate_limit_per_minute"], 500);
+
+    sqlx::query("DELETE FROM configuration_runtime_instances")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO configuration_runtime_instances (instance_id, service, refresh_status, last_seen_at) VALUES ('collector-one', 'collector', 'current', NOW()), ('collector-two', 'collector', 'current', NOW())")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO configuration_runtime_state (instance_id, service, site_id, environment, applied_version, refresh_status, last_seen_at) VALUES ('collector-one', 'collector', $1, $2, 3, 'current', NOW())")
+        .bind(site_id)
+        .bind(environment)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let missing_instance_report = app
+        .clone()
+        .oneshot(
+            Request::get(&policy_path)
+                .header("authorization", format!("Bearer {token}"))
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let missing_instance_report = body(missing_instance_report).await;
+    assert_eq!(
+        missing_instance_report["effective_state"]["status"],
+        "pending"
+    );
+    assert_eq!(
+        missing_instance_report["effective_state"]["applied_versions"]["collector"],
+        serde_json::Value::Null
+    );
+
+    sqlx::query("INSERT INTO configuration_runtime_state (instance_id, service, site_id, environment, applied_version, refresh_status, last_seen_at) VALUES ('collector-two', 'collector', $1, $2, 2, 'current', NOW())")
+        .bind(site_id)
+        .bind(environment)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let aggregated = app
+        .clone()
+        .oneshot(
+            Request::get(&policy_path)
+                .header("authorization", format!("Bearer {token}"))
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let aggregated = body(aggregated).await;
+    assert_eq!(aggregated["effective_state"]["status"], "pending");
+    assert_eq!(
+        aggregated["effective_state"]["applied_versions"]["collector"],
+        2
+    );
+
+    sqlx::query("UPDATE configuration_runtime_state SET applied_version = 3 WHERE instance_id = 'collector-two' AND site_id = $1 AND environment = $2")
+        .bind(site_id)
+        .bind(environment)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let current = app
+        .clone()
+        .oneshot(
+            Request::get(&policy_path)
+                .header("authorization", format!("Bearer {token}"))
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let current = body(current).await;
+    assert_eq!(current["effective_state"]["status"], "current");
+    assert_eq!(
+        current["effective_state"]["applied_versions"]["collector"],
+        3
+    );
+
+    sqlx::query("UPDATE configuration_runtime_state SET refresh_status = 'stale' WHERE instance_id = 'collector-two' AND site_id = $1 AND environment = $2")
+        .bind(site_id)
+        .bind(environment)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let stale = app
+        .clone()
+        .oneshot(
+            Request::get(&policy_path)
+                .header("authorization", format!("Bearer {token}"))
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let stale = body(stale).await;
+    assert_eq!(stale["effective_state"]["status"], "stale");
+
+    sqlx::query("UPDATE configuration_runtime_state SET refresh_status = 'current', last_seen_at = NOW() - INTERVAL '16 seconds' WHERE site_id = $1 AND environment = $2")
+        .bind(site_id)
+        .bind(environment)
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE configuration_runtime_instances SET last_seen_at = NOW() - INTERVAL '16 seconds' WHERE instance_id IN ('collector-one', 'collector-two')")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let expired = app
+        .clone()
+        .oneshot(
+            Request::get(&policy_path)
+                .header("authorization", format!("Bearer {token}"))
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let expired = body(expired).await;
+    assert_eq!(expired["effective_state"]["status"], "stale");
 
     let concurrent_update_a = serde_json::json!({
         "enabled":true, "allowed_origins":["https://config-api.example.test"],

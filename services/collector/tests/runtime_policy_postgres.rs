@@ -1,0 +1,237 @@
+use collector::{
+    config::{SiteConfig, SiteRegistry},
+    runtime_policy::RuntimePolicyManager,
+    security::{AccessError, KeyPolicy},
+};
+use serde_json::json;
+use sha2::{Digest, Sha256};
+use sqlx::{PgPool, postgres::PgPoolOptions};
+
+async fn pool() -> PgPool {
+    PgPoolOptions::new()
+        .max_connections(2)
+        .connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL is required"))
+        .await
+        .expect("integration PostgreSQL should be reachable")
+}
+
+fn digest(key: &str) -> String {
+    Sha256::digest(key.as_bytes())
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+#[tokio::test]
+#[ignore = "requires migrated PostgreSQL; run pnpm test:integration"]
+async fn refresh_applies_database_policy_and_uses_toml_only_for_missing_rows() {
+    let pool = pool().await;
+    let db_site = "pr4_runtime_db_site";
+    let toml_site = "pr4_runtime_toml_site";
+    sqlx::query("DELETE FROM configuration_runtime_state WHERE site_id IN ($1, $2)")
+        .bind(db_site)
+        .bind(toml_site)
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM site_environment_policies WHERE site_id IN ($1, $2)")
+        .bind(db_site)
+        .bind(toml_site)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let toml_registry = SiteRegistry::from_sites(vec![
+        SiteConfig {
+            site_id: toml_site.to_owned(),
+            environment: "production".to_owned(),
+            enabled: true,
+            allowed_origins: vec!["https://toml.example.test".to_owned()],
+            ingest_keys: vec!["toml-fallback-key".to_owned()],
+            rate_limit_per_minute: 23,
+            ingest_key_digests: Vec::new(),
+        },
+        SiteConfig {
+            site_id: db_site.to_owned(),
+            environment: "staging".to_owned(),
+            enabled: true,
+            allowed_origins: vec!["https://toml-conflict.example.test".to_owned()],
+            ingest_keys: vec!["toml-conflict-key".to_owned()],
+            rate_limit_per_minute: 23,
+            ingest_key_digests: Vec::new(),
+        },
+    ])
+    .unwrap();
+    let runtime_registry = SiteRegistry::from_runtime_sites(Vec::new()).unwrap();
+    let policy = KeyPolicy::new(runtime_registry);
+    let manager = RuntimePolicyManager::new(pool.clone(), toml_registry, policy.clone()).unwrap();
+
+    let updated_at = "2026-09-25T00:00:00Z";
+    let document = json!({
+        "schema_version": 1,
+        "site_id": db_site,
+        "environment": "production",
+        "version": 1,
+        "updated_at": updated_at,
+        "enabled": true,
+        "allowed_origins": ["https://database.example.test"],
+        "ingest_keys": [{
+            "key_id": "ik_12345678",
+            "sha256_digest": digest("database-key-v1"),
+            "created_at": updated_at
+        }],
+        "rate_limit_per_minute": 41
+    });
+    sqlx::query("INSERT INTO site_environment_policies (site_id, environment, version, updated_at, document) VALUES ($1, 'production', 1, $2, $3)")
+        .bind(db_site)
+        .bind(updated_at.parse::<chrono::DateTime<chrono::Utc>>().unwrap())
+        .bind(document)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    assert!(manager.refresh_once().await);
+    assert!(
+        policy
+            .authorize(
+                db_site,
+                Some("https://database.example.test"),
+                Some("database-key-v1")
+            )
+            .is_ok()
+    );
+    assert!(matches!(
+        policy.authorize(
+            db_site,
+            Some("https://database.example.test"),
+            Some("database-key-v2")
+        ),
+        Err(AccessError::InvalidIngestKey { .. })
+    ));
+    let fallback = policy
+        .authorize(
+            toml_site,
+            Some("https://toml.example.test"),
+            Some("toml-fallback-key"),
+        )
+        .unwrap();
+    assert_eq!(fallback.site.rate_limit_per_minute, 23);
+
+    let updated_at = "2026-09-25T00:00:05Z";
+    let document = json!({
+        "schema_version": 1,
+        "site_id": db_site,
+        "environment": "production",
+        "version": 2,
+        "updated_at": updated_at,
+        "enabled": true,
+        "allowed_origins": ["https://database.example.test"],
+        "ingest_keys": [{
+            "key_id": "ik_abcdefgh",
+            "sha256_digest": digest("database-key-v2"),
+            "created_at": updated_at
+        }],
+        "rate_limit_per_minute": 41
+    });
+    sqlx::query("UPDATE site_environment_policies SET version = 2, updated_at = $3, document = $4 WHERE site_id = $1 AND environment = $2")
+        .bind(db_site)
+        .bind("production")
+        .bind(updated_at.parse::<chrono::DateTime<chrono::Utc>>().unwrap())
+        .bind(document)
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert!(manager.refresh_once().await);
+    assert!(matches!(
+        policy.authorize(
+            db_site,
+            Some("https://database.example.test"),
+            Some("database-key-v1")
+        ),
+        Err(AccessError::InvalidIngestKey { .. })
+    ));
+    assert!(
+        policy
+            .authorize(
+                db_site,
+                Some("https://database.example.test"),
+                Some("database-key-v2")
+            )
+            .is_ok()
+    );
+
+    let reported_version: i64 = sqlx::query_scalar(
+        "SELECT applied_version FROM configuration_runtime_state WHERE service = 'collector' AND site_id = $1 AND environment = 'production' ORDER BY last_seen_at DESC LIMIT 1",
+    )
+    .bind(db_site)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(reported_version, 2);
+    let instance_status: String = sqlx::query_scalar(
+        "SELECT instances.refresh_status FROM configuration_runtime_instances AS instances JOIN configuration_runtime_state AS state USING (instance_id) WHERE state.site_id = $1 AND state.environment = 'production' ORDER BY instances.last_seen_at DESC LIMIT 1",
+    )
+    .bind(db_site)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(instance_status, "current");
+
+    let updated_at = "2026-09-25T00:00:10Z";
+    let conflicting_document = json!({
+        "schema_version": 1,
+        "site_id": db_site,
+        "environment": "production",
+        "version": 3,
+        "updated_at": updated_at,
+        "enabled": true,
+        "allowed_origins": ["https://toml-conflict.example.test"],
+        "ingest_keys": [{
+            "key_id": "ik_abcdefgh",
+            "sha256_digest": digest("database-key-v3"),
+            "created_at": updated_at
+        }],
+        "rate_limit_per_minute": 41
+    });
+    sqlx::query("UPDATE site_environment_policies SET version = 3, updated_at = $3, document = $4 WHERE site_id = $1 AND environment = $2")
+        .bind(db_site)
+        .bind("production")
+        .bind(updated_at.parse::<chrono::DateTime<chrono::Utc>>().unwrap())
+        .bind(conflicting_document)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    for _ in 0..2 {
+        assert!(manager.refresh_once().await);
+        assert!(
+            policy
+                .authorize(
+                    db_site,
+                    Some("https://database.example.test"),
+                    Some("database-key-v2")
+                )
+                .is_ok()
+        );
+        assert!(matches!(
+            policy.authorize(
+                db_site,
+                Some("https://toml-conflict.example.test"),
+                Some("database-key-v3")
+            ),
+            Err(AccessError::InvalidIngestKey { .. })
+        ));
+    }
+
+    sqlx::query("DELETE FROM configuration_runtime_state WHERE site_id IN ($1, $2)")
+        .bind(db_site)
+        .bind(toml_site)
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM site_environment_policies WHERE site_id = $1")
+        .bind(db_site)
+        .execute(&pool)
+        .await
+        .unwrap();
+}

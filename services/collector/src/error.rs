@@ -20,6 +20,8 @@ pub enum CollectorError {
     ValidationSetup(ValidationError),
     #[error("DATABASE_URL must be configured")]
     MissingDatabaseUrl,
+    #[error("failed to initialize Collector configuration runtime: {0}")]
+    RuntimeConfiguration(String),
     #[error("GeoIP configuration error: {0}")]
     GeoConfiguration(String),
     #[error(transparent)]
