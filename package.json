@@ -27,6 +27,7 @@
     "docker:backend": "./scripts/docker-backend.sh",
     "docker:processing": "./scripts/docker-processing.sh",
     "db:migrate": "./scripts/db-migrate.sh",
+    "db:purge-configuration-audit": "./scripts/purge-configuration-audit.sh",
     "test:migrations": "bash ./scripts/test-migrations.sh",
     "protocol:validate": "node ./scripts/validate-protocol.mjs && node ./scripts/validate-contract-layout.mjs && node ./scripts/validate-configuration-contract.mjs",
     "capabilities:validate": "node ./scripts/validate-capabilities.mjs",

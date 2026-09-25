@@ -50,3 +50,19 @@ async fn run_with_migrator(database_url: &str, migrator: &Migrator) -> Result<()
     pool.close().await;
     Ok(())
 }
+
+pub async fn purge_expired_configuration_audit(database_url: &str) -> Result<u64> {
+    let pool = PgPoolOptions::new()
+        .max_connections(1)
+        .connect(database_url)
+        .await
+        .context("failed to connect to PostgreSQL for configuration audit retention")?;
+
+    let result = sqlx::query("DELETE FROM configuration_audit WHERE expires_at <= NOW()")
+        .execute(&pool)
+        .await
+        .context("failed to purge expired configuration audit records")?;
+
+    pool.close().await;
+    Ok(result.rows_affected())
+}

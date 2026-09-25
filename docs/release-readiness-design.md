@@ -135,6 +135,7 @@ pnpm exec playwright install --with-deps chromium firefox webkit
 - Raw Events、Context、facts 和 aggregates 的保留关系；
 - dry-run、候选数量和影响范围；
 - 安全删除顺序；
+- 部署将 db-migrator 的过期审计清理命令配置为至少每日运行，并验证过期行已删除；
 - 中断、重试和一致性校验；
 - 自动删除默认关闭，除非策略已批准。
 

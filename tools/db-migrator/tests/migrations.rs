@@ -62,6 +62,11 @@ const EXPECTED_MIGRATIONS: &[(i64, &str, &str)] = &[
         "add geo country facts",
         "15fdd9aa6ddfb1cf5b69ccd52b9e5c198a3bd45455be724df15ccae911f21546bfe9cec545c03ee750e8bfdce037bf12",
     ),
+    (
+        20260925001300,
+        "create configuration storage",
+        "cb04240faaa360d8b2d7f6f937d5e7aab4a0ca6e42fd4542332c169dae33a4325d82059b8efc02ec448846256eec8d19",
+    ),
 ];
 
 #[tokio::test]

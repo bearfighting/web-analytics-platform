@@ -107,6 +107,24 @@ services:
       postgres:
         condition: service_healthy
 
+  db-audit-purger:
+    profiles: ["storage"]
+    build:
+      context: .
+      dockerfile: docker/db-migrator.Dockerfile
+    environment:
+      DATABASE_URL: ${COLLECTOR_DATABASE_URL:-postgres://analytics:analytics@postgres:5432/analytics}
+      RUST_LOG: db_migrator=info
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "while true; do if /usr/local/bin/db-migrator --purge-expired-configuration-audit; then sleep 86400; else sleep 3600; fi; done"
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
+
   processor:
     profiles: ["processing"]
     build:

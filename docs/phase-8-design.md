@@ -143,6 +143,13 @@ PR1 的静态 schemas、OpenAPI 和 fixtures 位于 `protocol/contracts/configur
 - Legacy flag true/false/missing、依赖、consent、Page View baseline、Origin/environment 隔离、版本冲突、密钥一次性返回和审计脱敏均有自动校验。
 - 本 PR 未新增 SQL migration，也未修改服务运行时或 Event Protocol。PR1 contract 出口完成，可以开始 PR2。
 
+#### PR2 执行记录（2026-09-25）
+
+- 新增 `20260925001300_create_configuration_storage.sql`：版本化 capability 与 environment policy JSONB 文档、schema 形状校验函数、同一站点的 Origin 跨 environment 唯一约束、受限字段的配置审计表及一年到期索引；environment 标识不另设 contract 未声明的长度上限。
+- Capability 文档仅从 `analytics_feature_flags` 现有行初始化；Page Views 与独立 capability 默认开启，四项旧分析 capability 依 `analytics_enabled` 映射。旧列保留；environment policy 不从 Collector TOML 导入。
+- 迁移回归覆盖 clean install、重复运行、完整 true/false capability 映射、拒绝非法 JSONB 文档、时间戳一致性、Origin 规范化冲突、长 environment 标识、审计唯一字段与到期清理、失败时 DDL 原子回滚后重试，以及旧列保留。`pnpm test:migrations` 已通过。
+- 站点若没有 `analytics_feature_flags` 行，不会由本迁移创建 capability 文档；本阶段不扫描 `raw_events` 推断站点。
+
 ## 3. 配置模型
 
 建议的逻辑模型：
