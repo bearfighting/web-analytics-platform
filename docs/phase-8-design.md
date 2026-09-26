@@ -1,6 +1,6 @@
 # Phase 8 Design — MVP 用户配置与能力管理
 
-> Status: Planned
+> Status: In progress — PR0–PR5 已实现；最近的 migration 与 Analytics E2E 修复后 CI 已全部通过（用户确认）；下一步 PR6 Dashboard Core Configuration。
 > Scope: capability configuration、站点接入配置、Dashboard 管理和运行时生效语义
 
 ## 1. 阶段目标

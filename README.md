@@ -10,9 +10,10 @@
 
 项目状态：
 
-- 已完成：Phase 0–6 核心 Analytics workflow、Phase 7 PR0 Protocol Consolidation、PR1 Internal Capability Boundaries、PR 2.1 Contract Namespace Consolidation 和 PR 2.5 Unified Router Entry；
-- 进行中：Phase 7 MVP capability implementation；PR3 Custom Events 已实现并通过协议、单测和端到端验收；后续为 Web Vitals、Conversion / Funnel 和 Geo；
-- 计划中：Phase 8 用户配置和最后的 Release Readiness。
+- 已完成：Phase 0–6 核心 Analytics workflow；Phase 7 的 Router Adapter、Custom Events、Web Vitals、Conversion/Funnel 和 Geo country 功能及阶段验收；Phase 8 PR0–PR5 的配置契约、持久化、受保护 API 和服务运行时配置；
+- 进行中：Phase 8 用户配置。下一步依次完成 PR6 Dashboard 配置界面、PR7 Conversion/Funnel 定义管理和 PR8 配置变更端到端验收；
+- 当前 CI：用户确认最近的 migration 与 Analytics E2E 修复后，CI 全部通过。
+- 后续：MVP Release Readiness，包括完整发布回归、浏览器矩阵、部署与回滚、数据保留及发布验证。
 
 当前已具备：
 
@@ -33,6 +34,8 @@
 - 统一初始 Event Protocol、Visitor ID / Browser Context contract 和单一路径 Collector ingestion
 - Phase 7 capability contract、依赖图和跨语言 registry adapter
 - Custom Events 从 Browser SDK 到 Dashboard 的完整链路，含隐私受限 properties、独立处理 watermark 和 daily event-name reports
+- Web Vitals、Conversion/Funnel 和 Geo country 的采集、处理、查询及 Dashboard 展示
+- Phase 8 的版本化 capability 与 environment policy、受保护配置 API，以及 Collector、Processor 和 Analytics API 的运行时配置
 
 Phase 0 的 Event Protocol、Router Playground、Docker 开发环境和基础工程治理已经完成。可以参考 [Getting Started](docs/getting-started.md) 启动项目。
 
