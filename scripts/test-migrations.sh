@@ -386,7 +386,8 @@ SQL
 identity_move_pid=$!
 identity_move_started=0
 for attempt in {1..400}; do
-  if psql "$upgrade_database_url" -Atq -c "SELECT 1 FROM pg_stat_activity AS activity WHERE application_name = 'pr2_identity_move_test' AND state = 'active' AND (SELECT count(*) FROM pg_locks WHERE pid = activity.pid AND locktype = 'advisory' AND granted) >= 2" | rg -q '^1$'; then
+  lock_state="$(psql "$upgrade_database_url" -Atq -c "SELECT 1 FROM pg_stat_activity AS activity WHERE application_name = 'pr2_identity_move_test' AND state = 'active' AND (SELECT count(*) FROM pg_locks WHERE pid = activity.pid AND locktype = 'advisory' AND granted) >= 2")"
+  if [[ "$lock_state" == "1" ]]; then
     identity_move_started=1
     break
   fi
