@@ -5,6 +5,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { seedE2ECapabilityConfigurations } from "./e2e-capabilities.mjs";
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const composeFiles = ["-f", "compose.yaml", "-f", "compose.backend.yaml", "-f", "compose.e2e.yaml"];
 const project = `web-analytics-e2e-${process.pid}`;
@@ -47,7 +49,10 @@ const composeBaseArgs = [
 let processorOutput = "";
 
 try {
-  await runCompose(["up", "-d", "--build", "--wait", "postgres", "collector", "analytics-api"]);
+  await runCompose(["up", "-d", "--build", "--wait", "postgres"]);
+  runCompose(["run", "--rm", "--build", "db-migrate"]);
+  seedE2ECapabilityConfigurations(runCompose);
+  await runCompose(["up", "-d", "--build", "--wait", "collector", "analytics-api"]);
   await waitFor("Analytics API", `${analyticsUrl}/health`, (body) => body.status === "ok");
   await runFixtures();
   console.log(`E2E analytics workflow passed for ${fixtureNames.length} fixtures.`);

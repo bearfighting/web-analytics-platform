@@ -7,6 +7,8 @@ import { fileURLToPath } from "node:url";
 
 import { chromium, expect } from "@playwright/test";
 
+import { seedE2ECapabilityConfigurations } from "./e2e-capabilities.mjs";
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const composeFiles = ["-f", "compose.yaml", "-f", "compose.backend.yaml", "-f", "compose.e2e.yaml"];
 const project = `web-analytics-dashboard-e2e-${process.pid}`;
@@ -177,7 +179,7 @@ async function resetDatabase() {
   ]);
 }
 
-function enablePhase6(siteId) {
+async function enablePhase6(siteId) {
   runCompose([
     "exec",
     "-T",
@@ -190,8 +192,101 @@ function enablePhase6(siteId) {
     "-v",
     "ON_ERROR_STOP=1",
     "-c",
-    `INSERT INTO analytics_feature_flags (site_id, analytics_enabled) VALUES ('${siteId}', TRUE)`,
+    `INSERT INTO analytics_feature_flags (site_id, analytics_enabled) VALUES ('${siteId}', TRUE) ON CONFLICT (site_id) DO UPDATE SET analytics_enabled = TRUE`,
   ]);
+  await setPhase6Enabled(siteId, true);
+}
+
+async function setPhase6Enabled(siteId, enabled) {
+  const enabledSql = enabled ? "TRUE" : "FALSE";
+  const version = Number(
+    runCompose(
+      [
+        "exec",
+        "-T",
+        "postgres",
+        "psql",
+        "-U",
+        "analytics",
+        "-d",
+        "analytics",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-At",
+        "-c",
+        `UPDATE site_capability_configurations
+SET version = version + 1, updated_at = NOW(), document = jsonb_set(
+  jsonb_set(
+    jsonb_set(document, '{version}', to_jsonb(version + 1)),
+    '{updated_at}', to_jsonb(to_char(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"'))
+  ),
+  '{capabilities}',
+  jsonb_set(
+    jsonb_set(
+      jsonb_set(
+        jsonb_set(document->'capabilities', '{browser_context,enabled}', to_jsonb(${enabledSql})),
+        '{anonymous_visitors,enabled}', to_jsonb(${enabledSql})
+      ),
+      '{sessions,enabled}', to_jsonb(${enabledSql})
+    ),
+    '{dimensions,enabled}', to_jsonb(${enabledSql})
+  )
+)
+WHERE site_id = '${siteId}'
+RETURNING version`,
+      ],
+      { capture: true },
+    )
+      .trim()
+      .split(/\r?\n/, 1)[0],
+  );
+  if (!Number.isInteger(version)) throw new Error(`Could not update capabilities for ${siteId}`);
+
+  const windowSql = enabled
+    ? `INSERT INTO site_capability_activation_windows (site_id, capability_id, enabled_since)
+SELECT '${siteId}', capability_id, '0001-01-01T00:00:00Z'::timestamptz
+FROM unnest(ARRAY['browser_context', 'anonymous_visitors', 'sessions', 'dimensions']) AS capabilities(capability_id)
+ON CONFLICT (site_id, capability_id) DO UPDATE SET enabled_since = EXCLUDED.enabled_since`
+    : `DELETE FROM site_capability_activation_windows WHERE site_id = '${siteId}' AND capability_id IN ('browser_context', 'anonymous_visitors', 'sessions', 'dimensions')`;
+  runCompose([
+    "exec",
+    "-T",
+    "postgres",
+    "psql",
+    "-U",
+    "analytics",
+    "-d",
+    "analytics",
+    "-v",
+    "ON_ERROR_STOP=1",
+    "-c",
+    windowSql,
+  ]);
+
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    const applied = runCompose(
+      [
+        "exec",
+        "-T",
+        "postgres",
+        "psql",
+        "-U",
+        "analytics",
+        "-d",
+        "analytics",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-At",
+        "-c",
+        `SELECT EXISTS (SELECT 1 FROM configuration_capability_runtime_state WHERE service = 'analytics_api' AND site_id = '${siteId}' AND applied_version = ${version} AND refresh_status = 'current')`,
+      ],
+      { capture: true },
+    ).trim();
+    if (applied === "t") return;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(`Analytics API did not apply capability version ${version} for ${siteId}`);
 }
 
 async function postFixtureEvents(input) {
@@ -316,7 +411,7 @@ async function prepareFixture(data) {
 
 async function preparePhase6Fixture(data) {
   await resetDatabase();
-  enablePhase6("site_playground");
+  await enablePhase6("site_playground");
   await postDimensionFixtureEvents(data.input);
   runProcessorOnce();
   runProcessorBackfill("2026-09-20", "2026-09-21");
@@ -651,7 +746,7 @@ async function assertBackfilledConversionFunnels(page) {
   // Process custom events before Sessions exist, then verify a direct Phase 6
   // backfill relinks the derived Conversion and Funnel facts.
   await prepareFixture(data);
-  enablePhase6("site_playground");
+  await enablePhase6("site_playground");
   runProcessorBackfill("2026-09-20", "2026-09-21");
   await page.goto(rangeUrl("site_playground", "2026-09-20", "2026-09-21"));
   await expectReportRows(page, "Conversions", ["purchase_completed 2026-09-20 1 100.0%"]);
@@ -870,7 +965,10 @@ async function assertPhase6Dashboard(page) {
 
 async function assertPhase6Disabled(page) {
   const data = await fixture("single-page-view");
-  await prepareFixture(data);
+  await resetDatabase();
+  await setPhase6Enabled("site_playground", false);
+  await postFixtureEvents(data.input);
+  runProcessorOnce();
   await page.goto(rangeUrl("site_playground", "2026-09-18", "2026-09-18"));
   await expectMetric(
     page,
@@ -878,8 +976,9 @@ async function assertPhase6Disabled(page) {
     data.expected.api.range_overview.body.page_views,
   );
   assert(
-    (await page.getByText("Phase 6 analytics is not enabled for this site.").count()) === 2,
-    "Expected disabled state for Visitors and Dimensions",
+    (await page.getByText("No Phase 6 analytics data is available for this selection.").count()) ===
+      2,
+    "Expected no visitor and dimension data while Phase 6 capabilities are disabled",
   );
 }
 
@@ -936,6 +1035,9 @@ try {
   const artifactDirectory = path.join(root, "artifacts", "dashboard-e2e");
   await rm(artifactDirectory, { recursive: true, force: true });
   assertDashboardIsolation();
+  await runCompose(["up", "-d", "--build", "--wait", "postgres"]);
+  runCompose(["run", "--rm", "--build", "db-migrate"]);
+  seedE2ECapabilityConfigurations(runCompose);
   const composeOutput = runCompose(
     [
       "up",
