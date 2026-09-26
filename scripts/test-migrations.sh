@@ -380,13 +380,13 @@ UPDATE site_environment_policies
    SET site_id = 'identity-move-target',
        document = jsonb_set(document, '{site_id}', '"identity-move-target"')
  WHERE site_id = 'identity-move-source' AND environment = 'staging';
-SELECT pg_sleep(1);
+SELECT pg_sleep(10);
 COMMIT;
 SQL
 identity_move_pid=$!
 identity_move_started=0
-for attempt in {1..100}; do
-  if psql "$upgrade_database_url" -Atq -c "SELECT 1 FROM pg_stat_activity WHERE application_name = 'pr2_identity_move_test' AND state = 'active' AND query LIKE '%pg_sleep(1)%'" | rg -q '^1$'; then
+for attempt in {1..200}; do
+  if psql "$upgrade_database_url" -Atq -c "SELECT 1 FROM pg_stat_activity AS activity WHERE application_name = 'pr2_identity_move_test' AND state = 'active' AND (SELECT count(*) FROM pg_locks WHERE pid = activity.pid AND locktype = 'advisory' AND granted) >= 2" | rg -q '^1$'; then
     identity_move_started=1
     break
   fi
